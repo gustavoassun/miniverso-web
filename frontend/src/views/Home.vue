@@ -1,15 +1,21 @@
 <template>
   <div class="home-page">
-    <ImmersiveIntro />
+    <GhostFibers :enabled="entered" :reduced="scene.reduced" />
+    <GlowCursor :enabled="entered" :reduced="scene.reduced" />
+    <GooeyNav :enabled="entered" :reduced="scene.reduced" />
+    <HoloViewport :enabled="entered" :reduced="scene.reduced" />
+    <PixelEdges :enabled="entered" :reduced="scene.reduced" />
+    <ImmersiveIntro @scene-change="scene = $event" />
 
     <!-- 2. Manifesto / Essência -->
     <section id="sobre" aria-labelledby="manifesto-title" class="manifesto">
-      <p class="eyebrow">Além da tela / Sobre a Miniverso</p>
+      <div class="manifesto-copy"><p class="eyebrow">Além da tela / Sobre a Miniverso</p>
       <h2 id="manifesto-title">Pequeno no nome.<br /><span>Imenso nas possibilidades.</span></h2>
       <blockquote>
         "Nós não criamos apenas ambientes 3D. Nós construímos novas formas de 
         interagir, aprender e fazer negócios em um mundo onde a tela plana já não é suficiente."
       </blockquote>
+      </div><WorldArtifact :reduced="scene.reduced" />
     </section>
 
     <!-- 3. Benefícios / Por que imersão -->
@@ -20,8 +26,9 @@
       </div>
       <div class="impacto-grid">
         <article v-for="(beneficio, index) in beneficios" :key="index" class="impacto-item">
+          <div class="panel-status" aria-hidden="true"><span>EXPERIÊNCIA / 0{{ index + 1 }}</span><i/></div>
           <span class="item-number">0{{ index + 1 }}</span>
-          <h3>{{ beneficio.nome }}</h3>
+          <h3><span class="benefit-emphasis">{{ beneficio.destaque }}</span>{{ beneficio.complemento }}</h3>
           <p>{{ beneficio.descricao }}</p>
         </article>
       </div>
@@ -32,6 +39,8 @@
       <h2 id="expertise-title">O que fazemos</h2>
       <div class="expertise-grid">
         <article v-for="(servico, index) in servicos" :key="index" class="expertise-card">
+          <div class="panel-status" aria-hidden="true"><span>CRIAÇÃO / 0{{ index + 1 }}</span><i/></div>
+          <svg class="service-glyph" viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 5L42 15V34L24 44L6 34V15Z M6 15L24 25L42 15 M24 25V44 M14 19V30L24 36L34 30V19"/><circle cx="24" cy="25" r="3"/></svg>
           <h3>{{ servico.nome }}</h3>
           <p>{{ servico.descricao }}</p>
         </article>
@@ -49,17 +58,9 @@
         Estamos reunindo os primeiros projetos da Miniverso. Em breve, esta seleção estará aqui.
       </p>
 
-      <div class="portfolio-grid" v-else>
-        <article v-for="projeto in projetos" :key="projeto.id" class="projeto-card">
-          <a :href="projeto.url" target="_blank" rel="noopener noreferrer" :aria-label="'Conhecer ' + projeto.titulo + ' no site atual da Miniverso (abre em outra aba)'">
-          <img :src="projeto.url_imagem" :alt="'Cena do projeto ' + projeto.titulo" width="960" height="540" loading="lazy" />
-          <div class="projeto-info"><span class="project-category">{{ projeto.categoria }}</span>
-            <h3>{{ projeto.titulo }}</h3>
-            <p>{{ projeto.descricao }}</p><span class="project-link">Explorar projeto <span aria-hidden="true">↗</span></span>
-          </div>
-          </a>
-        </article>
-      </div>
+      <ScrollExpand src="/images/reciclaverso.png" alt="Cena do Reciclaverso, projeto de realidade virtual e sustentabilidade" :reduced="scene.reduced" />
+      <AccordionGallery v-if="projetos.length" :items="projetos" :reduced="scene.reduced" />
+      <div class="social-channels"><p>Continue explorando os bastidores e novidades.</p><div><a href="https://www.instagram.com/meuminiverso/" target="_blank" rel="noopener noreferrer">Instagram ↗<span class="sr-only"> (abre em outra aba)</span></a><a href="https://linktr.ee/miniverso" target="_blank" rel="noopener noreferrer">Canais da Miniverso ↗<span class="sr-only"> (abre em outra aba)</span></a></div></div>
     </section>
 
     <!-- 6. Processo -->
@@ -92,17 +93,31 @@
 
     <!-- 8. Call to Action / Contato -->
     <section id="contato" aria-labelledby="cta-title" class="cta">
-      <h2 id="cta-title">Vamos construir o próximo universo juntos?</h2>
+      <div class="contact-copy"><p class="eyebrow">Da sua ideia para uma nova dimensão</p><h2 id="cta-title">Vamos construir o próximo universo juntos?</h2>
       <p class="cta-note">Sua ideia merece um mundo próprio. Vamos conversar?</p>
-      <a class="btn-contato" href="mailto:contato@meuminiverso.com">Conte sua ideia <span aria-hidden="true">↗</span></a>
+      <button class="btn-contato" type="button" aria-haspopup="dialog" @click="contactBrief.open()">Conte sua ideia <span aria-hidden="true">↗</span></button>
+      </div><WorldArtifact compact :reduced="scene.reduced" />
     </section>
 
+    <ContactBrief ref="contactBrief" />
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import ImmersiveIntro from '../components/ImmersiveIntro.vue';
+import GhostFibers from '../components/GhostFibers.vue';
+import GlowCursor from '../components/GlowCursor.vue';
+import AccordionGallery from '../components/AccordionGallery.vue';
+import GooeyNav from '../components/GooeyNav.vue';
+import ScrollExpand from '../components/ScrollExpand.vue';
+import HoloViewport from '../components/HoloViewport.vue';
+import PixelEdges from '../components/PixelEdges.vue';
+import WorldArtifact from '../components/WorldArtifact.vue';
+import ContactBrief from '../components/ContactBrief.vue';
+const contactBrief = ref(null);
+const scene = ref({ progress: 0, reduced: false });
+const entered = computed(() => scene.value.reduced || scene.value.progress >= .82);
 
 // Estado reativo: Projetos
 // Conteúdo e imagens da seleção pública da Miniverso. Detalhes permanecem no site atual.
@@ -120,9 +135,9 @@ const servicos = ref([
 ]);
 
 const beneficios = ref([
-  { nome: 'Mais atenção', descricao: 'Transforme uma mensagem em uma experiência que convida as pessoas a participar.' },
-  { nome: 'Aprendizado real', descricao: 'Permita que equipes pratiquem decisões e procedimentos em um ambiente controlado.' },
-  { nome: 'Decisões melhores', descricao: 'Visualize produtos, espaços e cenários antes de investir na execução física.' }
+  { nome: 'Mais atenção', destaque: 'Mais atenção', complemento: '', descricao: 'Transforme uma mensagem em uma experiência que convida as pessoas a participar.' },
+  { nome: 'Aprendizado real', destaque: 'Aprendizado', complemento: ' real', descricao: 'Permita que equipes pratiquem decisões e procedimentos em um ambiente controlado.' },
+  { nome: 'Decisões melhores', destaque: 'Decisões', complemento: ' melhores', descricao: 'Visualize produtos, espaços e cenários antes de investir na execução física.' }
 ]);
 
 const etapas = ref([
@@ -136,8 +151,8 @@ const clientes = ref([]);
 </script>
 
 <style scoped>
-.home-page { background: #211747; color: #f3f4fa; overflow-x: clip; }
-.home-page > section { padding: clamp(70px,9vw,140px) 8%; border-bottom: 1px solid #8f87aa33; scroll-margin-top: 24px; }
+.home-page { position: relative; isolation: isolate; background: #07131f; color: #eef7ff; overflow-x: clip; }
+.home-page > section { position: relative; z-index: 1; padding: clamp(70px,9vw,140px) 8%; border-bottom: 1px solid #8f87aa33; scroll-margin-top: 24px; }
 .home-page > .immersive-intro { padding: 0; border: 0; }
 h2 { margin: 0; font-size: clamp(35px,5.2vw,78px); font-weight: 400; line-height: 1.04; letter-spacing: -.055em; max-width: 22ch; }
 h2 span { color: #a89bc5; }
@@ -150,10 +165,14 @@ h2 span { color: #a89bc5; }
 .item-number { display: block; color: #82deef; font: 11px var(--font-mono); margin-bottom: 42px; }
 .impacto-item h3, .processo-lista h3, .expertise-card h3 { margin: 0; font-size: 22px; font-weight: 400; line-height: 1.2; letter-spacing: -.025em; }
 .impacto-item p, .processo-lista p, .expertise-card p { margin: 18px 0 0; color: #beb4d4; font-size: 14px; line-height: 1.7; }
-.expertise { background: #1b123b; }
+.expertise { background: #0b203088; }
 .expertise-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 36px; margin-top: 60px; }
 .expertise-card { padding-top: 26px; border-top: 1px solid #8f87aa55; }
-.portfolio { background: #0a0b16; }
+.portfolio { background: #07121f77; }
+.social-channels { display: flex; align-items: center; justify-content: space-between; gap: 22px; margin-top: 54px; padding-top: 24px; border-top: 1px solid #aa98cb33; }
+.social-channels p { margin: 0; color: #b8adc9; font-size: 13px; }
+.social-channels > div { display: flex; flex-wrap: wrap; gap: 24px; }
+.social-channels a { display: inline-flex; align-items: center; min-height: 44px; font-size: 12px; color: #b4e2eb; text-underline-offset: 6px; }
 .portfolio-header { display: flex; justify-content: space-between; align-items: end; gap: 30px; }
 .ver-todos { font-size: 12px; text-underline-offset: 7px; white-space: nowrap; padding: 12px 0; }
 .ver-todos > span:first-child { margin-left: 16px; }
@@ -175,7 +194,14 @@ h2 span { color: #a89bc5; }
 .cta h2 { margin-inline: auto; max-width: 18ch; }
 .cta-note { color: #beb4d4; font-size: 14px; line-height: 1.6; margin: 30px 0; }
 .btn-contato { display: inline-flex; gap: 55px; align-items: center; padding: 18px 28px; color: #101020; background: #8ee0ec; text-decoration: none; border-radius: 40px; font-size: 14px; min-height: 48px; }
+.home-page h2 span{color:#94b8cf;}.manifesto blockquote,.impacto-item p,.processo-lista p,.expertise-card p,.cta-note,.empty-state{color:#b0c4d3;}.eyebrow,.item-number{color:#9cdef1;}
+.home-page > section{border-bottom-color:#7fb8cf24;}.manifesto{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:center;gap:50px;}.manifesto h2{font-size:clamp(35px,4.5vw,65px);}.manifesto blockquote{margin:32px 0 0;font-size:clamp(17px,1.5vw,21px);max-width:48ch;}.impacto-grid,.expertise-grid{gap:22px;}.impacto-item,.expertise-card{position:relative;padding:27px 26px 30px;border:1px solid #7ebcd244;border-radius:5px 20px 5px 5px;background:linear-gradient(125deg,#518caa19,#10283744);box-shadow:inset 0 0 32px #77bdd005;transition:border-color .35s,background .35s;}.impacto-item::after,.expertise-card::after{content:'';position:absolute;bottom:-1px;right:-1px;width:48px;height:48px;border-right:1px solid #9fe2f3aa;border-bottom:1px solid #9fe2f3aa;pointer-events:none;}.impacto-item:hover,.expertise-card:hover{border-color:#9ce2f380;background:linear-gradient(125deg,#518caa26,#10283755);}.panel-status{display:flex;align-items:center;justify-content:space-between;margin-bottom:35px;font:7px var(--font-mono);letter-spacing:.12em;color:#87afc2;}.panel-status i{width:20px;height:3px;background:repeating-linear-gradient(90deg,#9cd4e3 0 3px,transparent 3px 6px);opacity:.65;}.impacto-item .item-number{margin-bottom:24px;}.service-glyph{width:42px;height:42px;stroke:#91c8dd;stroke-width:1;margin-bottom:25px;}.expertise{background:#0b203033;}.portfolio{background:#07121f33;}.processo-lista li{border-color:#8dcde34d;}.cta{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);align-items:center;gap:50px;text-align:left;background:linear-gradient(120deg,#35698626,#06121d33);}.cta h2{margin:0;max-width:18ch;font-size:clamp(38px,4.5vw,66px);}.btn-contato{background:linear-gradient(110deg,#a4e2ed,#9dbbe5);color:#091724;}.social-channels p{color:#a9c2d1;}
+@media(prefers-reduced-motion:reduce){.impacto-item,.expertise-card{transition:none;}}
+.impacto-item h3{font-weight:500;line-height:1.3;}.benefit-emphasis{color:#a9e8fa;text-shadow:0 0 18px #66c2df24;}.impacto-item .panel-status{color:#abd6e6;}.impacto-item .panel-status::before{content:'';width:4px;height:4px;background:#a2e5f6;box-shadow:0 0 8px #80daf455;margin-right:8px;}.impacto-item .panel-status>span{margin-right:auto;}.impacto-item{background:linear-gradient(125deg,#518caa27,#10283755);}.impacto-item .item-number{color:#addfec;}.impacto-item:hover .benefit-emphasis{text-shadow:0 0 22px #66c2df55;}
+.btn-contato{border:0;font-family:inherit;cursor:pointer;}
 @media(max-width:700px) {
+ .manifesto,.cta{grid-template-columns:minmax(0,1fr);gap:24px;}.manifesto :deep(.world-artifact){order:-1;max-width:250px;}.cta :deep(.world-artifact){max-width:240px;}.impacto-item,.expertise-card{padding:24px;}.panel-status{margin-bottom:26px;}
+ .social-channels { flex-direction: column; align-items: start; }
  .home-page > section { padding: 72px 6%; }
  .home-page > .immersive-intro { padding: 0; }
  .section-heading, .impacto-grid, .processo-lista, .expertise-grid, .portfolio-grid { grid-template-columns: minmax(0,1fr); }
@@ -187,5 +213,12 @@ h2 span { color: #a89bc5; }
  .portfolio-header { align-items: start; flex-direction: column; }
  .portfolio-grid { gap: 44px; margin-top: 40px; }
  .projeto-card:last-child { grid-column: auto; width: 100%; }
+}
+@media(min-width:701px) and (max-width:1000px) {
+ .home-page > section { padding-inline: 6%; }
+ .section-heading { grid-template-columns: 1fr; gap: 16px; }
+ .impacto-grid, .processo-lista, .expertise-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 24px; }
+ .portfolio-grid { gap: 40px 20px; }
+ .projeto-card:last-child { width: calc(50% - 10px); }
 }
 </style>

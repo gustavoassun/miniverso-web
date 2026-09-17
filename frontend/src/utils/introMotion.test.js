@@ -9,13 +9,15 @@ test('opening has separate names, visible headset and a dark world', () => {
   assert.equal(frame['--world-opacity'], 0);
   assert.equal(frame['--reveal-opacity'], 0);
 });
-test('end merges names and reveals brand and project fragments', () => {
+test('end hides the headset and exposes content inside the VR world', () => {
   const frame = introFrame(1);
   assert.equal(frame['--name-gap'], 0);
   assert.equal(frame['--headset-opacity'], 0);
   assert.equal(frame['--world-opacity'], 1);
   assert.equal(frame['--reveal-opacity'], 1);
   assert.equal(frame['--fragment-opacity'], 1);
+  assert.equal(frame['--brand-opacity'], 1);
+  assert.equal(frame['--brand-lift'], '28vh');
 });
 test('timeline is deterministic, reversible and clamps out-of-range values', () => {
   assert.deepEqual(introFrame(-10), introFrame(0));
@@ -29,7 +31,7 @@ test('timeline is deterministic, reversible and clamps out-of-range values', () 
     for (const key of Object.keys(frame).filter(key => key.endsWith('opacity'))) assert.ok(frame[key] >= 0 && frame[key] <= 1, key);
   }
 });
-test('reduced motion exposes a static brand without immersive scroll layers', () => {
+test('reduced motion exposes static content without immersive scroll layers', () => {
   for (const p of [0, .4, 1]) {
     const frame = introFrame(p, true);
     assert.equal(frame['--headset-opacity'], 0);
@@ -38,4 +40,27 @@ test('reduced motion exposes a static brand without immersive scroll layers', ()
     assert.equal(frame['--reveal-opacity'], 1);
     assert.equal(frame['--fragment-opacity'], 0);
   }
+});
+
+test('names join at the central anchor before the logo lifts and content appears', () => {
+  assert.equal(introFrame(.64)['--name-gap'],0);
+  assert.equal(introFrame(.64)['--name-opacity'],1);
+  assert.equal(introFrame(.79)['--brand-opacity'],1);
+  assert.equal(introFrame(.79)['--brand-lift'],'0vh');
+  assert.equal(introFrame(.79)['--reveal-opacity'],0);
+  for (const p of [0,.5,.68,.72,.78,1]) {
+    const frame = introFrame(p);
+    assert.equal(frame['--name-y'], '0px');
+    assert.equal(frame['--reveal-y'], '0px');
+  }
+  for (let p = .6; p <= .85; p += .01) {
+    const frame = introFrame(p);
+    assert.equal(frame['--name-opacity'] * frame['--reveal-opacity'],0);
+  }
+});
+test('portal burst is scroll-bound and never flashes in reduced motion', () => {
+  assert.equal(introFrame(0)['--burst-opacity'],0);
+  assert.equal(introFrame(1)['--burst-opacity'],0);
+  assert.ok(introFrame(.52)['--burst-opacity'] > 0);
+  assert.equal(introFrame(.52,true)['--burst-opacity'],0);
 });

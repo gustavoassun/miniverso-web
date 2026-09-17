@@ -10,3 +10,13 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+.vercel
+
+# Referências fornecidas para consulta local, não para publicação.
+docs/vr-reference-evidence/
+docs/design-reference-evidence/
+scripts/inspect-vr-reference.cjs
+
+# Capturas de iterações anteriores; a revisão publicada usa brand-brief-evidence.
+docs/visual-experiment-evidence/
+docs/vr-entrance-evidence/
