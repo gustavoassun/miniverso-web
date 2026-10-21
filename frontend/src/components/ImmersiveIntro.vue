@@ -84,14 +84,19 @@ function paint(time) {
     lastPaint = time;
     context.clearRect(0, 0, width, height);
     const expansion = Math.max(0, progress.value - 0.3) * 0.7;
+    const starColor = progress.value > 0.62 ? 'rgba(96, 218, 244, 0.5)' : 'rgba(204, 220, 255, 0.55)';
+    const drawTrace = progress.value > 0.68;
+    const traceLeft = width * 0.14;
+    const traceRight = width * 0.86;
+    context.fillStyle = starColor;
     for (const star of stars) {
       star.y = (star.y - star.speed * delta + height) % height;
       const x = star.x + (star.x - width / 2) * expansion;
       const y = star.y + (star.y - height / 2) * expansion;
-      context.fillStyle = progress.value > 0.62 ? 'rgba(96, 218, 244, 0.5)' : 'rgba(204, 220, 255, 0.55)';
+
       context.fillRect(x, y, star.size, star.size);
       // A low-contrast digital trace at the edges, not a flashing glitch.
-      if (progress.value > 0.68 && star.size > 1 && (x < width * 0.14 || x > width * 0.86)) context.fillRect(x, y, 8, 0.6);
+      if (drawTrace && star.size > 1 && (x < traceLeft || x > traceRight)) context.fillRect(x, y, 8, 0.6);
     }
   }
   frameId = requestAnimationFrame(paint);
