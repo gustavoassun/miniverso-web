@@ -32,7 +32,7 @@ onUnmounted(() => { resize?.disconnect(); cancelAnimationFrame(frame); window.re
 .expand-scrim { position: absolute; inset: 0; background: linear-gradient(90deg,#080a18d9,#080a181a),linear-gradient(0deg,#080a1877,transparent); }
 figcaption { position: absolute; inset: auto 6% 10%; color: #f5f2fa; }
 figcaption > span { color: #b4e2eb; font: 9px/1.5 var(--font-mono); letter-spacing: .12em; }
-h2 { margin: 22px 0; font-size: clamp(34px,5.6vw,84px); font-weight: 500; line-height: 1; letter-spacing: -.055em; }
+h2 { margin: 22px 0; font-family: var(--font-title); font-size: clamp(44px,7.3vw,110px); font-weight: 500; line-height: .95; letter-spacing: .005em; }
 p { font-size: 13px; line-height: 1.6; color: #d2c9e0; }
-@media(max-width:700px) { .expand-frame { height: 440px; } figcaption { bottom: 9%; } h2 { font-size: 43px; } }
+@media(max-width:700px) { .expand-frame { height: 440px; } figcaption { bottom: 9%; } h2 { font-size: 56px; } }
 </style>

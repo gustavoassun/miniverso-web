@@ -1,7 +1,7 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router'; // Importa o arquivo que acabamos de criar
-import '@fontsource-variable/space-grotesk';
+import './assets/styles/fonts.css';
 import './assets/styles/global.css';
 
 // Se você tiver um arquivo de CSS global, a importação fica aqui. 

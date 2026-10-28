@@ -31,7 +31,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
 </script>
 
 <style>
-:root { --font-display: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif; --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace; font-family: var(--font-display); font-synthesis: none; text-rendering: optimizeLegibility; }
+:root { font-family: var(--font-display); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 0; }
 button, input, textarea { font: inherit; }

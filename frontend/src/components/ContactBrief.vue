@@ -80,7 +80,7 @@ defineExpose({ open });
 .contact-dialog::backdrop{background:#020b13bf;backdrop-filter:blur(8px);}
 .brief-close{position:sticky;top:0;float:right;margin:-25px -25px 0 0;z-index:2;width:38px;height:38px;border:1px solid #8bb9ce44;border-radius:50%;color:#c5dce8;background:#122939;font-size:14px;}
 .brief-eyebrow{font:9px var(--font-mono);letter-spacing:.16em;color:#9acee2;margin:0 0 22px;}
-h2{font:500 clamp(29px,4vw,43px)/1.08 var(--font-body,Arial,sans-serif);letter-spacing:-.04em;margin:0;}h2 em{font-style:normal;color:#aae7f8;}
+h2{font:500 clamp(38px,5.2vw,56px)/1 var(--font-title);letter-spacing:.005em;margin:0;}h2 em{font-style:normal;color:#aae7f8;}
 .brief-note{color:#b2cbd8;font-size:13px;line-height:1.6;margin:20px 0 28px;max-width:48ch;}
 .brief-steps{display:flex;gap:16px;align-items:center;margin-bottom:27px;font:8px var(--font-mono);color:#7796aa;}.brief-steps .current{color:#b1e8f5;}.brief-steps i{flex:1;height:1px;background:#88b7cd2e;}
 .brief-fields{display:grid;grid-template-columns:1fr 1fr;gap:20px;}.full-field{grid-column:1/-1;}
