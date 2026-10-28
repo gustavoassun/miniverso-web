@@ -7,7 +7,6 @@
         <ul id="navigation-links" class="nav-links" :class="{ 'menu-open': menuOpen }">
           <li><router-link :to="{ path: '/', hash: '#sobre' }" @click="menuOpen = false">O estúdio</router-link></li>
           <li><router-link :to="{ path: '/', hash: '#portfolio' }" @click="menuOpen = false">Projetos</router-link></li>
-          <li><router-link to="/blog" @click="menuOpen = false">Blog</router-link></li>
           <li><router-link class="restricted-link" to="/login" @click="menuOpen = false">Acesso restrito</router-link></li>
         </ul>
         <router-link class="header-contact" :to="{ path: '/', hash: '#contato' }">Vamos conversar <span aria-hidden="true">↗</span></router-link>

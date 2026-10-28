@@ -33,7 +33,7 @@ Configuração em `frontend/vite.config.js`, interface em `frontend/src/componen
 
 - Compilação de produção concluída: manifesto, service worker e 21 entradas de precache.
 - Quatro testes da lógica da introdução passaram.
-- Teste automatizado com Edge em perfil isolado: preparação do cache, recarga sem rede, imagens locais, rotas `/`, `/blog`, `/login` e `/dashboard`, recuperação da conexão e ausência de erros JavaScript.
+- Teste automatizado com Edge em perfil isolado: preparação do cache, recarga sem rede, imagens locais, rotas `/`, `/blog`, `/login` e `/dashboard`, recuperação da conexão e ausência de erros JavaScript. A rota `/blog` foi removida em 28/10/2026, quando o Blog foi descartado.
 - Captura mobile 390×844 sem transbordamento horizontal e captura desktop 1280×720.
 - Evidências em `docs/pwa-evidence/verification.json` e capturas na mesma pasta. O teste encontrou 16 URLs únicas no cache; a lista de compilação pode conter entradas duplicadas por inclusão de assets.
 - Abertura das telas provisórias de login/dashboard não comprova autenticação nem operações offline.
