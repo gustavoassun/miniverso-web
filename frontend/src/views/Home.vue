@@ -6,7 +6,7 @@
     <LineSidebar v-if="entered" :items="progressSections" />
     <HoloViewport :enabled="entered" :reduced="scene.reduced" />
     <PixelEdges :enabled="entered" :reduced="scene.reduced" />
-    <ImmersiveIntro @scene-change="scene = $event" />
+    <MiniversoIntro @scene-change="scene = $event" />
 
     <!-- 2. Manifesto / Essência -->
     <section id="sobre" data-progress-section aria-labelledby="manifesto-title" class="manifesto">
@@ -102,7 +102,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import ImmersiveIntro from '../components/ImmersiveIntro.vue';
+import MiniversoIntro from '../components/MiniversoIntro.vue';
 import GhostFibers from '../components/GhostFibers.vue';
 import GlowCursor from '../components/GlowCursor.vue';
 import AccordionGallery from '../components/AccordionGallery.vue';
@@ -117,7 +117,8 @@ import LogoLoop from '../components/LogoLoop.vue';
 import { useProjectStore } from '../utils/projectStore.js';
 const contactBrief = ref(null);
 const scene = ref({ progress: 0, reduced: false });
-const entered = computed(() => scene.value.reduced || scene.value.progress >= .82);
+// Os efeitos do resto da página entram quando o planeta sai de cena (ele ocupa o fim da rolagem da abertura).
+const entered = computed(() => scene.value.passed === true);
 const brandVisible = ref(true);
 let brandObserver;
 
