@@ -58,3 +58,9 @@ O modo de desenvolvimento é suficiente durante a implementação. O funcionamen
 ## Escopo atual
 
 Esta é somente a fundação do projeto. Login real, banco de dados e dashboard serão implementados quando os requisitos dessas etapas estiverem definidos.
+
+## Conformidade, LGPD e acessibilidade
+
+A avaliação preventiva dos 17 critérios jurídicos, de privacidade, conteúdo e acessibilidade está registrada em [`docs/CONFORMIDADE_LEGAL_LGPD_ACESSIBILIDADE.md`](docs/CONFORMIDADE_LEGAL_LGPD_ACESSIBILIDADE.md).
+
+O login e o dashboard atuais são demonstrações locais. Eles não devem receber dados reais de clientes nem ser apresentados como autenticação segura de produção.
