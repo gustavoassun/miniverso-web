@@ -1,5 +1,9 @@
 # Entrada VR — revisão experimental local
 
+> **Histórico.** Esta abertura foi substituída em 28/10/2026 pela abertura 3D do planeta Miniverso
+> (ver [`PLANETA_MINIVERSO.md`](PLANETA_MINIVERSO.md)). Os arquivos citados abaixo foram removidos do
+> projeto no commit `051c410` e continuam disponíveis no histórico do Git. O texto foi mantido como registro.
+
 Direção: aproximar o visor do visitante e apresentar o conteúdo dentro de uma interface visual de realidade virtual, evitando uma abertura de logo isolada. Os dois vídeos fornecidos pelo Gustavo foram examinados localmente em quatro momentos de cada vídeo, sem envio para serviços externos.
 
 ## Implementação

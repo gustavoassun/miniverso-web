@@ -7,6 +7,7 @@ O projeto apresenta a essência da Miniverso, seu portfólio e, futuramente, uma
 ## Tecnologias desta primeira etapa
 
 - Vue.js com Vite no frontend
+- Three.js na abertura 3D (planeta Miniverso)
 - Node.js no backend
 - Git para versionamento
 - Visual Studio Code como editor
@@ -45,6 +46,20 @@ npm run dev:backend
 - Frontend: `http://localhost:5187`
 - Backend: `http://localhost:3000`
 - Verificação da API: `http://localhost:3000/api/health`
+
+## Testes
+
+```bash
+npm test --workspace frontend
+```
+
+## Abertura 3D (planeta Miniverso)
+
+A Home começa com uma abertura 3D: o óculos de realidade virtual, a entrada pelo visor e um pequeno planeta com áreas de São Luís e do Maranhão, cada uma com uma interação. O código fica em `frontend/src/three` e o componente em `frontend/src/components/MiniversoIntro.vue`.
+
+Para mudar as cores do planeta, edite `frontend/src/three/world/palette.js`. Guia completo, estrutura dos arquivos e pendências em [`docs/PLANETA_MINIVERSO.md`](docs/PLANETA_MINIVERSO.md).
+
+As fontes da marca (Thunder nos títulos e Random Grotesque nos textos) ficam em `frontend/src/assets/fonts` e são declaradas em `frontend/src/assets/styles/fonts.css`.
 
 ## Conferir o PWA em produção
 

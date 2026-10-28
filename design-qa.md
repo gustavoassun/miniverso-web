@@ -93,3 +93,34 @@ Data: 12/09/2026.
 - Nenhum commit ou push foi realizado nesta rodada de experimentação local.
 
 final result: passed
+
+## Revalidação — abertura 3D com o planeta Miniverso (28/10/2026)
+
+A abertura com headset em imagem e portal pelos olhos foi substituída pela abertura 3D do planeta
+Miniverso (guia em `docs/PLANETA_MINIVERSO.md`). As seções anteriores deste documento ficam como histórico.
+
+### Estados conferidos no navegador
+
+- Desktop 1024×768: capa com mini, verso e o óculos 3D; textos e barra da capa nas fontes da marca.
+- Abertura automática a partir da junção dos nomes até o planeta formado, com título e rótulos das áreas.
+- Centro Histórico aberto: cartão da área, carros e ônibus no circuito, boi, bandeira e público.
+- Voltar ao planeta e rolar adiante: as seções do site aparecem e só então entram os efeitos da Home.
+- Navegação para `/login` e volta: o 3D é desligado e montado de novo, sem erros no console.
+- Mobile 375×812: capa, nomes e botões visíveis; planeta visível; sem rolagem horizontal.
+
+### Correções desta rodada
+
+1. [P2] As regras de espaçamento das seções da Home deixavam o palco da abertura com margem e borda.
+   A abertura agora ocupa a tela inteira.
+2. [P2] Os efeitos fixos da Home (menu flutuante, molduras, barra lateral) apareciam sobre o planeta.
+   Passaram a entrar só quando o planeta sai de cena.
+3. [P3] A marquise da Praça Maria Aragão gerava coordenadas inválidas nas pontas (aviso de geometria no
+   console). Corrigido.
+
+### Verificação técnica
+
+- `npm test --workspace frontend`: 5/5 testes do planeta aprovados.
+- Build de produção aprovado; o 3D fica em pacote próprio carregado depois da página (~688 kB,
+  ~187 kB compactado); cache offline com 29 entradas (~5,9 MB, antes 11,2 MB).
+- [P3] Desempenho em aparelho físico ainda não medido.
+- Nenhum push, merge na `main` ou deploy realizado nesta rodada.
