@@ -64,3 +64,22 @@ test('portal burst is scroll-bound and never flashes in reduced motion', () => {
   assert.ok(introFrame(.52)['--burst-opacity'] > 0);
   assert.equal(introFrame(.52,true)['--burst-opacity'],0);
 });
+
+test('headset dips, returns to its axis and crosses an eye-alignment flash', () => {
+  assert.equal(introFrame(0)['--headset-y'],'0vh');
+  assert.ok(Number.parseFloat(introFrame(.32)['--headset-y']) > 0);
+  assert.ok(Math.abs(Number.parseFloat(introFrame(1)['--headset-y'])) < 1e-12);
+  assert.ok(introFrame(.52)['--eye-opacity'] > 0);
+  assert.ok(introFrame(.65)['--flash-opacity'] > 0);
+  assert.equal(introFrame(0)['--flash-opacity'],0);
+  assert.equal(introFrame(1)['--flash-opacity'],0);
+});
+
+test('reduced motion also disables the eye portal and transition flash', () => {
+  for (const p of [0,.52,.65,1]) {
+    const frame = introFrame(p,true);
+    assert.equal(frame['--eye-opacity'],0);
+    assert.equal(frame['--flash-opacity'],0);
+    assert.equal(frame['--threshold-copy-opacity'],0);
+  }
+});
