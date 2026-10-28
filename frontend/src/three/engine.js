@@ -268,7 +268,8 @@ export function createMiniverso(rootEl, opts = {}) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (auto) {
       const t = clamp((now - auto.start) / auto.dur);
-      scrollTo(0, mix(auto.from, auto.to, autoEase(t)));
+      // 'instant': o site usa rolagem suave no CSS, que reiniciaria a cada quadro e travaria a animação.
+      scrollTo({ top: mix(auto.from, auto.to, autoEase(t)), behavior: 'instant' });
       if (t >= 1) auto = null;
     }
     if (!visible || document.hidden) return;

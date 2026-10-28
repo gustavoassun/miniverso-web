@@ -29,6 +29,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes,
   scrollBehavior(to, from, savedPosition) {
+    // Ao abrir ou recarregar o site na Home, começa sempre pela capa da abertura.
+    if (!from.matched.length && to.name === 'Home' && !to.hash) return { top: 0 };
     if (savedPosition) return savedPosition;
     if (to.hash) return { el: to.hash, top: 24, behavior: 'auto' };
     return { top: 0 };
