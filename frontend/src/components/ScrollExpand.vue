@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
-import { clamp } from '../utils/introMotion.js';
+const clamp = (value, min = 0, max = 1) => Math.min(max, Math.max(min, value));
 const props = defineProps({ src: String, alt: String, reduced: Boolean });
 const root = ref(null), progress = ref(0);
 let frame = 0, resize;

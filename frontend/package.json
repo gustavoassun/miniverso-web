@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/three/planet.test.js src/utils/introMotion.test.js"
+    "test": "node --test src/three/planet.test.js"
   },
   "dependencies": {
     "three": "^0.186.0",
