@@ -1,5 +1,9 @@
 # Abertura imersiva da Miniverso
 
+> **Histórico.** Esta abertura foi substituída em 28/10/2026 pela abertura 3D do planeta Miniverso
+> (ver [`PLANETA_MINIVERSO.md`](PLANETA_MINIVERSO.md)). Os arquivos citados abaixo foram removidos do
+> projeto no commit `051c410` e continuam disponíveis no histórico do Git. O texto foi mantido como registro.
+
 Protótipo desenvolvido e verificado localmente em 12/09/2026. O envio desta versão
 em uma branch no GitHub registra o trabalho, mas não publica o site nem integra a versão principal.
 

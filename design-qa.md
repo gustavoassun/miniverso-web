@@ -35,7 +35,7 @@ Data: 12/09/2026.
 - Rolagem inicial → aproximação → revelação, com capturas de estado intermediário e final.
 - Menu móvel abre e fecha; Projetos navega para `/#portfolio`, seção a 24px do topo, sem menu aberto.
 - Controle Reduzir movimento/Ativar movimento alterna os estados e a altura do trecho.
-- Blog navega para `/blog` com conteúdo anterior; logo retorna à Home e rolagem inicial.
+- Blog navegava para `/blog` com conteúdo anterior; logo retorna à Home e rolagem inicial. (Em 28/10/2026 o Blog foi descartado: página, rota e link do menu removidos.)
 - Links dos projetos têm URLs públicas verificadas e aviso de nova aba; contato utiliza mailto, sem envio de mensagem automatizado.
 - Console do navegador consultado após navegação e animação: sem erros ou avisos capturados.
 - 4 testes automáticos da timeline passaram; compilação passou.
@@ -46,7 +46,7 @@ Data: 12/09/2026.
 - P3: ampliar a etapa de fragmentos para modelos 3D reais quando a equipe fornecer os modelos e aprovar a biblioteca de renderização.
 - Preferência do sistema para movimento reduzido está implementada; alternância manual verificada. Sem auditoria automatizada WCAG completa.
 - Offline: precache validado estruturalmente; perda real de rede na PWA instalada não foi simulada nesta verificação.
-- Blog, login e dashboard continuam na etapa anterior, fora do escopo desta abertura.
+- Login e dashboard continuam na etapa anterior, fora do escopo desta abertura. O Blog foi descartado em 28/10/2026.
 
 ## Checklist final
 
@@ -57,4 +57,70 @@ Data: 12/09/2026.
 - [x] PNGs incluídos no precache; build e testes aprovados.
 - [x] Durante a implementação e o QA, nenhuma publicação, integração na branch principal ou alteração nas fontes sincronizadas.
 
+## Revalidação — novo portal pelo lado dos olhos (14/10/2026)
+
+### Referência e intenção
+
+- Referência visual recebida: `C:/Users/gusta/AppData/Local/Temp/codex-clipboard-044e9db9-ebe0-4324-b889-63a85003f631.jpg`.
+- A referência com marca-d'água foi usada somente para orientar silhueta, materiais e recorte do visor. Ela não foi incorporada ao site.
+- Foi criado um render original sem marca-d'água em `frontend/public/images/vr-headset-v2.png`, com carcaça branca, visor preto brilhante, encaixe nasal e alças grafite.
+- A narrativa validada é: exploração frontal → descida e retorno ao eixo → rotação para o lado interno → alinhamento binocular → clarão ciano → revelação da identidade Miniverso.
+
+### Estados comparados no navegador
+
+- Desktop 1280×720: capa escura com headset frontal, marca dividida e chamada `OLHE ALÉM.`; composição sem cortes inesperados.
+- Interação no visor: holograma legível com `OLHE ALÉM.` e `MOVA • DESCUBRA • ENTRE`, maior que a mensagem anterior.
+- Estado intermediário: traseira do headset e duas lentes visíveis, com círculos de alinhamento e a mensagem `ALINHANDO A EXPERIÊNCIA AO SEU OLHAR`.
+- Limiar: clarão branco/ciano cobre o visor antes da troca de ambiente; não é mais apenas uma ampliação linear do visor frontal.
+- Mundo revelado: fundo azul-ciano, grade, circuitos e aurora visualmente distintos da capa estrelada.
+- Retorno: ao rolar novamente para o topo, headset, nomes laterais, fundo escuro e conteúdo inicial voltam ao estado original.
+- Mobile 390×844: abertura, clarão e mundo revelado conferidos. Headset, chamada, texto e controles permanecem dentro do viewport.
+
+### Correções desta rodada
+
+1. [P2] A chamada de interação encostava no texto inferior em telas estreitas. O bloco de introdução foi reposicionado e o espaçamento foi revalidado em 390×844.
+2. [P2] A transição anterior aproximava a câmera do visor frontal. A câmera agora acompanha a rotação do headset e atravessa a região entre as lentes internas, representando o ponto de vista dos olhos.
+3. [P2] O headset permanecia deslocado durante a entrada. O deslocamento agora usa uma curva senoidal: desce, retorna ao eixo e só então conclui o portal.
+4. [P2] A capa e o conteúdo revelado tinham pouca separação visual. O segundo ambiente recebeu ciano mais luminoso, grade mais presente, aurora e circuitos de borda.
+
+### Verificação técnica desta rodada
+
+- 8/8 testes da timeline aprovados, incluindo reversibilidade, retorno do deslocamento, portal binocular, clarão e movimento reduzido.
+- Build de produção aprovado: 79 módulos e PWA com 33 entradas de precache.
+- Nenhum erro de aplicação no console. Há somente um aviso de precisão numérica do compilador WebGL/Three.js, sem quebra visual ou funcional.
+- [P3] O chunk dinâmico do Three.js permanece com aproximadamente 747 kB; recomenda-se medir desempenho em celulares físicos e considerar divisão adicional antes da publicação final.
+- [P3] A validação responsiva foi feita em viewport emulado; ainda convém uma passagem em aparelho físico antes da entrega definitiva.
+- Nenhum commit ou push foi realizado nesta rodada de experimentação local.
+
 final result: passed
+
+## Revalidação — abertura 3D com o planeta Miniverso (28/10/2026)
+
+A abertura com headset em imagem e portal pelos olhos foi substituída pela abertura 3D do planeta
+Miniverso (guia em `docs/PLANETA_MINIVERSO.md`). As seções anteriores deste documento ficam como histórico.
+
+### Estados conferidos no navegador
+
+- Desktop 1024×768: capa com mini, verso e o óculos 3D; textos e barra da capa nas fontes da marca.
+- Abertura automática a partir da junção dos nomes até o planeta formado, com título e rótulos das áreas.
+- Centro Histórico aberto: cartão da área, carros e ônibus no circuito, boi, bandeira e público.
+- Voltar ao planeta e rolar adiante: as seções do site aparecem e só então entram os efeitos da Home.
+- Navegação para `/login` e volta: o 3D é desligado e montado de novo, sem erros no console.
+- Mobile 375×812: capa, nomes e botões visíveis; planeta visível; sem rolagem horizontal.
+
+### Correções desta rodada
+
+1. [P2] As regras de espaçamento das seções da Home deixavam o palco da abertura com margem e borda.
+   A abertura agora ocupa a tela inteira.
+2. [P2] Os efeitos fixos da Home (menu flutuante, molduras, barra lateral) apareciam sobre o planeta.
+   Passaram a entrar só quando o planeta sai de cena.
+3. [P3] A marquise da Praça Maria Aragão gerava coordenadas inválidas nas pontas (aviso de geometria no
+   console). Corrigido.
+
+### Verificação técnica
+
+- `npm test --workspace frontend`: 5/5 testes do planeta aprovados.
+- Build de produção aprovado; o 3D fica em pacote próprio carregado depois da página (~688 kB,
+  ~187 kB compactado); cache offline com 29 entradas (~5,9 MB, antes 11,2 MB).
+- [P3] Desempenho em aparelho físico ainda não medido.
+- Nenhum push, merge na `main` ou deploy realizado nesta rodada.

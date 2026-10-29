@@ -1,0 +1,52 @@
+{
+  "checkedAt": "2026-09-14T16:42:49.101Z",
+  "browser": "Edge headless (isolated profile)",
+  "manifest": {
+    "name": "Miniverso",
+    "short_name": "Miniverso",
+    "description": "Experiências imersivas para transformar desafios reais.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#211747",
+    "theme_color": "#0a0b16",
+    "lang": "pt-BR",
+    "scope": "/",
+    "id": "/",
+    "icons": [
+      {
+        "src": "/icons/pwa-192.png",
+        "sizes": "192x192",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icons/pwa-512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "any"
+      },
+      {
+        "src": "/icons/pwa-maskable-512.png",
+        "sizes": "512x512",
+        "type": "image/png",
+        "purpose": "maskable"
+      }
+    ]
+  },
+  "cachedFiles": 16,
+  "offlineReload": true,
+  "offlineRoutes": [
+    "/",
+    "/blog",
+    "/login",
+    "/dashboard"
+  ],
+  "localImages": true,
+  "mobileOverflow": false,
+  "pageErrors": [],
+  "limitations": [
+    "Real installation on a physical device not tested",
+    "Update prompt between two published versions not tested",
+    "Placeholder login/dashboard rendering is not offline authentication"
+  ]
+}
