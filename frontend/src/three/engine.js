@@ -13,6 +13,7 @@ import { ZONES } from './world/zones.js';
 import { ZONE_COLORS } from './zoneNames.js';
 import { game } from './world/zones/jogos.js';
 import { createGames } from './games.js';
+import { createMusic } from './music.js';
 import { revealEdge, revealUniforms } from './world/reveal.js';
 
 // Motor da abertura: capa com o óculos, entrada pelo visor e o planeta Miniverso.
@@ -72,7 +73,7 @@ export function createMiniverso(rootEl, opts = {}) {
   let cab = false, cabT = 0, cabStart = 0, cabTrain = 0, hoverTrain = -1;
   const trainTip = $('.train-tip');
   // Zoom numa área do planeta: a câmera voa até ela e um cartão explica o que é.
-  let focusZone = -1, lastFocus = 0, focusT = 0;
+  let focusZone = -1, lastFocus = 0, focusT = 0, barH = 0, camLift = 0;
   // Órbita em volta da área focada: giro (yaw), inclinação (pitch, até quase de cima) e distância.
   // Ao abrir, a área aparece um pouco afastada (vista do conjunto); o zoom vai de bem perto até o dobro da distância.
   const ZD = 1.35, ZD_MIN = 0.35, ZD_MAX = 2;
@@ -84,12 +85,73 @@ export function createMiniverso(rootEl, opts = {}) {
   let show = false, showT = 0;
   const showCam = new THREE.Vector3(), showLook = new THREE.Vector3();
   const zoneAct = zoneCard.querySelector('.zone-act'), zoneAct2 = zoneCard.querySelector('.zone-act2'), zoneAct3 = zoneCard.querySelector('.zone-act3'), zoneStatus = zoneCard.querySelector('.zone-status');
+  const zoneMore = zoneCard.querySelector('.zone-more'), zoneInfo = zoneCard.querySelector('.zone-info'), zoneClose = zoneCard.querySelector('.zone-close');
+  // Pontos de interesse: marcadores numerados na cena; a câmera voa até cada detalhe e a barra mostra uma legenda
+  // curta. O tour passa por todos sozinho; arrastar, rolar ou as setas do teclado devolvem o controle.
+  const zoneTour = zoneCard.querySelector('.zone-tour'), poiName = zoneCard.querySelector('.poi-name'), poiCount = zoneCard.querySelector('.poi-count'), poiText = zoneCard.querySelector('.poi-text'), poiPlay = zoneCard.querySelector('.poi-play'), poiLayer = $('.pois');
+  const TOUR_STEP = 7;
+  // Música do planeta (music.js): começa baixinho na formação do planeta; botão no canto para desligar.
+  const music = createMusic(), soundBtn = $('.sound-toggle');
+  const syncSound = () => { soundBtn.setAttribute('aria-pressed', String(music.enabled)); $('.sound-chip').setAttribute('aria-pressed', String(music.enabled)); soundBtn.setAttribute('aria-label', music.enabled ? 'Desligar a música' : 'Ligar a música'); soundBtn.querySelector('span').textContent = music.enabled ? 'Música' : 'Sem música'; };
+  syncSound();
+  on(soundBtn, 'click', () => { music.setEnabled(!music.enabled); syncSound(); });
+  // Chave "Som" na barra da capa, junto dos outros ajustes da abertura (mesma escolha do botão do planeta).
+  const soundChip = $('.sound-chip');
+  on(soundChip, 'click', () => { music.setEnabled(!music.enabled); syncSound(); });
+  on(document, 'pointerdown', () => music.wake(), true);
+  on(document, 'keydown', () => music.wake(), true);
+  on(document, 'visibilitychange', () => music.refresh());
+  offs.push(() => music.dispose());
+  let poi = -1, tour = false, tourAt = 0, markers = [];
+  const poisOf = i => ZONES[i]?.pois || [];
+  const zMin = () => poisOf(focusZone).length ? Math.min(ZD_MIN, 0.2 / (0.745 * (ZONES[focusZone].view || 1))) : ZD_MIN;
+  function poiSet(n, move = true) {
+    const i = focusZone, ps = poisOf(i); if (!ps.length) return;
+    poi = n; const p = ps[n];
+    if (move) {
+      const ty = p ? p.yaw : ZONES[i].yaw ?? 0.06;
+      zYawT = zYaw + ((ty - zYaw) % TAU + TAU * 1.5) % TAU - TAU / 2;                  // pelo lado mais curto
+      zPitchT = p ? p.pitch : ZONES[i].pitch ?? 0.36; zDistT = p ? p.d / (0.745 * (ZONES[i].view || 1)) : ZD;
+      if (p) zFT.fromArray(p.at); else zFT.copy(zoneFocus(i));
+      show = false;
+    }
+    poiName.textContent = p ? p.name : 'Visão geral';
+    poiCount.textContent = p ? `${n + 1} / ${ps.length}` : `${ps.length} pontos`;
+    poiText.textContent = p ? p.text : 'Toque num número na cena para ver de perto, ou siga o tour pela área.';
+    markers.forEach((m, k) => m.classList.toggle('on', k === n));
+  }
+  function buildMarkers(i) {
+    poiLayer.replaceChildren(); poiLayer.style.setProperty('--c', ZONE_COLORS[i]);
+    markers = poisOf(i).map((p, k) => {
+      const b = document.createElement('button'), num = document.createElement('b'), label = document.createElement('span');
+      b.type = 'button'; b.className = 'poi'; b.tabIndex = -1; num.textContent = k + 1; label.textContent = p.name; b.append(num, label);
+      b.addEventListener('click', () => { tourStop(); poiSet(k); });
+      poiLayer.append(b); return b;
+    });
+  }
+  function tourStop() { tour = false; poiPlay.setAttribute('aria-pressed', 'false'); }
+  on(poiPlay, 'click', () => {
+    if (tour) return tourStop();
+    tour = true; tourAt = performance.now() / 1000; poiPlay.setAttribute('aria-pressed', 'true');
+    poiSet((poi + 1) % poisOf(focusZone).length);
+  });
+  const poiStep = d => { const n = poisOf(focusZone).length; if (!n) return; tourStop(); poiSet(((poi + 1 + d) % (n + 1) + n + 1) % (n + 1) - 1); }; // a visão geral entra na volta
+  on(zoneCard.querySelector('.poi-prev'), 'click', () => poiStep(-1));
+  on(zoneCard.querySelector('.poi-next'), 'click', () => poiStep(1));
+  // Texto completo da área numa gaveta; enquanto a pessoa mexe na cena, a barra fica quase transparente.
+  const infoOpen = v => { zoneCard.classList.toggle('open', v); zoneInfo.setAttribute('aria-expanded', String(v)); };
+  on(zoneInfo, 'click', () => infoOpen(!zoneCard.classList.contains('open')));
+  let busyTimer = 0;
+  const busy = () => { tourStop(); infoOpen(false); zoneCard.classList.add('busy'); clearTimeout(busyTimer); busyTimer = setTimeout(() => zoneCard.classList.remove('busy'), 900); };
+  offs.push(() => clearTimeout(busyTimer));
   function openZone(i) {
     if (!worldLive) return;
-    if (focusZone !== i) stopGame();
-    if (focusZone !== i) show = false;
-    if (focusZone !== i) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = ZD; zFT.copy(zoneFocus(i)); if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; zF.copy(zFT); } }
+    const fresh = focusZone !== i;
+    if (fresh) stopGame();
+    if (fresh) show = false;
+    if (fresh) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = ZD; zFT.copy(zoneFocus(i)); if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; zF.copy(zFT); } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
+    if (fresh) { buildMarkers(i); tourStop(); infoOpen(false); poiSet(-1, false); }
     zoneCard.querySelector('h3').textContent = ZONES[i].name;
     zoneCard.style.setProperty('--c', ZONE_COLORS[i]);
     zoneCard.querySelector('.zone-index').textContent = `Área ${String(i + 1).padStart(2, '0')} / ${String(ZONES.length).padStart(2, '0')}`;
@@ -99,9 +161,9 @@ export function createMiniverso(rootEl, opts = {}) {
     zoneAct3.hidden = !ZONES[i].act3; zoneAct3.textContent = ZONES[i].act3 || '';
     zoneCard.hidden = false;
   }
-  // Na cabine o cartão fica compacto (título, botões e status), para não tampar a vista.
-  function cardCompact(on) { for (const el of [zoneCard.querySelector('.zone-text'), zoneCard.querySelector('.zone-hint'), zoneCard.querySelector('.zone-back'), zoneCard.querySelector('.zone-close'), zoneAct]) el.hidden = on; }
-  function closeZone() { cardCompact(false); focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
+  // Na cabine a barra fica compacta (título, botões e status), para não tampar a vista.
+  function cardCompact(on) { for (const el of [zoneMore, zoneInfo, zoneClose, zoneAct]) el.hidden = on; zoneTour.hidden = on || !poisOf(focusZone).length; zoneCard.classList.toggle('compact', on); if (on) { infoOpen(false); tourStop(); } }
+  function closeZone() { cardCompact(false); focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); tourStop(); infoOpen(false); poi = -1; markers = []; poiLayer.replaceChildren(); }
   on(zoneAct2, 'click', () => {
     const i = focusZone; if (i < 0) return;
     const kind = ZONES[i].kind2;
@@ -110,8 +172,7 @@ export function createMiniverso(rootEl, opts = {}) {
     else { zoneFx2[i] = clock; zoneStatus.textContent = ZONES[i].done2; }
   });
   on(zoneAct3, 'click', () => { if (focusZone === game.zi) startRace(); });
-  on(zoneCard.querySelector('.zone-back'), 'click', closeZone);
-  on(zoneCard.querySelector('.zone-close'), 'click', closeZone);
+  on(zoneClose, 'click', closeZone);
   // Pequena interação de cada área.
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
@@ -165,6 +226,7 @@ export function createMiniverso(rootEl, opts = {}) {
       if (drag.mode === 'headset') { userY = drag.y0 + dx * 0.008; userX = clamp(drag.x0 + dy * 0.004, -0.5, 0.5); }
       if (drag.mode === 'planet' && focusZone >= 0 && !cab) {
         zYawT -= (e.clientX - drag.lx) * 0.006; zPitchT = clamp(zPitchT + (e.clientY - drag.ly) * 0.005, 0.18, 1.45); show = false;
+        if (drag.moved) busy();
         drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
       } else if (drag.mode === 'planet') {
         const sx = (e.clientX - drag.lx) * 0.006, sy = (e.clientY - drag.ly) * 0.006, sec = Math.max(0.016, (performance.now() - drag.lt) / 1000);
@@ -216,7 +278,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (k > 1) zFT.lerp(zoneFocus(focusZone), Math.min(1, (k - 1) * 1.5));
     const R = (ZONES[focusZone].R || 0.33) * 1.25, d = Math.hypot(zFT.x, zFT.z); if (d > R) { zFT.x *= R / d; zFT.z *= R / d; }
   }
-  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; const before = zDistT; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), ZD_MIN, ZD_MAX); zoomAt(e, zDistT / before); }, { passive: false });
+  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; busy(); const before = zDistT; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), Math.min(zMin(), zDistT), ZD_MAX); zoomAt(e, zDistT / before); }, { passive: false });
   on(canvas, 'pointercancel', endDrag);
   on(canvas, 'keydown', e => {
     const k = e.key;
@@ -224,8 +286,8 @@ export function createMiniverso(rootEl, opts = {}) {
     if (worldLive && focusZone >= 0 && !cab && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-'].includes(k)) {
       if (k === 'ArrowLeft') zYawT += 0.3; else if (k === 'ArrowRight') zYawT -= 0.3;
       else if (k === 'ArrowUp') zPitchT = clamp(zPitchT + 0.15, 0.18, 1.45); else if (k === 'ArrowDown') zPitchT = clamp(zPitchT - 0.15, 0.18, 1.45);
-      else zDistT = clamp(zDistT * (k === '+' ? 0.85 : 1.18), ZD_MIN, ZD_MAX);
-      show = false; e.preventDefault(); return;
+      else zDistT = clamp(zDistT * (k === '+' ? 0.85 : 1.18), Math.min(zMin(), zDistT), ZD_MAX);
+      show = false; busy(); e.preventDefault(); return;
     }
     if (worldLive && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) {
       if (k === 'ArrowLeft') velY -= 1.2; else if (k === 'ArrowRight') velY += 1.2; else if (k === 'ArrowUp') velX -= 1.2; else velX += 1.2;
@@ -243,7 +305,6 @@ export function createMiniverso(rootEl, opts = {}) {
   const setReduced = v => {
     reduced = v; root.classList.toggle('reduced', v);
     motionBtn.setAttribute('aria-pressed', String(v));
-    motionBtn.textContent = v ? 'Ativar movimento' : 'Reduzir movimento';
   };
   on(motionBtn, 'click', () => { setReduced(!reduced); if (reduced) auto = null; });
   setReduced(reduced);
@@ -255,7 +316,7 @@ export function createMiniverso(rootEl, opts = {}) {
     const w = stage.clientWidth, h = stage.clientHeight;
     renderer.setSize(w, h, false);
     camera.aspect = worldCamera.aspect = w / h;
-    camera.updateProjectionMatrix(); worldCamera.updateProjectionMatrix();
+    camera.updateProjectionMatrix(); worldCamera.updateProjectionMatrix(); camLift = -1;
     cosmosUniforms.uAspect.value = skyUniforms.uAspect.value = w / h;
     nameWidth = nameRow.offsetWidth || 1;
     miniW = miniEl.offsetWidth || miniW; versoW = versoEl.offsetWidth || versoW;
@@ -275,7 +336,6 @@ export function createMiniverso(rootEl, opts = {}) {
   function setAutoOn(v, save) {
     autoOn = v; if (!v) auto = null;
     autoBtn.setAttribute('aria-pressed', String(v));
-    autoBtn.textContent = v ? 'Automática: ligada' : 'Automática: desligada';
     if (save) try { localStorage.setItem(AUTO_KEY, v ? '1' : '0'); } catch {}
   }
   on(autoBtn, 'click', () => setAutoOn(!autoOn, true));
@@ -384,7 +444,8 @@ export function createMiniverso(rootEl, opts = {}) {
 
   const t0 = performance.now(); let last = t0, clock = 0;
   const css = (k, v) => root.style.setProperty(k, v.toFixed(4));
-  let lastPct = -1;
+  let lastPct = -1, lastLoad = 0;
+  const burstEl = $('.burst');
   const up = new THREE.Vector3(0, 1, 0);
 
   function tick(now) {
@@ -427,7 +488,7 @@ export function createMiniverso(rootEl, opts = {}) {
     const approach = reduced ? 0 : smoother(0.39, 0.62, p);       // e vem até o rosto
     const merge = reduced ? (p > 0.5 ? 1 : 0) : smoother(0.6, 0.72, p); // lentes se abrem no mundo
     const arrive = reduced ? 1 : smoother(0.62, 0.96, p);         // chegada ao planeta (a câmera segue girando enquanto ele se forma)
-    const worldUi = smooth(0.9, 0.98, p);
+    const worldUi = smooth(0.935, 0.99, p);                                       // o título surge logo depois da explosão
     const reveal = reduced ? 1 : smooth(0.74, 0.93, p);            // faixa de luz revela o planeta de cima para baixo
     const form = reduced ? 1 : smooth(0.46, 0.8, p);               // partículas chegam girando e formam o planeta
     const solid = reduced ? 1 : smooth(0.62, 0.8, p);              // o planeta sólido cresce por dentro delas
@@ -573,7 +634,14 @@ export function createMiniverso(rootEl, opts = {}) {
       camLook.lerp(vc, k); fup.lerp(fdir, k).normalize();
     }
     const fov = mix(30, 58, smoother(0, 0.7, cabT)), near = cabT > 0.25 ? 0.004 : 0.05;
-    if (worldCamera.fov !== fov || worldCamera.near !== near) { worldCamera.fov = fov; worldCamera.near = near; worldCamera.updateProjectionMatrix(); }
+    // Com uma área aberta, o centro da vista sobe para o meio do espaço livre acima da barra da área.
+    if (!zoneCard.hidden) barH = zoneCard.offsetHeight + 18;
+    const lift = Math.round(barH * 0.5 * smoother(0, 1, focusT) * (1 - smoother(0, 0.3, cabT)));
+    if (worldCamera.fov !== fov || worldCamera.near !== near || lift !== camLift) {
+      worldCamera.fov = fov; worldCamera.near = near; camLift = lift;
+      if (lift) { const w = stage.clientWidth, h = stage.clientHeight; worldCamera.setViewOffset(w, h, 0, lift, w, h); } else worldCamera.clearViewOffset();
+      worldCamera.updateProjectionMatrix();
+    }
     atmoUniforms.uAlpha.value = 1 - focusT * 0.85;
     cloudM.opacity = 0.92 * (1 - focusT * 0.85);
     worldCamera.position.copy(camPos);
@@ -601,6 +669,22 @@ export function createMiniverso(rootEl, opts = {}) {
       el.classList.toggle('live', worldLive && facing > 0.2 && focusT < 0.5);
       el.classList.toggle('on', hoverZone === i);
     });
+    // Tour: troca de ponto a cada TOUR_STEP segundos e termina na visão geral.
+    if (tour && focusZone >= 0 && performance.now() / 1000 - tourAt > TOUR_STEP) {
+      tourAt = performance.now() / 1000;
+      if (poi + 1 >= poisOf(focusZone).length) { tourStop(); poiSet(-1); } else poiSet(poi + 1);
+    }
+    // Marcadores dos pontos de interesse sobre a cena (somem na apresentação do boi, na cabine e no ponto escolhido).
+    if (markers.length) {
+      const zg = ZONES[lastFocus].group, ps = poisOf(lastFocus), vis = smooth(0.6, 0.95, focusT) * (1 - showT) * (cabT > 0.001 ? 0 : 1);
+      markers.forEach((m, k) => {
+        vc.fromArray(ps[k].at); vc.y += 0.02; zg.localToWorld(vc); vc.project(worldCamera);
+        const o = vc.z < 1 && Math.abs(vc.x) < 1.05 && Math.abs(vc.y) < 1.05 && k !== poi ? vis : 0;
+        m.style.transform = `translate(${((vc.x * 0.5 + 0.5) * stage.clientWidth).toFixed(1)}px, ${((-vc.y * 0.5 + 0.5) * stage.clientHeight).toFixed(1)}px)`;
+        m.style.opacity = o.toFixed(3);
+        const live = o > 0.5; if (m.classList.contains('live') !== live) { m.classList.toggle('live', live); m.tabIndex = live ? 0 : -1; }
+      });
+    }
 
     // Nome e interface.
     const target = nameWidthOnScreen() / nameWidth;
@@ -612,12 +696,21 @@ export function createMiniverso(rootEl, opts = {}) {
     css('--spark', smooth(0.17, 0.2, p) * (1 - smooth(0.22, 0.28, p)) * alive);
     css('--hint', 1 - smooth(0.01, 0.05, p));
     css('--world', worldUi * (1 - focusT)); css('--p', pRaw);
-    const exitLive = worldLive && focusT < 0.5;
+    const exitLive = worldLive && focusT < 0.5, soundLive = worldLive && place === 'planet';
+    music.setActive(soundLive || (place === 'capa' && p > 0.6)); music.setZone(focusZone >= 0 ? ZONES[focusZone].music : null);
+    const fz = focusZone >= 0 ? ZONES[focusZone] : null;
+    music.setBoost(!!fz?.show && zoneFx[focusZone] >= 0 && clock - zoneFx[focusZone] < fz.show.dur);
+    if (soundBtn.classList.contains('live') !== soundLive) { soundBtn.classList.toggle('live', soundLive); soundBtn.tabIndex = soundLive ? 0 : -1; }
     if (exitBtn && exitBtn.classList.contains('live') !== exitLive) for (const b of [exitBtn, homeBtn]) { b.classList.toggle('live', exitLive); b.tabIndex = exitLive ? 0 : -1; }
     css('--forming', reduced ? 0 : smooth(0.6, 0.66, p) * (1 - smooth(0.9, 0.95, p))); css('--reveal', reveal);
     // Tela de carregamento da formação: progresso de 0 a 100% das partículas até a faixa de luz terminar.
     const load = reduced ? 1 : smooth(0.6, 0.93, p), pct = Math.round(load * 100);
-    css('--load', load); if (pct !== lastPct) { root.style.setProperty('--pct', String(pct)); lastPct = pct; }
+    css('--load', load); music.setLoad(place === 'capa' ? load : 1);
+    // Planeta pronto: explosãozinha de luz no centro dele (anéis, clarão e faíscas), logo antes do título.
+    if (load > 0.8 && load < 1) { vc.set(0, 0, 0); planet.localToWorld(vc); vc.project(worldCamera); css('--bx', (vc.x * 0.5 + 0.5) * 100); css('--by', (-vc.y * 0.5 + 0.5) * 100); }
+    if (place === 'capa' && load >= 1 && lastLoad > 0 && lastLoad < 1 && !reduced) { burstEl.classList.remove('go'); void burstEl.offsetWidth; burstEl.classList.add('go'); }
+    lastLoad = load;
+    if (pct !== lastPct) { root.style.setProperty('--pct', String(pct)); lastPct = pct; }
     css('--fit', fitFx); css('--merge', merge);
     css('--veil', reduced ? 1 - smooth(0, 0.06, Math.abs(p - 0.5)) : 0);
 

@@ -32,9 +32,10 @@
           <span class="enter">Role para entrar <i aria-hidden="true">↓</i></span>
           <span class="step">01 / Entre</span>
           <span class="actions">
-            <button class="motion-toggle" type="button" aria-pressed="false">Reduzir movimento</button>
-            <button class="auto-toggle" type="button" aria-pressed="true">Automática: ligada</button>
-            <a href="#portfolio">Ir aos projetos</a>
+            <button class="chip sound-chip" type="button" aria-pressed="true"><i class="sw" aria-hidden="true"></i>Som</button>
+            <button class="chip motion-toggle" type="button" aria-pressed="false"><i class="sw" aria-hidden="true"></i>Reduzir movimento</button>
+            <button class="chip auto-toggle" type="button" aria-pressed="true"><i class="sw" aria-hidden="true"></i>Abertura automática</button>
+            <a class="chip go" href="#portfolio">Ir aos projetos <i aria-hidden="true">→</i></a>
           </span>
         </div>
       </div>
@@ -49,21 +50,37 @@
         <button type="button" class="gh-btn" hidden></button>
       </div>
       <div class="train-tip" hidden>Clique para ir na cabine do trem</div>
-      <div class="zone-card" role="dialog" aria-live="polite" hidden>
-        <div class="zone-top">
+      <div class="burst" aria-hidden="true"><span class="b-flash"></span><span class="b-ring"></span><span class="b-ring b-ring2"></span><span class="b-sparks"><i style="--a: 0deg; --d: 0.70"></i><i style="--a: 41deg; --d: 0.88"></i><i style="--a: 60deg; --d: 1.06"></i><i style="--a: 101deg; --d: 0.70"></i><i style="--a: 120deg; --d: 0.88"></i><i style="--a: 161deg; --d: 1.06"></i><i style="--a: 180deg; --d: 0.70"></i><i style="--a: 221deg; --d: 0.88"></i><i style="--a: 240deg; --d: 1.06"></i><i style="--a: 281deg; --d: 0.70"></i><i style="--a: 300deg; --d: 0.88"></i><i style="--a: 341deg; --d: 1.06"></i></span></div>
+      <div class="pois"></div>
+      <button type="button" class="sound-toggle" aria-pressed="false" aria-label="Ligar a música" tabindex="-1"><i aria-hidden="true"><b></b><b></b><b></b><b></b></i><span>Sem música</span></button>
+      <div class="zone-card" role="dialog" hidden>
+        <div class="zone-head">
           <span class="world-label zone-index">Miniverso · São Luís</span>
-          <button type="button" class="zone-close" aria-label="Fechar e voltar ao planeta">×</button>
+          <h3></h3>
+          <button type="button" class="zone-info" aria-expanded="false">Sobre a área</button>
+          <button type="button" class="zone-close" aria-label="Fechar e voltar ao planeta" title="Voltar ao planeta">×</button>
         </div>
-        <h3></h3>
-        <p class="zone-text"></p>
+        <div class="zone-more">
+          <div>
+            <p class="zone-text"></p>
+            <p class="zone-hint">Arraste para girar e olhar de cima · role para aproximar onde está o cursor</p>
+          </div>
+        </div>
+        <div class="zone-tour" hidden>
+          <button type="button" class="poi-nav poi-prev" aria-label="Ponto anterior">‹</button>
+          <div class="poi-now" aria-live="polite">
+            <div class="poi-top"><b class="poi-name"></b><span class="poi-count"></span></div>
+            <p class="poi-text"></p>
+          </div>
+          <button type="button" class="poi-nav poi-next" aria-label="Próximo ponto">›</button>
+          <button type="button" class="poi-play" aria-pressed="false"><i aria-hidden="true"></i>Tour</button>
+        </div>
         <div class="zone-actions">
           <button type="button" class="zone-act"></button>
           <button type="button" class="zone-act zone-act2" hidden></button>
           <button type="button" class="zone-act zone-act3" hidden></button>
-          <button type="button" class="zone-back">← Voltar ao planeta</button>
+          <p class="zone-status" aria-live="polite"></p>
         </div>
-        <p class="zone-status" aria-live="polite"></p>
-        <p class="zone-hint">Arraste para girar e olhar de cima · role para aproximar</p>
       </div>
       <div class="world">
         <div class="world-inner">
@@ -190,9 +207,36 @@ onUnmounted(() => {
   font: 11px var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
 .capa-bar .enter i { font-style: normal; margin-left: 14px; }
 .capa-bar .step { color: var(--muted); }
-.capa-bar .actions { display: flex; justify-content: flex-end; gap: 18px; align-items: center; }
+@media (max-width: 1280px) { .capa-bar { grid-template-columns: auto 1fr; } .capa-bar .step { display: none; } }
+.capa-bar .actions { display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
 .capa-bar button, .capa-bar a { font: inherit; letter-spacing: .04em; text-transform: none; color: var(--ice); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: none; }
 .capa-bar a { border-bottom: 1px solid var(--ice); }
+/* Ajustes da abertura: pílulas de vidro com uma chave liga/desliga (azul quando ligada) e o atalho para os projetos. */
+.capa-bar .chip { display: inline-flex; align-items: center; gap: 9px; padding: 8px 14px 8px 9px; border-radius: 999px; white-space: nowrap;
+  font: 500 12px var(--font-display); letter-spacing: .03em; text-transform: none; color: rgba(233, 234, 243, .92);
+  background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .14); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  transition: color .25s, border-color .25s, background .25s; }
+.capa-bar .chip:hover, .capa-bar .chip:focus-visible { color: #fff; border-color: rgba(127, 233, 255, .6); background: rgba(0, 183, 227, .1); }
+.chip .sw { position: relative; flex: none; width: 24px; height: 14px; border-radius: 999px; background: rgba(255, 255, 255, .2); transition: background .25s; }
+.chip .sw::after { content: ""; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; transition: translate .25s; }
+.chip[aria-pressed="true"] .sw { background: var(--cyan); box-shadow: 0 0 10px rgba(0, 183, 227, .5); }
+.chip[aria-pressed="true"] .sw::after { translate: 10px 0; }
+.capa-bar .chip.go { padding: 8px 14px; color: #fff; border-color: rgba(0, 183, 227, .5); background: rgba(0, 183, 227, .12); }
+.chip.go i { font-style: normal; transition: translate .25s; } .chip.go:hover i { translate: 3px 0; }
+/* Explosãozinha do planeta pronto: clarão, dois anéis de choque e faíscas saindo do centro do planeta. */
+.burst { position: absolute; left: calc(var(--bx, 50) * 1%); top: calc(var(--by, 50) * 1%); width: 0; height: 0; pointer-events: none; }
+.burst span, .burst i { position: absolute; left: 0; top: 0; opacity: 0; }
+.burst .b-sparks { opacity: 1; }
+.b-flash { width: 90vmin; height: 90vmin; margin: -45vmin; border-radius: 50%; background: radial-gradient(circle, #fff 0%, rgba(235, 252, 255, .95) 22%, rgba(120, 225, 255, .6) 45%, rgba(0, 183, 227, .18) 62%, transparent 72%); }
+.b-ring { width: 40vmin; height: 40vmin; margin: -20vmin; border-radius: 50%; border: 3px solid rgba(200, 248, 255, .95); box-shadow: 0 0 30px rgba(0, 183, 227, .8), inset 0 0 30px rgba(0, 183, 227, .5); }
+.b-sparks i { width: 8px; height: 8px; margin: -4px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #7fe9ff, 0 0 20px #00b7e3; }
+.burst.go .b-flash { animation: b-flash 1.1s ease-out both; }
+.burst.go .b-ring { animation: b-ring 1.2s cubic-bezier(.15, .7, .3, 1) both; }
+.burst.go .b-ring2 { animation-delay: .14s; animation-duration: 1.5s; }
+.burst.go .b-sparks i { animation: b-spark calc(var(--d) * 1.4s) cubic-bezier(.1, .8, .3, 1) both; }
+@keyframes b-flash { 0% { opacity: 0; transform: scale(.3); } 10% { opacity: 1; } 35% { opacity: .85; } 100% { opacity: 0; transform: scale(1.3); } }
+@keyframes b-ring { 0% { opacity: 1; transform: scale(.25); } 100% { opacity: 0; transform: scale(2.6); border-width: .5px; } }
+@keyframes b-spark { 0% { opacity: 1; transform: rotate(var(--a)) translateX(4vmin) scale(1.2); } 100% { opacity: 0; transform: rotate(var(--a)) translateX(calc(var(--d) * 46vmin)) scale(.3); } }
 .capa.live button, .capa.live a { pointer-events: auto; }
 
 /* Mundo: título, rótulos das áreas, cartão da área, placar dos minigames. */
@@ -288,21 +332,71 @@ onUnmounted(() => {
 .zone-label.on .go, .zone-label.live:hover .go { max-width: 80px; opacity: 1; }
 .zone-label.live { pointer-events: auto; cursor: pointer; }
 @keyframes label-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 70%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
-/* Cartão da área: faixa e brilho na cor da área, número da área, título com traço e ações marcadas. */
-.zone-card { --c: var(--cyan); position: absolute; left: max(16px, 4vw); bottom: calc(32px + env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100% - 32px));
-  display: grid; gap: 12px; padding: 22px 22px 18px; border-radius: 20px; overflow: hidden;
+/* Barra da área: fina, embaixo e no centro, para a cena ficar livre. Cabeçalho com número e nome, gaveta com o
+   texto completo, legenda do ponto de interesse com setas e tour, e as ações da área. Some quase toda enquanto a
+   pessoa arrasta ou dá zoom. */
+.zone-card { --c: var(--cyan); position: absolute; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); width: min(720px, calc(100% - 32px)); translate: -50% 0;
+  display: grid; gap: 10px; padding: 14px 16px 12px; border-radius: 18px; overflow: hidden; transition: opacity .35s ease;
   background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--c) 20%, transparent), transparent 60%), linear-gradient(160deg, rgba(28, 22, 62, .93), rgba(10, 8, 24, .9));
   border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 30px 70px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .1);
   -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: card-in .5s cubic-bezier(.2, .8, .2, 1); }
 .zone-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--c), transparent 85%); }
 .stage > .zone-card { pointer-events: auto; }
 .zone-card[hidden] { display: none; }
-.zone-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.zone-card .zone-index { color: var(--c); }
-.zone-card .zone-close { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; }
-.zone-card h3 { margin: 0; font: 700 46px/.92 var(--font-title); letter-spacing: .01em; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 35%, transparent); }
-.zone-card h3::after { content: ""; display: block; width: 48px; height: 2px; margin-top: 12px; border-radius: 2px; background: var(--c); }
-.zone-card p { margin: 0; color: #c4c4dc; font-size: 14.5px; line-height: 1.6; }
+.zone-card.busy { opacity: .16; }
+/* Na cabine, compacta no canto esquerdo, longe do painel de instrumentos. */
+.zone-card.compact { left: max(16px, 4vw); translate: 0 0; width: min(420px, calc(100% - 32px)); }
+.zone-head { display: flex; align-items: center; gap: 12px; }
+.zone-card .zone-index { color: var(--c); white-space: nowrap; }
+.zone-card .zone-close { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
+.zone-card h3 { flex: 1; min-width: 0; margin: 0; font: 700 28px/1 var(--font-title); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 35%, transparent); }
+.zone-card p { margin: 0; color: #c4c4dc; font-size: 14px; line-height: 1.55; }
+.zone-card .zone-info { flex: none; padding: 7px 13px; font-size: 12px; }
+.zone-card .zone-info::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(-135deg); transition: transform .3s; }
+.zone-card.open .zone-info { border-color: var(--c); }
+.zone-card.open .zone-info::after { transform: translateY(1px) rotate(45deg); }
+.zone-more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s cubic-bezier(.2, .8, .2, 1); }
+.zone-more > div { display: grid; gap: 8px; min-height: 0; overflow: hidden; }
+.zone-card.open .zone-more { grid-template-rows: 1fr; }
+.zone-more[hidden], .zone-tour[hidden], .zone-card .zone-info[hidden], .zone-card .zone-close[hidden] { display: none; }
+.zone-tour { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; padding: 10px 0; border-block: 1px solid rgba(255, 255, 255, .08); }
+.poi-now { display: grid; gap: 3px; min-width: 0; }
+.poi-top { display: flex; align-items: baseline; gap: 10px; }
+.poi-name { font: 600 14px var(--font-display); color: #fff; }
+.poi-count { font: 10px var(--font-mono); letter-spacing: .1em; color: var(--c); white-space: nowrap; }
+.zone-card .poi-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.zone-card .poi-nav { display: grid; place-items: center; width: 36px; height: 36px; padding: 0 0 2px; font-size: 22px; line-height: 1; }
+.zone-card .poi-play { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.poi-play i { width: 0; height: 0; border-block: 5px solid transparent; border-left: 8px solid var(--c); }
+.poi-play[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
+.poi-play[aria-pressed="true"] i { width: 8px; height: 10px; border: 0; border-inline: 3px solid var(--c); }
+/* Botão da música: pílula de vidro no canto de cima; as barrinhas dançam com a música ligada. */
+.sound-toggle { position: absolute; right: max(16px, 4vw); top: calc(84px + env(safe-area-inset-top, 0px)); display: inline-flex; align-items: center; gap: 9px; padding: 8px 14px 8px 12px; border-radius: 999px;
+  font: 600 11px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .7); cursor: pointer;
+  background: rgba(16, 12, 36, .62); border: 1px solid rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .4s, border-color .25s, color .25s; }
+.sound-toggle.live { opacity: 1; pointer-events: auto; }
+.sound-toggle:hover { border-color: rgba(0, 183, 227, .7); color: #fff; }
+.sound-toggle[aria-pressed="true"] { color: #fff; border-color: rgba(0, 183, 227, .55); box-shadow: 0 8px 24px rgba(0, 0, 0, .35), 0 0 18px rgba(0, 183, 227, .25); }
+.sound-toggle i { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
+.sound-toggle b { width: 2px; height: 3px; border-radius: 1px; background: currentColor; transition: height .3s; }
+.sound-toggle[aria-pressed="true"] b { background: var(--cyan); animation: eq 1.1s ease-in-out infinite; }
+.sound-toggle[aria-pressed="true"] b:nth-child(2) { animation-delay: -.35s; } .sound-toggle[aria-pressed="true"] b:nth-child(3) { animation-delay: -.7s; } .sound-toggle[aria-pressed="true"] b:nth-child(4) { animation-delay: -.2s; }
+@keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
+.game-hud:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
+/* Marcadores numerados dos pontos de interesse: o nome aparece ao passar o mouse. */
+.pois { --c: var(--cyan); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.pois :deep(.poi) { position: absolute; left: -15px; top: -15px; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #fff; cursor: pointer; opacity: 0; transition: opacity .3s; }
+.pois :deep(.poi.live) { pointer-events: auto; }
+.pois :deep(.poi b) { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font: 700 13px var(--font-display);
+  background: rgba(10, 8, 24, .78); border: 1.5px solid var(--c); box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 0 14px color-mix(in srgb, var(--c) 45%, transparent);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: transform .25s, background .25s; }
+.pois :deep(.poi b)::after { content: ""; position: absolute; inset: -2px; border-radius: 50%; animation: poi-pulse 2.6s ease-out infinite; }
+.pois :deep(.poi span) { max-width: 0; margin-left: 0; padding: 5px 0; overflow: hidden; white-space: nowrap; opacity: 0; border-radius: 999px;
+  font: 600 11px var(--font-display); letter-spacing: .1em; text-transform: uppercase; background: rgba(10, 8, 24, .82); transition: max-width .3s, opacity .3s, margin .3s, padding .3s; }
+.pois :deep(.poi:hover b), .pois :deep(.poi:focus-visible b) { transform: scale(1.12); background: color-mix(in srgb, var(--c) 40%, rgba(10, 8, 24, .8)); }
+.pois :deep(.poi:hover span), .pois :deep(.poi:focus-visible span) { max-width: 220px; margin-left: 8px; padding: 5px 12px; opacity: 1; }
+@keyframes poi-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 60%, transparent); } 100% { box-shadow: 0 0 0 12px transparent; } }
 .zone-card button { justify-self: start; font: 500 13px var(--font-display); color: var(--ice); background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .18);
   border-radius: 999px; padding: 9px 15px; cursor: pointer; transition: background .2s, border-color .2s, transform .2s; }
 .zone-card button:hover { border-color: var(--c); transform: translateY(-1px); }
@@ -310,10 +404,11 @@ onUnmounted(() => {
 .zone-card .zone-act { font-weight: 600; color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
 .zone-card .zone-act:hover { background: color-mix(in srgb, var(--c) 36%, transparent); }
 .zone-card .zone-status { min-height: 1.4em; font: 11px/1.4 var(--font-mono); letter-spacing: .06em; color: var(--c); }
-.zone-card .zone-hint { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .08); font: 11px/1.4 var(--font-mono); letter-spacing: .04em; color: rgba(255, 255, 255, .55); }
+.zone-card .zone-hint { font: 11px/1.4 var(--font-mono); letter-spacing: .04em; color: rgba(255, 255, 255, .55); }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .zone-label .dot, .zone-card { animation: none; } }
-.zone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.zone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.zone-actions .zone-status { flex: 1 1 180px; min-height: 0; }
 .game-hud { position: absolute; left: 50%; top: calc(88px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; min-width: min(340px, calc(100% - 32px)); padding: 14px 20px; border-radius: 16px;
   background: rgba(20, 12, 42, .82); border: 1px solid #ff4fd8; box-shadow: 0 0 24px rgba(255, 79, 216, .35); text-align: center; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .game-hud[hidden] { display: none; }
@@ -339,15 +434,21 @@ onUnmounted(() => {
 
 /* Sem WebGL: fica só a capa, curta, e o site segue. */
 .no-webgl { height: 100vh; height: 100svh; }
-.no-webgl .back-planet, .no-webgl .travel, .no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle { display: none; }
+.no-webgl .back-planet, .no-webgl .travel, .no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle, .no-webgl .capa-bar .sound-chip { display: none; }
 
 @media (max-width: 760px) {
   .capa-top { top: calc(84px + env(safe-area-inset-top, 0px)); font-size: 9px; }
   .capa-bottom { flex-direction: column; align-items: flex-start; gap: 10px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
   .capa-bar { grid-template-columns: 1fr; }
   .capa-bar .step, .capa-bar .enter { display: none; }
-  .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px 16px; }
+  .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+  .capa-bar .chip { padding: 7px 11px 7px 8px; font-size: 11px; gap: 7px; }
 }
-@media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; } .zone-card h3 { font-size: 38px; } }
-.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card, .reduced .planet-exit i::before { animation: none; }
+@media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; }
+  .zone-card { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 20px); padding: 12px 12px 10px; gap: 8px; }
+  .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .zone-card .zone-info { padding: 6px 10px; }
+  .zone-tour { grid-template-columns: auto 1fr auto; gap: 8px; } .zone-card .poi-play { grid-column: 1 / -1; justify-self: center; padding: 7px 14px; }
+  .zone-card .poi-nav { width: 32px; height: 32px; } .zone-card .zone-act { padding: 8px 12px; font-size: 12px; } }
+.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card, .reduced .planet-exit i::before, .reduced .pois :deep(.poi b)::after, .reduced .sound-toggle b { animation: none; }
+.reduced .chip .sw::after { transition: none; }
 </style>
