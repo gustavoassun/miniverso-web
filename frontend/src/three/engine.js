@@ -268,7 +268,7 @@ export function createMiniverso(rootEl, opts = {}) {
 
   // Abertura automática: rolando um pouco, mini e verso se juntam; dali em diante a abertura segue sozinha.
   // Ligada por padrão, pode ser desligada (fica lembrado). Rolar para cima devolve o controle.
-  const AUTO_KEY = 'miniverso-abertura-auto', JOINED = 0.09;
+  const AUTO_KEY = 'miniverso-abertura-auto', JOINED = 0.02;                     // um gesto de rolagem já dispara a abertura
   let autoOn = true, auto = null, touchY = 0;
   try { autoOn = localStorage.getItem(AUTO_KEY) !== '0'; } catch {}
   const autoBtn = $('.auto-toggle');
@@ -282,23 +282,94 @@ export function createMiniverso(rootEl, opts = {}) {
   setAutoOn(autoOn, false);
   const introEnd = () => intro.offsetTop + intro.offsetHeight - innerHeight;
   let lastProgress = clamp(scrollY / introEnd());
-  // Dois trechos: o óculos vem até o rosto e entra (rápido, ~4 s) e o planeta se forma (com calma, ~7 s).
-  const SPLIT = 0.68, AUTO_IN = 4200, AUTO_PLANET = 6800;
+  // Dois trechos: o óculos vem até o rosto e entra (~3,4 s, ágil mas sem pressa) e o planeta se forma (com calma, ~7 s).
+  const SPLIT = 0.42, AUTO_IN = 3400, AUTO_PLANET = 6800;
   function startAuto() {
     const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
     auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
   }
-  function intercept(e, down) {
-    if (!auto) return;
-    if (down) { if (e.cancelable) e.preventDefault(); } else auto = null;
+  // Três lugares, cada um no seu canto, ligados por um portal:
+  // - capa: a abertura (óculos e formação do planeta) só anda para a frente; rolar para cima não a desfaz;
+  // - planeta: rolar não sai dele; "Explorar o site" vai às seções e "Voltar ao início" volta à capa;
+  // - site: rolar para cima para no topo das seções (a trava age antes de passar) e o planeta nem é desenhado;
+  //   "Voltar ao planeta" (botão flutuante) volta ao planeta já pronto.
+  // Os links do menu levam à seção (pelo portal, se vierem da capa ou do planeta); o logo volta ao início.
+  // Durante o portal, a rolagem da pessoa é ignorada.
+  const siteTop = () => intro.offsetTop + intro.offsetHeight;
+  const exitBtn = $('.planet-exit'), homeBtn = $('.planet-home'), backBtn = document.querySelector('.back-planet');
+  const travel = document.querySelector('.travel'), travelLabel = travel?.querySelector('.travel-label');
+  const SECTIONS = { sobre: 'O estúdio', portfolio: 'Projetos', contato: 'Contato' };
+  let place = 'capa', maxY = 0, freeUntil = 0, travelling = false;
+  const free = () => travelling || performance.now() < freeUntil;
+  function setPlace(p) {
+    place = p; if (p === 'capa') maxY = scrollY;
+    rootEl.classList.toggle('away', p === 'site');
+    if (backBtn) { backBtn.classList.toggle('show', p === 'site'); backBtn.tabIndex = p === 'site' ? 0 : -1; }
   }
-  on(window, 'wheel', e => intercept(e, e.deltaY > 0), { passive: false });
+  const nudge = () => { if (!exitBtn) return; exitBtn.classList.remove('nudge'); void exitBtn.offsetWidth; exitBtn.classList.add('nudge'); };
+  // Portal: um círculo com borda ciana se abre a partir do botão clicado e cobre a tela (fundo índigo estrelado, mini
+  // planeta com anel, destino e linha de carregamento); a página salta para o destino sem refazer a abertura e o
+  // círculo se fecha no centro, revelando o lugar novo.
+  function travelTo(y, label, dest, from, after) {
+    if (travelling || !travel) return;
+    auto = null; travelling = true;
+    const r = from?.getBoundingClientRect?.();
+    travel.style.setProperty('--ox', r ? `${(r.left + r.width / 2).toFixed(0)}px` : '50%');
+    travel.style.setProperty('--oy', r ? `${(r.top + r.height / 2).toFixed(0)}px` : '50%');
+    travelLabel.textContent = label; travel.classList.remove('out'); travel.classList.add('on');
+    const k = reduced ? 0.15 : 1;
+    setTimeout(() => {
+      const top = typeof y === 'function' ? y() : y;
+      rootEl.classList.remove('away');
+      scrollTo({ top, behavior: 'instant' }); eased = lastProgress = clamp(top / introEnd()); setPlace(dest);
+      if (after) after(); else opts.cleanUrl?.();
+      travel.classList.add('out');
+      setTimeout(() => { travel.classList.remove('on', 'out'); travelling = false; freeUntil = performance.now() + 150; }, 900 * k);
+    }, 1200 * k);
+  }
+  on(exitBtn, 'click', () => travelTo(siteTop, 'Explorando o site', 'site', exitBtn));
+  on(homeBtn, 'click', () => travelTo(0, 'Voltando ao início', 'capa', homeBtn));
+  on(backBtn, 'click', () => travelTo(introEnd, 'Voltando ao planeta', 'planet', backBtn));
+  on(document, 'click', e => {
+    const a = e.target.closest?.('a'); if (!a || !a.href) return;
+    const url = new URL(a.href, location.href);
+    if (url.origin !== location.origin || url.pathname !== '/') return;
+    if (travelling) { e.preventDefault(); return; }
+    if (url.hash) {
+      if (place === 'site') return;                                                         // já no site: o roteador rola até a seção
+      const id = url.hash.slice(1), el = document.getElementById(id); if (!el) return;
+      e.preventDefault();
+      travelTo(() => el.getBoundingClientRect().top + scrollY - 24, `Indo para ${SECTIONS[id] || 'o site'}`, 'site', a, () => opts.setHash?.(url.hash));
+    } else if (place !== 'capa' || scrollY > 2) { e.preventDefault(); travelTo(0, 'Voltando ao início', 'capa', a); }  // logo
+  }, true);
+  // Vindo de outra página direto para uma seção (ex.: /login → /#contato): o roteador rola e o lugar é o site.
+  if (location.hash) { freeUntil = performance.now() + 2500; setTimeout(() => setPlace(scrollY >= siteTop() - 2 ? 'site' : 'capa'), 2600); }
+  on(window, 'scroll', () => {
+    if (free() || auto) { if (place === 'capa') maxY = Math.max(maxY, scrollY); return; }
+    const y = scrollY, end = introEnd();
+    if (place === 'capa') {
+      if (y < maxY - 4) scrollTo({ top: maxY, behavior: 'instant' });
+      else { maxY = Math.max(maxY, y); if (y >= end - 2) setPlace('planet'); }
+    } else if (place === 'planet' && Math.abs(y - end) > 1) { scrollTo({ top: end, behavior: 'instant' }); nudge(); }
+    else if (place === 'site' && y < siteTop() - 1) scrollTo({ top: siteTop(), behavior: 'instant' });
+  }, { passive: true });
+  // px: quanto a rolagem pretende subir; no site, se for passar do topo das seções, para exatamente nele.
+  function intercept(e, down, px = 0) {
+    const block = () => { if (e.cancelable) e.preventDefault(); };
+    if (free()) { block(); return; }
+    if (place === 'planet') { block(); nudge(); }
+    else if (place === 'site') {
+      if (!down && scrollY - Math.abs(px) < siteTop() + 2) { block(); if (scrollY > siteTop() + 1) scrollTo({ top: siteTop(), behavior: 'smooth' }); }
+    } else if (place === 'capa' && ((!down && scrollY > 0) || (down && auto))) block();
+  }
+  const wheelPx = e => e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * innerHeight : e.deltaY;
+  on(window, 'wheel', e => intercept(e, e.deltaY > 0, wheelPx(e)), { passive: false });
   on(window, 'touchstart', e => { touchY = e.touches[0].clientY; }, { passive: true });
-  on(window, 'touchmove', e => { const dy = touchY - e.touches[0].clientY; if (Math.abs(dy) > 4) intercept(e, dy > 0); else if (auto && e.cancelable) e.preventDefault(); }, { passive: false });
+  on(window, 'touchmove', e => { const dy = touchY - e.touches[0].clientY; if (Math.abs(dy) > 4) intercept(e, dy > 0, dy * 3); else if ((auto || free()) && e.cancelable) e.preventDefault(); }, { passive: false });
   on(window, 'keydown', e => {
     if (e.target.closest && e.target.closest('button, a, input, textarea, canvas')) return;
     if (['ArrowDown', 'PageDown', ' ', 'End'].includes(e.key)) intercept(e, true);
-    else if (['ArrowUp', 'PageUp', 'Home'].includes(e.key)) intercept(e, false);
+    else if (['ArrowUp', 'PageUp', 'Home'].includes(e.key)) intercept(e, false, e.key === 'ArrowUp' ? 80 : e.key === 'Home' ? 1e9 : innerHeight);
   });
   const autoEase = t => -(Math.cos(Math.PI * t) - 1) / 2;
 
@@ -325,7 +396,7 @@ export function createMiniverso(rootEl, opts = {}) {
       const y = el < auto.d1 ? mix(auto.from, auto.split, autoEase(el / auto.d1)) : mix(auto.split, auto.to, autoEase(clamp((el - auto.d1) / auto.d2)));
       // 'instant': o site usa rolagem suave no CSS, que reiniciaria a cada quadro e travaria a animação.
       scrollTo({ top: y, behavior: 'instant' });
-      if (el >= auto.d1 + auto.d2) auto = null;
+      if (el >= auto.d1 + auto.d2) { auto = null; if (place === 'capa' && scrollY >= introEnd() - 2) setPlace('planet'); }
     }
     if (!visible || document.hidden) return;
     if (!reduced) clock += dt;
@@ -333,14 +404,15 @@ export function createMiniverso(rootEl, opts = {}) {
     const alive = reduced ? 0 : 1;
 
     const progress = clamp(scrollY / introEnd());
-    if (!auto && autoOn && !reduced && lastProgress < JOINED && progress >= JOINED && progress < 0.6) startAuto();
+    if (!auto && autoOn && !reduced && place === 'capa' && lastProgress < JOINED && progress >= JOINED && progress < 0.6) startAuto();
     lastProgress = progress;
     // Avisa o site: progresso da abertura e se o planeta já saiu de cena (a página segue abaixo dele).
     const passed = scrollY > introEnd() + innerHeight * 0.25;
     if (Math.abs(progress - sentProgress) > 0.0005 || reduced !== sentReduced || passed !== sentPassed) { sentProgress = progress; sentReduced = reduced; sentPassed = passed; opts.onFrame?.({ progress, reduced, passed }); }
     eased += (progress - eased) * (1 - Math.exp(-dt * (reduced || auto ? 30 : 9)));
-    // O primeiro décimo da rolagem cuida só da junção do nome (pouca rolagem); o resto segue a linha do tempo.
-    const pRaw = eased, p = pRaw < 0.1 ? pRaw * 2 : 0.2 + (pRaw - 0.1) / 0.9 * 0.8;
+    // Rolagem → linha do tempo: junção do nome (7% da rolagem), óculos até o mundo (35%) e o planeta, que fica com
+    // a maior parte (58%) para a formação ter calma.
+    const pRaw = eased, p = pRaw < 0.07 ? pRaw / 0.07 * 0.2 : pRaw < 0.42 ? 0.2 + (pRaw - 0.07) / 0.35 * 0.52 : 0.72 + (pRaw - 0.42) / 0.58 * 0.28;
 
     // Linha do tempo (0 a 1). Fases encadeadas, sem pausas.
     const enter = reduced ? 1 : easeOut(clamp((now - t0 - 150) / 1900));
@@ -540,6 +612,8 @@ export function createMiniverso(rootEl, opts = {}) {
     css('--spark', smooth(0.17, 0.2, p) * (1 - smooth(0.22, 0.28, p)) * alive);
     css('--hint', 1 - smooth(0.01, 0.05, p));
     css('--world', worldUi * (1 - focusT)); css('--p', pRaw);
+    const exitLive = worldLive && focusT < 0.5;
+    if (exitBtn && exitBtn.classList.contains('live') !== exitLive) for (const b of [exitBtn, homeBtn]) { b.classList.toggle('live', exitLive); b.tabIndex = exitLive ? 0 : -1; }
     css('--forming', reduced ? 0 : smooth(0.6, 0.66, p) * (1 - smooth(0.9, 0.95, p))); css('--reveal', reveal);
     // Tela de carregamento da formação: progresso de 0 a 100% das partículas até a faixa de luz terminar.
     const load = reduced ? 1 : smooth(0.6, 0.93, p), pct = Math.round(load * 100);

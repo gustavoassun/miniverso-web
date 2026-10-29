@@ -70,19 +70,41 @@
           <span class="world-label">Dentro do Miniverso</span>
           <h2>Ideias que você pode vivenciar</h2>
           <span class="world-tip">Arraste em qualquer direção para girar · clique numa área para ver de perto</span>
+          <div class="planet-actions">
+            <button type="button" class="planet-home" tabindex="-1"><i aria-hidden="true"></i><span>Voltar ao início</span></button>
+            <button type="button" class="planet-exit" tabindex="-1"><span>Explorar o site</span><i aria-hidden="true"></i></button>
+          </div>
         </div>
       </div>
       <div class="veil" aria-hidden="true"></div>
       <div class="meter" aria-hidden="true"><i></i></div>
     </div>
+    <!-- No corpo da página (acima das seções): o botão flutuante do site e a cortina das transições. -->
+    <Teleport to="body">
+      <button type="button" class="back-planet" tabindex="-1"><i class="orb" aria-hidden="true"></i><span>Voltar ao planeta</span></button>
+      <div class="travel" aria-hidden="true">
+        <i class="travel-ring"></i>
+        <div class="travel-core">
+          <i class="travel-orb"></i>
+          <span class="travel-kicker">Miniverso</span>
+          <b class="travel-label"></b>
+          <i class="travel-line"></i>
+        </div>
+      </div>
+    </Teleport>
   </section>
 </template>
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ZONE_COLORS, ZONE_NAMES } from '../three/zoneNames.js';
 
 const emit = defineEmits(['scene-change']);
+const route = useRoute(), router = useRouter();
+// Depois de uma transição (início ou planeta), o endereço perde o "#seção" sem mexer na rolagem.
+const cleanUrl = () => { if (route.hash) router.replace({ path: '/', query: route.query }); };
+const setHash = hash => router.replace({ path: '/', query: route.query, hash });
 const root = ref(null);
 const failed = ref(false);
 const sceneLabel = `Óculos de realidade virtual em 3D. Arraste ou use as setas para girar; toque no visor ou pressione Enter para acendê-lo. Ao final da abertura, um pequeno planeta com as áreas da Miniverso (${ZONE_NAMES.join(', ')}) pode ser girado em qualquer direção; cada área abre de perto com uma pequena interação.`;
@@ -93,7 +115,7 @@ onMounted(async () => {
     // O Three.js e o planeta vêm num pacote separado, carregado depois que a página já apareceu.
     const { createMiniverso } = await import('../three/engine.js');
     if (unmounted) return;
-    engine = createMiniverso(root.value, { onFrame: state => emit('scene-change', state) });
+    engine = createMiniverso(root.value, { onFrame: state => emit('scene-change', state), cleanUrl, setHash });
   } catch (error) {
     // Sem WebGL (ou falha ao carregar): a capa continua legível e o site segue normalmente.
     console.warn('Abertura 3D indisponível:', error);
@@ -130,8 +152,8 @@ onUnmounted(() => {
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
 .name-row { display: flex; transform: scale(var(--ns, 1)); opacity: var(--names, 1); will-change: transform; }
 .name-row span { display: block; }
-.mini { transform: translateX(calc((1 - var(--join, 0)) * var(--mini-x, -30vw))); animation: reveal-l 1s cubic-bezier(.2, .7, .2, 1) 1s both; }
-.verso { transform: translateX(calc((1 - var(--join, 0)) * var(--verso-x, 30vw))); animation: reveal-r 1s cubic-bezier(.2, .7, .2, 1) 1.12s both; }
+.mini { transform: translateX(calc((1 - var(--join, 0)) * var(--mini-x, -30vw))); animation: reveal-l 1s cubic-bezier(.2, .7, .2, 1) .7s both; }
+.verso { transform: translateX(calc((1 - var(--join, 0)) * var(--verso-x, 30vw))); animation: reveal-r 1s cubic-bezier(.2, .7, .2, 1) .82s both; }
 @keyframes reveal-l { from { clip-path: inset(0 0 0 100%); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
 @keyframes reveal-r { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
 .spark { position: absolute; left: 50%; top: 50%; width: min(56vw, 760px); height: 1px; transform: translate(-50%, -50%) scaleX(var(--spark, 0)); opacity: var(--spark, 0);
@@ -180,6 +202,76 @@ onUnmounted(() => {
 .world-label { font: 10px var(--font-mono); letter-spacing: .18em; color: var(--cyan); text-transform: uppercase; }
 .world h2 { margin: 0; max-width: 16ch; font: 700 clamp(44px, 6.4vw, 88px)/.95 var(--font-title); letter-spacing: .01em; text-wrap: balance; text-shadow: 0 2px 30px rgba(12, 4, 7, .9); }
 .world-tip { font: 10px var(--font-mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+/* Saída do planeta para o resto do site: botão de vidro com a seta descendo; pulsa quando a pessoa tenta rolar. */
+.planet-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+.planet-home { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px 12px 12px; border-radius: 999px; cursor: pointer; pointer-events: none;
+  font: 600 12px var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: var(--ice);
+  background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .2); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); transition: transform .25s, border-color .25s; }
+.planet-home.live { pointer-events: auto; }
+.planet-home:hover { transform: translateY(-2px); border-color: var(--cyan); }
+.planet-home i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, .1); }
+.planet-home i::before { content: ""; width: 6px; height: 6px; border-left: 2px solid #fff; border-top: 2px solid #fff; transform: translateY(2px) rotate(45deg); }
+.planet-exit { display: inline-flex; align-items: center; gap: 12px; padding: 12px 14px 12px 22px; border-radius: 999px; cursor: pointer;
+  font: 600 12px var(--font-display); letter-spacing: .16em; text-transform: uppercase; color: #fff; pointer-events: none;
+  background: linear-gradient(135deg, rgba(0, 183, 227, .24), rgba(30, 22, 69, .6)); border: 1px solid rgba(0, 183, 227, .55);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .4), 0 0 24px rgba(0, 183, 227, .25), inset 0 1px 0 rgba(255, 255, 255, .15); transition: transform .25s, box-shadow .25s; }
+.planet-exit.live { pointer-events: auto; }
+.planet-exit:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(0, 0, 0, .45), 0 0 38px rgba(0, 183, 227, .45), inset 0 1px 0 rgba(255, 255, 255, .18); }
+.planet-exit i { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(255, 255, 255, .12); }
+.planet-exit i::before { content: ""; width: 6px; height: 6px; border-right: 2px solid #fff; border-bottom: 2px solid #fff; transform: translateY(-2px) rotate(45deg); animation: exit-bob 1.8s ease-in-out infinite; }
+.planet-exit.nudge { animation: exit-nudge .9s ease; }
+@keyframes exit-bob { 50% { transform: translateY(1px) rotate(45deg); } }
+@keyframes exit-nudge { 0% { box-shadow: 0 10px 30px rgba(0, 0, 0, .4), 0 0 0 0 rgba(0, 183, 227, .7); } 30% { transform: scale(1.06); } 100% { box-shadow: 0 10px 30px rgba(0, 0, 0, .4), 0 0 0 20px rgba(0, 183, 227, 0); } }
+/* Botão flutuante do site para voltar ao planeta: um mini planeta com anel e o texto, sempre à mão. */
+.back-planet { position: fixed; right: max(16px, 3vw); bottom: calc(60px + env(safe-area-inset-bottom, 0px)); z-index: 30; display: flex; align-items: center; gap: 10px;
+  padding: 7px 18px 7px 7px; border-radius: 999px; cursor: pointer; font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: #fff;
+  background: linear-gradient(135deg, rgba(0, 183, 227, .22), rgba(30, 22, 69, .88)); border: 1px solid rgba(0, 183, 227, .5);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); box-shadow: 0 12px 30px rgba(0, 0, 0, .4), 0 0 22px rgba(0, 183, 227, .2);
+  opacity: 0; transform: translateY(16px); pointer-events: none; transition: opacity .45s, transform .45s, box-shadow .25s; }
+.back-planet.show { opacity: 1; transform: none; pointer-events: auto; }
+.back-planet:hover { box-shadow: 0 14px 34px rgba(0, 0, 0, .45), 0 0 34px rgba(0, 183, 227, .45); }
+.back-planet .orb { position: relative; width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 35% 32%, #9fefff, #1e4488 58%, #0c1a3a); box-shadow: 0 0 14px rgba(0, 183, 227, .6); }
+.back-planet .orb::after { content: ""; position: absolute; left: -6px; right: -6px; top: 11px; bottom: 11px; border: 1.5px solid rgba(255, 255, 255, .75); border-radius: 50%; transform: rotate(-18deg); }
+/* Portal entre capa, planeta e site: um círculo com borda ciana se abre a partir do botão clicado (fundo índigo com
+   estrelas, mini planeta com anel e satélite, destino e linha de carregamento) e depois se fecha no centro. */
+.travel { --ox: 50%; --oy: 50%; position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; visibility: hidden; pointer-events: none;
+  background: radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, .7), transparent), radial-gradient(1px 1px at 78% 30%, rgba(255, 255, 255, .6), transparent),
+    radial-gradient(1.5px 1.5px at 30% 76%, rgba(159, 239, 255, .8), transparent), radial-gradient(1px 1px at 88% 82%, rgba(255, 255, 255, .55), transparent),
+    radial-gradient(1px 1px at 56% 12%, rgba(255, 255, 255, .5), transparent), radial-gradient(1.5px 1.5px at 18% 60%, rgba(255, 255, 255, .45), transparent),
+    radial-gradient(circle at 50% 46%, #261c5e, #0b0820 58%, #05040c);
+  clip-path: circle(0 at var(--ox) var(--oy)); }
+.travel.on { visibility: visible; pointer-events: auto; clip-path: circle(150vmax at var(--ox) var(--oy)); transition: clip-path .85s cubic-bezier(.7, 0, .25, 1); }
+.travel.on.out { clip-path: circle(0 at 50% 50%); transition: clip-path .85s cubic-bezier(.7, 0, .25, 1); }
+.travel-ring { position: fixed; left: var(--ox); top: var(--oy); width: 300vmax; height: 300vmax; margin: -150vmax 0 0 -150vmax; border-radius: 50%;
+  border: 2px solid rgba(0, 183, 227, .9); box-shadow: 0 0 40px rgba(0, 183, 227, .8), inset 0 0 60px rgba(0, 183, 227, .45); transform: scale(0); }
+.travel.on .travel-ring { transform: scale(1); transition: transform .85s cubic-bezier(.7, 0, .25, 1); }
+.travel.on.out .travel-ring { left: 50%; top: 50%; transform: scale(0); transition: transform .85s cubic-bezier(.7, 0, .25, 1), left .85s, top .85s; }
+.travel-core { display: grid; justify-items: center; gap: 12px; opacity: 0; transform: translateY(10px) scale(.96); transition: opacity .35s, transform .35s; }
+.travel.on .travel-core { opacity: 1; transform: none; transition: opacity .5s .45s, transform .5s .45s; }
+.travel.on.out .travel-core { opacity: 0; transform: scale(1.05); transition: opacity .3s, transform .3s; }
+.travel-orb { position: relative; width: 64px; height: 64px; margin-bottom: 8px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 32%, #b8f4ff, #2a7fd0 45%, #1e1645 82%); box-shadow: 0 0 34px rgba(0, 183, 227, .55), inset -8px -10px 18px rgba(0, 0, 0, .45); }
+.travel-orb::after { content: ""; position: absolute; left: -18px; right: -18px; top: 24px; bottom: 24px; border: 2px solid rgba(255, 255, 255, .8); border-radius: 50%; transform: rotate(-18deg); }
+.travel-orb::before { content: ""; position: absolute; left: 29px; top: 29px; width: 6px; height: 6px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px #9fefff; animation: travel-sat 1.8s linear infinite; }
+@keyframes travel-sat { from { transform: rotate(0deg) translateX(46px); } to { transform: rotate(360deg) translateX(46px); } }
+.travel-kicker { padding-left: .42em; font: 10px var(--font-mono); letter-spacing: .42em; text-transform: uppercase; color: var(--cyan); text-shadow: 0 0 14px rgba(0, 183, 227, .7); }
+.travel-label { font: 600 clamp(20px, 2.4vw, 28px) var(--font-display); color: #fff; letter-spacing: .01em; }
+.travel-line { position: relative; width: 180px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .12); }
+.travel-line::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #0a7fa3, var(--cyan), #fff); box-shadow: 0 0 12px var(--cyan); }
+.travel.on .travel-line::after { transform: scaleX(1); transition: transform 1s ease .3s; }
+/* No site, o palco do planeta nem é desenhado: subir além do topo das seções nunca mostra o planeta pela metade. */
+.miniverso-intro.away .stage { visibility: hidden; }
+/* Apresentação ao abrir a página: o óculos surge com calma e a capa entra em sequência, sem tudo de uma vez. */
+.scene-canvas { animation: intro-fade 1.6s ease .1s both; }
+.capa-top span { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .45s both; }
+.capa-top span + span { animation-delay: .6s; }
+.capa-bottom h1 { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .9s both; }
+.capa-bottom p { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.05s both; }
+.capa-bar { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.25s both; }
+@keyframes intro-fade { from { opacity: 0; transform: scale(1.04); } }
+@keyframes intro-rise { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } }
 /* Rótulo da área: etiqueta de vidro com o ponto na cor da área e uma haste fina que desce até ela. */
 .zone-label { --c: var(--cyan); position: absolute; left: 0; top: 0; display: grid; justify-items: center; padding: 0; border: 0; background: none;
   font: inherit; color: var(--ice); opacity: 0; white-space: nowrap; }
@@ -247,7 +339,7 @@ onUnmounted(() => {
 
 /* Sem WebGL: fica só a capa, curta, e o site segue. */
 .no-webgl { height: 100vh; height: 100svh; }
-.no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle { display: none; }
+.no-webgl .back-planet, .no-webgl .travel, .no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle { display: none; }
 
 @media (max-width: 760px) {
   .capa-top { top: calc(84px + env(safe-area-inset-top, 0px)); font-size: 9px; }
@@ -257,5 +349,5 @@ onUnmounted(() => {
   .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px 16px; }
 }
 @media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; } .zone-card h3 { font-size: 38px; } }
-.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card { animation: none; }
+.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card, .reduced .planet-exit i::before { animation: none; }
 </style>

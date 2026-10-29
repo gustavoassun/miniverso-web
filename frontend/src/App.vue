@@ -43,6 +43,9 @@ a { color: inherit; }
 .skip-link { position: fixed; z-index: 100; top: 12px; left: 12px; padding: 12px 18px; color: #060710; background: #8fe1ee; transform: translateY(-180%); }
 .skip-link:focus { transform: translateY(0); }
 .app-header { position: relative; z-index: 20; background: #0a0b16; color: #e9eaf3; }
+/* Na Home, o cabeçalho entra com suavidade junto com a capa. */
+.immersive-shell .app-header { animation: header-in .9s ease .25s both; }
+@keyframes header-in { from { opacity: 0; transform: translateY(-8px); } }
 .immersive-shell .app-header { position: absolute; top: 0; left: 0; right: 0; background: transparent; }
 .navbar { height: 102px; margin: 0 5%; display: flex; justify-content: space-between; align-items: center; gap: 28px; border-bottom: 1px solid #9d99b22b; }
 .brand { display: inline-flex; align-items: center; min-height: 44px; }
