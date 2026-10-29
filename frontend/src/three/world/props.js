@@ -4,16 +4,15 @@ import { box, cyl, mat, sag } from './build.js';
 import { C } from './palette.js';
 import { animated } from './runtime.js';
 
-function palm(g, x, z, h = 0.12) {
-  const y = sag(x, z), lean = (R() - 0.5) * 0.2;
+function palm(g, x, z, h = 0.12, y = sag(x, z)) {
+  const lean = (R() - 0.5) * 0.2;
   const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.006, h, 5), mat(C.trunk)); trunk.position.set(x, y + h / 2, z); trunk.rotation.z = lean; g.add(trunk);
   for (let k = 0; k < 7; k++) {
     const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.003, 0.013), mat('#3aa58c')); leaf.geometry.translate(0.027, 0, 0);
     leaf.position.set(x - Math.sin(lean) * h, y + h, z); leaf.rotation.set(0, k / 7 * TAU, -0.5); g.add(leaf);
   }
 }
-function tree(g, x, z, s = 1, color = '#3aa58c') {
-  const y = sag(x, z);
+function tree(g, x, z, s = 1, color = '#3aa58c', y = sag(x, z)) {
   cyl(0.004 * s, 0.025 * s, C.trunk, x, y, z, g, 5);
   const crown = new THREE.Mesh(new THREE.ConeGeometry(0.024 * s, 0.06 * s, 6), mat(color)); crown.position.set(x, y + 0.05 * s, z); g.add(crown);
 }
@@ -54,6 +53,13 @@ const lamp = (g, x, z, y, h = 0.05) => {
   cyl(0.0018, h, C.dark, x, y, z, g, 5);
   const l = new THREE.Mesh(new THREE.SphereGeometry(0.005, 8, 6), mat('#ffd28a', { emissive: '#ffb347', emissiveIntensity: 1.6 })); l.position.set(x, y + h + 0.002, z); g.add(l);
 };
-const zebra = (g, x, z, alongX, n = 5, lift = 0) => { for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 0.006; box(alongX ? 0.02 : 0.003, 0.0008, alongX ? 0.003 : 0.02, '#f4f4f4', x + (alongX ? 0 : o), sag(x, z) + lift + 0.0032, z + (alongX ? o : 0), g); } };
+// Lampião colonial (poste escuro com lanterna de quatro faces e chapéu), como os do Centro Histórico.
+const lampiao = (g, x, z, y, h = 0.042) => {
+  cyl(0.0032, 0.005, C.dark, x, y, z, g, 6);
+  cyl(0.0015, h, C.dark, x, y, z, g, 5);
+  box(0.0074, 0.0095, 0.0074, '#ffe2a8', x, y + h, z, g, { emissive: '#ffb347', emissiveIntensity: 1.4 });
+  const cap = new THREE.Mesh(new THREE.ConeGeometry(0.0068, 0.005, 4), mat(C.dark)); cap.rotation.y = Math.PI / 4; cap.position.set(x, y + h + 0.012, z); g.add(cap);
+};
+const zebra =(g, x, z, alongX, n = 5, lift = 0) => { for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 0.006; box(alongX ? 0.02 : 0.003, 0.0008, alongX ? 0.003 : 0.02, '#f4f4f4', x + (alongX ? 0 : o), sag(x, z) + lift + 0.0032, z + (alongX ? o : 0), g); } };
 
-export { confetti, lamp, palm, tree, waveFlag, zebra };
+export { confetti, lamp, lampiao, palm, tree, waveFlag, zebra };

@@ -52,10 +52,14 @@ export function createMiniverso(rootEl, opts = {}) {
   let focusZone = -1, lastFocus = 0, focusT = 0;
   // Órbita em volta da área focada: giro (yaw), inclinação (pitch, até quase de cima) e distância.
   let zYaw = 0.06, zPitch = 0.36, zDist = 1, zYawT = 0.06, zPitchT = 0.36, zDistT = 1;
+  // Apresentação de uma área (o boi no palco): a câmera vai até a plateia; arrastar, rolar ou as setas devolvem o controle.
+  let show = false, showT = 0;
+  const showCam = new THREE.Vector3(), showLook = new THREE.Vector3();
   const zoneAct = zoneCard.querySelector('.zone-act'), zoneAct2 = zoneCard.querySelector('.zone-act2'), zoneAct3 = zoneCard.querySelector('.zone-act3'), zoneStatus = zoneCard.querySelector('.zone-status');
   function openZone(i) {
     if (!worldLive) return;
     if (focusZone !== i) stopGame();
+    if (focusZone !== i) show = false;
     if (focusZone !== i) { zYawT = 0.06; zPitchT = 0.36; zDistT = 1; if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
     zoneCard.querySelector('h3').textContent = ZONES[i].name;
@@ -65,7 +69,7 @@ export function createMiniverso(rootEl, opts = {}) {
     zoneAct3.hidden = !ZONES[i].act3; zoneAct3.textContent = ZONES[i].act3 || '';
     zoneCard.hidden = false;
   }
-  function closeZone() { focusZone = -1; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
+  function closeZone() { focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
   on(zoneAct2, 'click', () => {
     const i = focusZone; if (i < 0) return;
     const kind = ZONES[i].kind2;
@@ -78,7 +82,7 @@ export function createMiniverso(rootEl, opts = {}) {
   // Pequena interação de cada área.
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
-    zoneFx[i] = clock;
+    zoneFx[i] = clock; show = !!ZONES[i].show;
     if (i === game.zi) startGame(); else zoneStatus.textContent = ZONES[i].done;
   });
   // Cabine de qualquer um dos trens (pelo botão da Ferrovia ou clicando no trem).
@@ -124,7 +128,7 @@ export function createMiniverso(rootEl, opts = {}) {
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
       if (drag.mode === 'headset') { userY = drag.y0 + dx * 0.008; userX = clamp(drag.x0 + dy * 0.004, -0.5, 0.5); }
       if (drag.mode === 'planet' && focusZone >= 0 && !cab) {
-        zYawT -= (e.clientX - drag.lx) * 0.006; zPitchT = clamp(zPitchT + (e.clientY - drag.ly) * 0.005, 0.18, 1.45);
+        zYawT -= (e.clientX - drag.lx) * 0.006; zPitchT = clamp(zPitchT + (e.clientY - drag.ly) * 0.005, 0.18, 1.45); show = false;
         drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
       } else if (drag.mode === 'planet') {
         const sx = (e.clientX - drag.lx) * 0.006, sy = (e.clientY - drag.ly) * 0.006, sec = Math.max(0.016, (performance.now() - drag.lt) / 1000);
@@ -166,7 +170,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (e.pointerType !== 'mouse') { hoverVisor = 0; hoverZone = -1; }
   };
   on(canvas, 'pointerup', endDrag);
-  on(canvas, 'wheel', e => { if (focusZone < 0 || cab) return; e.preventDefault(); e.stopPropagation(); zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), 0.45, 1.5); }, { passive: false });
+  on(canvas, 'wheel', e => { if (focusZone < 0 || cab) return; e.preventDefault(); e.stopPropagation(); show = false; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), 0.45, 1.5); }, { passive: false });
   on(canvas, 'pointercancel', endDrag);
   on(canvas, 'keydown', e => {
     const k = e.key;
@@ -174,7 +178,7 @@ export function createMiniverso(rootEl, opts = {}) {
       if (k === 'ArrowLeft') zYawT += 0.3; else if (k === 'ArrowRight') zYawT -= 0.3;
       else if (k === 'ArrowUp') zPitchT = clamp(zPitchT + 0.15, 0.18, 1.45); else if (k === 'ArrowDown') zPitchT = clamp(zPitchT - 0.15, 0.18, 1.45);
       else zDistT = clamp(zDistT * (k === '+' ? 0.85 : 1.18), 0.45, 1.5);
-      e.preventDefault(); return;
+      show = false; e.preventDefault(); return;
     }
     if (worldLive && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) {
       if (k === 'ArrowLeft') velY -= 1.2; else if (k === 'ArrowRight') velY += 1.2; else if (k === 'ArrowUp') velX -= 1.2; else velX += 1.2;
@@ -415,6 +419,15 @@ export function createMiniverso(rootEl, opts = {}) {
       // "Para cima" da câmera perpendicular à visão, para a vista de cima não virar.
       vc.set(-Math.sin(yaw) * sp, cp, -Math.cos(yaw) * sp).transformDirection(zg.matrixWorld);
       fup.lerp(vc, k).normalize();
+      const sh = ZONES[lastFocus].show;
+      if (show && (!sh || clock - zoneFx[lastFocus] > sh.dur)) show = false;
+      showT += ((show ? 1 : 0) - showT) * (1 - Math.exp(-dt * (reduced ? 20 : 1.8)));
+      if (sh && showT > 0.001) {
+        const s = smoother(0, 1, showT) * k;
+        showLook.set(...sh.look); showCam.set(...sh.cam).sub(showLook).multiplyScalar(portrait ? 1.6 : 1).add(showLook);
+        zg.localToWorld(showCam); zg.localToWorld(showLook);
+        camPos.lerp(showCam, s); camLook.lerp(showLook, s); fup.lerp(fdir, s).normalize();
+      }
     }
     cabT += ((cab ? 1 : 0) - cabT) * (1 - Math.exp(-dt * (reduced ? 20 : 1.6)));
     if (cabT > 0.001) {

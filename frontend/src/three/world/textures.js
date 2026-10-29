@@ -29,7 +29,47 @@ const maranhaoTex = () => canvasTex(180, 108, (x, w, h) => {
   for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 7 : 17; x.lineTo(33 + Math.cos(a) * r, 30 + Math.sin(a) * r); }
   x.fill();
 });
-const holoMat = (color, opacity = 0.7) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
+// Bumba meu boi: couro de veludo preto bordado com miçangas (rosáceas, estrela e barrados de pontos),
+// saia de chita colorida e o painel do palco com a cara do boi num sol de bandeirinhas.
+const BOI_CORES = ['#e8452f', '#2f9bff', '#3ee07a', '#ffd23f', '#ff4fd8', '#ffffff', '#ff8a2a'];
+const star5 = (x, cx, cy, r0, r1) => { x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? r1 : r0; x.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); } x.fill(); };
+const bordadoTex = () => canvasTex(128, 64, (x, w, h) => {
+  const cs = BOI_CORES;
+  x.fillStyle = '#120c1c'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < w; i += 3) { x.fillStyle = cs[(i / 3) % cs.length]; x.fillRect(i, 1, 2, 2); x.fillRect(i, h - 3, 2, 2); }
+  x.fillStyle = '#ffd23f'; x.fillRect(0, 5, w, 1); x.fillRect(0, h - 6, w, 1);
+  for (const [cx, cy, r] of [[w * 0.24, h / 2, 21], [w * 0.76, h / 2, 21]]) for (let ring = 0; ring < 6; ring++) {
+    const rr = r * (1 - ring / 6), n = Math.max(6, Math.round(rr * 1.6));
+    for (let k = 0; k < n; k++) { const a = k / n * TAU; x.fillStyle = cs[(ring * 2 + (k % 2)) % cs.length]; x.fillRect(cx + Math.cos(a) * rr - 1, cy + Math.sin(a) * rr - 1, 2, 2); }
+  }
+  x.fillStyle = '#ffd23f'; star5(x, w / 2, h / 2, 13, 5);
+  x.fillStyle = '#ffffff'; star5(x, w / 2, h / 2, 5, 2);
+  for (let i = 0; i < 160; i++) { x.fillStyle = cs[i % cs.length]; x.fillRect(R() * w, 8 + R() * (h - 16), 1, 1); }
+});
+const saiaTex = () => canvasTex(128, 32, (x, w, h) => {
+  BOI_CORES.forEach((c, i) => { x.fillStyle = c; x.fillRect(i * w / 7, 0, w / 7 + 1, h); });
+  x.fillStyle = 'rgba(255,255,255,.75)'; for (let r = 4; r < h; r += 7) for (let k = (r % 2) * 3; k < w; k += 6) x.fillRect(k, r, 2, 2);
+  x.fillStyle = '#ffd23f'; x.fillRect(0, 0, w, 3); x.fillStyle = '#120c1c'; x.fillRect(0, h - 3, w, 3);
+});
+const boiPanelTex = () => canvasTex(256, 128, (x, w, h) => {
+  const cx = w / 2, cy = h * 0.58;
+  x.fillStyle = '#1b1440'; x.fillRect(0, 0, w, h);
+  for (let i = 0; i < 28; i++) { const a0 = i / 28 * TAU, a1 = a0 + TAU / 56; x.fillStyle = BOI_CORES[i % BOI_CORES.length]; x.globalAlpha = 0.55; x.beginPath(); x.moveTo(cx, cy); x.arc(cx, cy, w, a0, a1); x.fill(); }
+  x.globalAlpha = 1;
+  for (let k = 0; k < w; k += 12) { x.fillStyle = BOI_CORES[(k / 12) % BOI_CORES.length]; x.beginPath(); x.moveTo(k, 0); x.lineTo(k + 10, 0); x.lineTo(k + 5, 12); x.fill(); }
+  // Cara do boi: chifres, orelhas, cabeça bordada, olhos coloridos, focinho branco e a estrela na testa.
+  x.strokeStyle = '#f4efe6'; x.lineWidth = 7; x.lineCap = 'round';
+  for (const s of [-1, 1]) { x.beginPath(); x.moveTo(cx + s * 18, cy - 30); x.quadraticCurveTo(cx + s * 48, cy - 44, cx + s * 44, cy - 66); x.stroke(); }
+  x.fillStyle = '#ffffff'; for (const s of [-1, 1]) { x.beginPath(); x.arc(cx + s * 22, cy - 30, 9, 0, TAU); x.fill(); }
+  x.fillStyle = '#120c1c'; for (const s of [-1, 1]) { x.beginPath(); x.ellipse(cx + s * 40, cy - 14, 14, 6, s * 0.4, 0, TAU); x.fill(); }
+  x.beginPath(); x.ellipse(cx, cy, 30, 38, 0, 0, TAU); x.fill();
+  for (let i = 0; i < 70; i++) { const a = R() * TAU, r = R() * 28; x.fillStyle = BOI_CORES[i % BOI_CORES.length]; x.fillRect(cx + Math.cos(a) * r * 0.9, cy - 6 + Math.sin(a) * r, 2, 2); }
+  for (const s of [-1, 1]) { x.fillStyle = '#ffffff'; x.beginPath(); x.arc(cx + s * 15, cy - 8, 8, 0, TAU); x.fill(); x.fillStyle = s < 0 ? '#e8452f' : '#2f9bff'; x.beginPath(); x.arc(cx + s * 15, cy - 8, 4.5, 0, TAU); x.fill(); }
+  x.fillStyle = '#f4efe6'; x.beginPath(); x.ellipse(cx, cy + 24, 20, 13, 0, 0, TAU); x.fill();
+  x.fillStyle = '#e8452f'; x.beginPath(); x.ellipse(cx, cy + 30, 13, 4, 0, 0, TAU); x.fill();
+  x.fillStyle = '#ffd23f'; star5(x, cx, cy - 26, 9, 4);
+});
+const holoMat =(color, opacity = 0.7) => new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, side: THREE.DoubleSide });
 // Piso de pedra (paralelepípedos) e de pedra portuguesa para as ruas e praças antigas.
 const stoneTex = (base, light, dark, rx = 1, ry = 1) => {
   const t = canvasTex(128, 128, (x, w, h) => {
@@ -52,4 +92,4 @@ const floors = {
 };
 const plainFlag = (c1, c2) => canvasTex(60, 36, (x, w, h) => { x.fillStyle = c1; x.fillRect(0, 0, w, h); x.fillStyle = c2; x.fillRect(0, 13, w, 10); });
 
-export { canvasTex, facadeMat, floors, glassMat, holoMat, maranhaoTex, plainFlag, stoneTex };
+export { boiPanelTex, bordadoTex, canvasTex, facadeMat, floors, glassMat, holoMat, maranhaoTex, plainFlag, saiaTex, stoneTex };
