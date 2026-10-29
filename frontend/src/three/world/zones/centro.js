@@ -10,6 +10,9 @@ import { animated, fxT, zoneFx } from '../runtime.js';
 import { boiPanelTex, bordadoTex, facadeMat, holoMat, maranhaoTex, saiaTex, stoneTex } from '../textures.js';
 import { sailboat, trafficLoop } from '../vehicles.js';
 import { ZONES } from '../zones.js';
+import { planet } from '../planet.js';
+import { railBasis, railPt } from '../rail.js';
+import { PR, RAIL_R, terrain } from '../terrain.js';
 
 // Centro Histórico de São Luís em miniatura, organizado em quadras (inspirado no mapa real):
 // cidade alta na colina (Rua Portugal com casarões, Catedral da Sé, Praça Benedito Leite com o chafariz,
@@ -387,6 +390,22 @@ function buildCentro(g, zi) {
   walkers(g, [[[0.08, -0.38], [0.08, -0.04], [0.09, -0.04], [0.09, -0.38]]], 4, ppl, low);                                // beco da Praia Grande
   walkers(g, [[[-0.004, -0.452], [0.18, -0.452], [0.18, -0.446], [-0.004, -0.446]]], 3, ppl, low);                       // largo da igreja
   walkers(g, [[[0.0, 0.474], [0.18, 0.474], [0.18, 0.482], [0.0, 0.482]], [[-0.004, 0.528], [0.185, 0.528], [0.185, 0.552], [-0.004, 0.552]]], 4, ppl, low); // feira
+
+  // ── Ponte ferroviária onde a linha principal cruza o Rio Anil: viga sob os trilhos e pilares até a água.
+  const ponte = new THREE.Group(); planet.add(ponte);
+  const wet = []; for (let th = 3.2; th <= 3.6; th += 0.005) if (terrain(railPt(th)) < 0.005) wet.push(th);
+  if (wet.length) {
+    const t0 = wet[0] - 0.03, t1 = wet[wet.length - 1] + 0.03, step = 0.012, m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+    for (let th = t0; th < t1; th += step) {
+      q.setFromRotationMatrix(railBasis(th + step / 2, m4));
+      const deck = new THREE.Mesh(new THREE.BoxGeometry(step * RAIL_R + 0.001, 0.006, 0.064), mat('#6b7480')); deck.position.copy(railPt(th + step / 2)).multiplyScalar(RAIL_R + 0.001); deck.quaternion.copy(q); ponte.add(deck);
+      for (const s of [-1, 1]) { const gd = new THREE.Mesh(new THREE.BoxGeometry(step * RAIL_R + 0.001, 0.012, 0.003), mat(C.amber)); gd.position.copy(railPt(th + step / 2)).multiplyScalar(RAIL_R + 0.01).addScaledVector(new THREE.Vector3(0, 0, s * 0.034).applyQuaternion(q), 1); gd.quaternion.copy(q); ponte.add(gd); }
+    }
+    for (let th = t0 + 0.006; th < t1; th += 0.024) {
+      const h = RAIL_R - (PR - 0.04), pil = new THREE.Mesh(new THREE.BoxGeometry(0.012, h, 0.03), mat('#c3cad3'));
+      pil.position.copy(railPt(th)).multiplyScalar(PR - 0.04 + h / 2); pil.quaternion.setFromRotationMatrix(railBasis(th, new THREE.Matrix4())); ponte.add(pil);
+    }
+  }
 }
 
 export { buildCentro };

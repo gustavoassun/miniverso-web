@@ -41,12 +41,15 @@ function loopPath(pts) {
   } };
 }
 // Pedestres andando por caminhos (corpo + cabeça, instâncias), nos dois sentidos, balançando o passo.
-function walkers(g, loops, per, colors, yAt = sag) {
+// Com hat (cor), cada um usa capacete (trabalhadores).
+function walkers(g, loops, per, colors, yAt = sag, hat) {
   const paths = loops.map(loopPath), n = loops.length * per;
   const bg = new THREE.CylinderGeometry(0.0032, 0.0042, 0.013, 6); bg.translate(0, 0.0065, 0);
   const hg = new THREE.SphereGeometry(0.0033, 8, 6); hg.translate(0, 0.016, 0);
   const mk = geo => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), n); m.frustumCulled = false; g.add(m); return m; };
   const bodies = mk(bg), heads = mk(hg), skin = ['#8d5a3b', '#c68a5e', '#5a3a2a', '#e0b08a'].map(h => new THREE.Color(h));
+  const hats = hat ? mk(new THREE.SphereGeometry(0.0038, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.0175, 0)) : null;
+  if (hats) for (let i = 0; i < n; i++) hats.setColorAt(i, new THREE.Color(hat));
   const people = [];
   paths.forEach((p, li) => { for (let k = 0; k < per; k++) people.push({ p, off: (k / per + R() * 0.08) * p.L, sp: 0.011 + R() * 0.006, dir: k % 2 ? 1 : -1, side: (R() - 0.5) * 0.006 + (k % 2 ? 0.003 : -0.003), ph: R() * 9 }); });
   people.forEach((o, i) => { bodies.setColorAt(i, new THREE.Color(colors[i % colors.length])); heads.setColorAt(i, skin[i % 4]); });
@@ -56,9 +59,10 @@ function walkers(g, loops, per, colors, yAt = sag) {
       const q = w.p.at(w.off + w.dir * t * w.sp), x = q.x - q.tz * w.side, z = q.z + q.tx * w.side;
       o.position.set(x, yAt(x, z) + Math.abs(Math.sin(t * 9 + w.ph)) * 0.0015, z);
       o.rotation.set(0, Math.atan2(-q.tz * w.dir, q.tx * w.dir), Math.sin(t * 9 + w.ph) * 0.06); o.updateMatrix();
-      bodies.setMatrixAt(i, o.matrix); heads.setMatrixAt(i, o.matrix);
+      bodies.setMatrixAt(i, o.matrix); heads.setMatrixAt(i, o.matrix); hats?.setMatrixAt(i, o.matrix);
     });
     bodies.instanceMatrix.needsUpdate = heads.instanceMatrix.needsUpdate = true;
+    if (hats) hats.instanceMatrix.needsUpdate = true;
   };
   animated.push(bodies);
 }

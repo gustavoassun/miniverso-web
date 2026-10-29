@@ -7,12 +7,13 @@ worldScene.add(new THREE.HemisphereLight('#cfeaff', '#1a2238', 1.1));
 const sun = new THREE.DirectionalLight('#fff1dd', 2.6); sun.position.set(4, 3, 5); worldScene.add(sun);
 const rim2 = new THREE.DirectionalLight('#00b7e3', 1.4); rim2.position.set(-5, 1.5, -3); worldScene.add(rim2);
 
-const skyUniforms = { uTime: { value: 0 }, uAspect: { value: 1 } };
+// uDay (0 a 1): perto de uma área, o espaço estrelado dá lugar a um céu azul de dia com nuvens suaves.
+const skyUniforms = { uTime: { value: 0 }, uAspect: { value: 1 }, uDay: { value: 0 } };
 const sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial({
   uniforms: skyUniforms, depthWrite: false, depthTest: false,
   vertexShader: `varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }`,
   fragmentShader: `
-    uniform float uTime, uAspect; varying vec2 vUv;
+    uniform float uTime, uAspect, uDay; varying vec2 vUv;
     float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
     float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f * f * (3. - 2. * f);
       return mix(mix(hash(i), hash(i + vec2(1., 0.)), f.x), mix(hash(i + vec2(0., 1.)), hash(i + vec2(1., 1.)), f.x), f.y); }
@@ -25,7 +26,11 @@ const sky = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMateri
       col += vec3(.03, .18, .26) * smoothstep(.9, .1, length(p + vec2(.6, .25))) * n * .9;
       float s = step(.9975, hash(floor(vUv * vec2(900., 600.) * vec2(uAspect, 1.) / uAspect))) * (.5 + .5 * sin(uTime * 2. + hash(floor(vUv * 300.)) * 40.));
       col += vec3(.8, .9, 1.) * s * .8;
-      gl_FragColor = vec4(col, 1.);
+      vec3 day = mix(vec3(.82, .92, .99), vec3(.27, .58, .91), smoothstep(.05, 1., vUv.y));
+      vec2 cp = vec2(p.x * 1.3 + uTime * .006, vUv.y * 3.2);
+      float cl = smoothstep(.52, .78, fbm(cp * 1.8 + vec2(0., uTime * .002))) * smoothstep(.12, .55, vUv.y);
+      day = mix(day, vec3(1.), cl * .7);
+      gl_FragColor = vec4(mix(col, day, uDay), 1.);
     }`
 }));
 sky.frustumCulled = false; sky.renderOrder = -10;

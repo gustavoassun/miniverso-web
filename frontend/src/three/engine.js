@@ -4,7 +4,8 @@ import { R, TAU, UP, clamp, easeOut, mix, smooth, smoother } from './core/math.j
 import { dpr } from './core/quality.js';
 import { DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, displayUniforms, dustUniforms, frontAt, glowM, introScene, ledBase, ledM, lensRims, lensWindows, rig, rimGroup, rimScene, rimUniforms, shadow, strapFade, strapGroup, underglow } from './intro/headset.js';
 import { atmoUniforms, atmosphere, balloons, cloudM, clouds, formPts, formUniforms, islands, orbit, planet, tilt, worldStencil, zoneMarks } from './world/planet.js';
-import { railPt } from './world/rail.js';
+import { cabin, updateCabin } from './world/cabin.js';
+import { railPt, railTan } from './world/rail.js';
 import { animated, rt, toys, trains, zoneFx, zoneFx2 } from './world/runtime.js';
 import { skyUniforms, worldCamera, worldScene } from './world/stage.js';
 import { PR, RAIL_R, TRAIN_SPEED } from './world/terrain.js';
@@ -26,6 +27,7 @@ export function createMiniverso(rootEl, opts = {}) {
 
   let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+  if (!cabin.parent) worldScene.add(cabin);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(dpr);
   renderer.setClearColor(0x0c0407, 1);
@@ -46,7 +48,7 @@ export function createMiniverso(rootEl, opts = {}) {
   const XAX = new THREE.Vector3(1, 0, 0), FACE = new THREE.Vector3(0, 0.3, 1).normalize();
   const turnPlanet = (ax, ay) => { orient.premultiply(qa.setFromAxisAngle(UP, ay)).premultiply(qa.setFromAxisAngle(XAX, ax)).normalize(); };
   // Cabine: a câmera vai para a frente da locomotiva do trem carregado.
-  let cab = false, cabT = 0, cabStart = 0, hoverTrain = -1;
+  let cab = false, cabT = 0, cabStart = 0, cabTrain = 0, hoverTrain = -1;
   const trainTip = $('.train-tip');
   // Zoom numa área do planeta: a câmera voa até ela e um cartão explica o que é.
   let focusZone = -1, lastFocus = 0, focusT = 0;
@@ -60,16 +62,18 @@ export function createMiniverso(rootEl, opts = {}) {
     if (!worldLive) return;
     if (focusZone !== i) stopGame();
     if (focusZone !== i) show = false;
-    if (focusZone !== i) { zYawT = 0.06; zPitchT = 0.36; zDistT = 1; if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; } }
+    if (focusZone !== i) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = 1; if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
     zoneCard.querySelector('h3').textContent = ZONES[i].name;
     zoneCard.querySelector('.zone-text').textContent = ZONES[i].text;
     zoneAct.textContent = ZONES[i].act; zoneStatus.textContent = '';
-    cab = false; zoneAct2.hidden = !ZONES[i].act2; zoneAct2.textContent = ZONES[i].act2 || '';
+    cab = false; cardCompact(false); zoneAct2.hidden = !ZONES[i].act2; zoneAct2.textContent = ZONES[i].act2 || '';
     zoneAct3.hidden = !ZONES[i].act3; zoneAct3.textContent = ZONES[i].act3 || '';
     zoneCard.hidden = false;
   }
-  function closeZone() { focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
+  // Na cabine o cartão fica compacto (título, botões e status), para não tampar a vista.
+  function cardCompact(on) { for (const el of [zoneCard.querySelector('.zone-text'), zoneCard.querySelector('.zone-hint'), zoneCard.querySelector('.zone-back'), zoneAct]) el.hidden = on; }
+  function closeZone() { cardCompact(false); focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
   on(zoneAct2, 'click', () => {
     const i = focusZone; if (i < 0) return;
     const kind = ZONES[i].kind2;
@@ -89,11 +93,11 @@ export function createMiniverso(rootEl, opts = {}) {
   function enterCab(k) {
     const fz = ZONES.findIndex(z => z.kind2 === 'cab');
     if (focusZone !== fz) openZone(fz);
-    cabStart = trains[k].start; cab = true; trainTip.hidden = true;
-    zoneAct2.textContent = 'Sair da cabine';
+    cabStart = trains[k].start; cabTrain = k; cab = true; trainTip.hidden = true;
+    zoneAct2.textContent = 'Sair da cabine'; cardCompact(true);
     zoneStatus.textContent = `Na cabine do trem ${trains[k].label}, seguindo a ferrovia pelo planeta.`;
   }
-  function exitCab() { cab = false; if (focusZone >= 0) zoneAct2.textContent = ZONES[focusZone].act2 || ''; zoneStatus.textContent = ''; }
+  function exitCab() { cab = false; cardCompact(false); if (focusZone >= 0) zoneAct2.textContent = ZONES[focusZone].act2 || ''; zoneStatus.textContent = ''; }
   function hitTrain() {
     if (!worldLive || cab) return -1;
     ray.setFromCamera(pointer, worldCamera);
@@ -104,7 +108,7 @@ export function createMiniverso(rootEl, opts = {}) {
   // Minigames: placar grande no topo da tela, com dica de como jogar (ver games.js).
   const { stopGame, startGame, collectGem, startWhack, startRace, boost, whackTick, hitWhack, smack, hitToy, hitGem } = createGames({ $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }) });
   labels.forEach((el, i) => on(el, 'click', () => openZone(i)));
-  on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0) closeZone(); });
+  on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0 && !cab && cabT === 0) closeZone(); });
 
   const toNdc = e => { const r = canvas.getBoundingClientRect(); pointer.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); };
   function hitVisor() {
@@ -121,8 +125,11 @@ export function createMiniverso(rootEl, opts = {}) {
   }
   const ripple = at => { displayUniforms.uRipP.value.copy(at); rippleAt = performance.now(); };
 
+  // Na cabine (e durante a transição) o mundo não responde: só o botão de sair, no cartão.
+  const inCab = () => cab || cabT > 0.001;
   on(canvas, 'pointermove', e => {
     toNdc(e);
+    if (inCab()) { hoverZone = hoverTrain = -1; trainTip.hidden = true; canvas.classList.remove('pointing'); return; }
     if (drag && drag.id === e.pointerId) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
@@ -148,7 +155,7 @@ export function createMiniverso(rootEl, opts = {}) {
   on(canvas, 'pointerdown', e => {
     toNdc(e);
     const mode = worldLive ? 'planet' : (!reduced && lockNow < 0.5 ? 'headset' : null);
-    if (!mode) return;
+    if (!mode || (mode === 'planet' && inCab())) return;
     drag = { id: e.pointerId, mode, x: e.clientX, y: e.clientY, y0: userY, x0: userX, lx: e.clientX, ly: e.clientY, lt: performance.now(), moved: false };
     canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging');
     if (mode === 'planet') velX = velY = 0;
@@ -170,10 +177,11 @@ export function createMiniverso(rootEl, opts = {}) {
     if (e.pointerType !== 'mouse') { hoverVisor = 0; hoverZone = -1; }
   };
   on(canvas, 'pointerup', endDrag);
-  on(canvas, 'wheel', e => { if (focusZone < 0 || cab) return; e.preventDefault(); e.stopPropagation(); show = false; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), 0.45, 1.5); }, { passive: false });
+  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), 0.45, 1.5); }, { passive: false });
   on(canvas, 'pointercancel', endDrag);
   on(canvas, 'keydown', e => {
     const k = e.key;
+    if (worldLive && inCab()) return;
     if (worldLive && focusZone >= 0 && !cab && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-'].includes(k)) {
       if (k === 'ArrowLeft') zYawT += 0.3; else if (k === 'ArrowRight') zYawT -= 0.3;
       else if (k === 'ArrowUp') zPitchT = clamp(zPitchT + 0.15, 0.18, 1.45); else if (k === 'ArrowDown') zPitchT = clamp(zPitchT - 0.15, 0.18, 1.45);
@@ -429,28 +437,34 @@ export function createMiniverso(rootEl, opts = {}) {
         camPos.lerp(showCam, s); camLook.lerp(showLook, s); fup.lerp(fdir, s).normalize();
       }
     }
-    cabT += ((cab ? 1 : 0) - cabT) * (1 - Math.exp(-dt * (reduced ? 20 : 1.6)));
+    cabT = clamp(cabT + (cab ? 1 : -1) * dt / (reduced ? 0.2 : 3.2));             // entrada e saída em ~3 s, com a íris da cabine
     if (cabT > 0.001) {
       // Da área até a cabine num arco por cima do planeta (nunca atravessando o chão).
       tilt.updateMatrixWorld(true);
-      const th = cabStart + clock * TRAIN_SPEED, k = smoother(0, 1, cabT);
-      fcam.copy(railPt(th + 0.02)).multiplyScalar(RAIL_R + 0.07); planet.localToWorld(fcam);
-      vc.copy(railPt(th + 0.17)).multiplyScalar(RAIL_R + 0.035); planet.localToWorld(vc);
+      const th = cabStart + clock * TRAIN_SPEED, k = smoother(0, 0.7, cabT);        // chega à cabine com a íris fechada
+      // Lugar do maquinista: dentro da cabine, na altura das janelas, olhando os trilhos à frente nas curvas.
+      fcam.copy(railPt(th)).multiplyScalar(RAIL_R + 0.07).addScaledVector(railTan(th), 0.03); planet.localToWorld(fcam);
+      vc.copy(railPt(th + 0.25)).multiplyScalar(RAIL_R + 0.05); planet.localToWorld(vc);
       fdir.copy(railPt(th)).transformDirection(planet.matrixWorld);
       const ra = camPos.length(), rb = fcam.length(), da = camPos.clone().normalize(), db = fcam.clone().normalize(), ang = da.angleTo(db);
       da.applyQuaternion(qb.identity().slerp(qa.setFromUnitVectors(da.clone(), db), k));
       camPos.copy(da).multiplyScalar(mix(ra, rb, k) + Math.sin(Math.PI * k) * Math.min(1.6, ang * 0.9));
       camLook.lerp(vc, k); fup.lerp(fdir, k).normalize();
     }
-    const fov = mix(30, 58, smoother(0, 1, cabT)), near = cabT > 0.6 ? 0.004 : 0.05;
+    const fov = mix(30, 58, smoother(0, 0.7, cabT)), near = cabT > 0.25 ? 0.004 : 0.05;
     if (worldCamera.fov !== fov || worldCamera.near !== near) { worldCamera.fov = fov; worldCamera.near = near; worldCamera.updateProjectionMatrix(); }
     atmoUniforms.uAlpha.value = 1 - focusT * 0.85;
     cloudM.opacity = 0.92 * (1 - focusT * 0.85);
     worldCamera.position.copy(camPos);
     worldCamera.up.copy(fup);
     worldCamera.lookAt(camLook);
+    cabin.visible = cabT > 0.001;
+    if (cabin.visible) updateCabin(worldCamera, clock, cabStart + clock * TRAIN_SPEED, cabT, cab);
+    // Dentro da cabine a locomotiva some (a câmera está no lugar dela).
+    trains.forEach((tr, i) => { tr.group.children[0].visible = !(i === cabTrain && cabT > 0.5); });
     worldCamera.updateMatrixWorld();
     skyUniforms.uTime.value = clock;
+    skyUniforms.uDay.value = smoother(0.35, 1, focusT);                // perto de uma área, céu de dia
 
     zoneMarks.forEach((z, i) => {
       z.glow += ((hoverZone === i ? 1 : 0) - z.glow) * (1 - Math.exp(-dt * 10));

@@ -51,7 +51,7 @@ for (const [i, z] of ZONES.entries()) BUILDERS[i](z.group = zoneGroup(z.dir, z.r
   const railMat = mat(C.steel, { metalness: 0.6, roughness: 0.4 });
   for (const s of [-1, 1]) {
     const pts = Array.from({ length: 480 }, (_, i) => { const th = i / 480 * TAU, r = railPt(th); return r.clone().multiplyScalar(RAIL_R + 0.008).addScaledVector(new THREE.Vector3().crossVectors(r, railTan(th)), s * 0.022); });
-    planet.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 720, 0.004, 5, true), railMat));
+    planet.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 720, 0.0026, 5, true), railMat));
   }
   const n = small ? 140 : 220, sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.016, 0.006, 0.07), mat(C.trunk), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   for (let i = 0; i < n; i++) {
