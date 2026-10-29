@@ -10,6 +10,7 @@ import { animated, rt, toys, trains, zoneFx, zoneFx2 } from './world/runtime.js'
 import { skyUniforms, worldCamera, worldScene } from './world/stage.js';
 import { PR, RAIL_R, TRAIN_SPEED } from './world/terrain.js';
 import { ZONES } from './world/zones.js';
+import { ZONE_COLORS } from './zoneNames.js';
 import { game } from './world/zones/jogos.js';
 import { createGames } from './games.js';
 import { revealEdge, revealUniforms } from './world/reveal.js';
@@ -29,6 +30,25 @@ export function createMiniverso(rootEl, opts = {}) {
   let reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   if (!cabin.parent) worldScene.add(cabin);
+  // Nível de detalhe: as miudezas animadas de cada área (pessoas, carros, aves, boias, confete...) só aparecem e só
+  // são calculadas com a área aberta. Na vista do planeta ficam o relevo, as construções, os trens, os satélites,
+  // os balões e as máquinas grandes. Miudeza = marcada com userData.detail, ou peça animada ou solta na área com
+  // menos de ~6 cm.
+  const details = [];
+  {
+    const zoneOf = o => { for (let a = o; a; a = a.parent) { const i = ZONES.findIndex(z => z.group === a); if (i >= 0) return i; } return -1; };
+    const box = new THREE.Box3(), size = new THREE.Vector3();
+    ZONES.forEach((z, i) => z.group.traverse(o => { if (o.userData.detail) details.push([o, i]); }));
+    const small = o => { box.setFromObject(o); return !box.isEmpty() && box.getSize(size).length() < 0.06; };
+    for (const a of animated) {
+      if (a.userData.detail) continue;
+      const zi = zoneOf(a); if (zi >= 0 && small(a)) { a.userData.detail = true; details.push([a, zi]); }
+    }
+    // Peças soltas pequenas que uma máquina movimenta (minério na correia, poeira, jatos d'água...).
+    ZONES.forEach((z, i) => { for (const o of z.group.children) if (!o.userData.detail && !o.userData.anim && small(o)) { o.userData.detail = true; details.push([o, i]); } });
+  }
+  let detailZone = null;
+  const showDetails = zi => { if (zi === detailZone) return; detailZone = zi; for (const [o, i] of details) o.visible = i === zi; };
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(dpr);
   renderer.setClearColor(0x0c0407, 1);
@@ -71,6 +91,8 @@ export function createMiniverso(rootEl, opts = {}) {
     if (focusZone !== i) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = ZD; zFT.copy(zoneFocus(i)); if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; zF.copy(zFT); } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
     zoneCard.querySelector('h3').textContent = ZONES[i].name;
+    zoneCard.style.setProperty('--c', ZONE_COLORS[i]);
+    zoneCard.querySelector('.zone-index').textContent = `Área ${String(i + 1).padStart(2, '0')} / ${String(ZONES.length).padStart(2, '0')}`;
     zoneCard.querySelector('.zone-text').textContent = ZONES[i].text;
     zoneAct.textContent = ZONES[i].act; zoneStatus.textContent = '';
     cab = false; cardCompact(false); zoneAct2.hidden = !ZONES[i].act2; zoneAct2.textContent = ZONES[i].act2 || '';
@@ -78,7 +100,7 @@ export function createMiniverso(rootEl, opts = {}) {
     zoneCard.hidden = false;
   }
   // Na cabine o cartão fica compacto (título, botões e status), para não tampar a vista.
-  function cardCompact(on) { for (const el of [zoneCard.querySelector('.zone-text'), zoneCard.querySelector('.zone-hint'), zoneCard.querySelector('.zone-back'), zoneAct]) el.hidden = on; }
+  function cardCompact(on) { for (const el of [zoneCard.querySelector('.zone-text'), zoneCard.querySelector('.zone-hint'), zoneCard.querySelector('.zone-back'), zoneCard.querySelector('.zone-close'), zoneAct]) el.hidden = on; }
   function closeZone() { cardCompact(false); focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); }
   on(zoneAct2, 'click', () => {
     const i = focusZone; if (i < 0) return;
@@ -89,6 +111,7 @@ export function createMiniverso(rootEl, opts = {}) {
   });
   on(zoneAct3, 'click', () => { if (focusZone === game.zi) startRace(); });
   on(zoneCard.querySelector('.zone-back'), 'click', closeZone);
+  on(zoneCard.querySelector('.zone-close'), 'click', closeZone);
   // Pequena interação de cada área.
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
@@ -290,6 +313,7 @@ export function createMiniverso(rootEl, opts = {}) {
 
   const t0 = performance.now(); let last = t0, clock = 0;
   const css = (k, v) => root.style.setProperty(k, v.toFixed(4));
+  let lastPct = -1;
   const up = new THREE.Vector3(0, 1, 0);
 
   function tick(now) {
@@ -430,8 +454,9 @@ export function createMiniverso(rootEl, opts = {}) {
     revealUniforms.uReveal.value = reveal;
     const edge = revealEdge(reveal);
     formPts.visible = form > 0.001 && scatter < 0.999;
-    for (const a of animated) a.userData.anim(clock);
-    const wd = mix(portrait ? 7 : 4.1, portrait ? 12.5 : 6.4, arrive);
+    showDetails(focusT > 0.05 ? lastFocus : -1);
+    for (const a of animated) if (a.visible || !a.userData.detail) a.userData.anim(clock);
+    const wd = mix(portrait ? 7 : 4.1, portrait ? 14.5 : 7.6, arrive);                // planeta inteiro com folga, anéis e órbita à vista
     camPos.set(mx * 0.25 * arrive, 0.25 - my * 0.15 * arrive, wd); camLook.set(0, portrait ? -0.25 : -0.1, 0);
     fup.set(0, 1, 0);
     if (focusT > 0.001) {
@@ -497,7 +522,7 @@ export function createMiniverso(rootEl, opts = {}) {
       const n = vc.clone().normalize(), facing = n.dot(vc.clone().sub(worldCamera.position).normalize().negate());
       vc.project(worldCamera);
       const el = labels[i];
-      el.style.transform = `translate(${((vc.x * 0.5 + 0.5) * stage.clientWidth).toFixed(1)}px, ${((-vc.y * 0.5 + 0.5) * stage.clientHeight).toFixed(1)}px) translate(-50%, -50%)`;
+      el.style.transform = `translate(${((vc.x * 0.5 + 0.5) * stage.clientWidth).toFixed(1)}px, ${((-vc.y * 0.5 + 0.5) * stage.clientHeight).toFixed(1)}px) translate(-50%, -100%)`;
       // Cada rótulo acende quando a faixa de luz passa pela sua área.
       const shownByScan = smooth(edge, edge + 0.12, n.dot(revealUniforms.uRevealAxis.value)) * smooth(0.74, 0.77, p);
       el.style.opacity = (Math.max(worldUi, shownByScan) * smooth(0.05, 0.35, facing) * (1 - focusT)).toFixed(3);
@@ -514,8 +539,11 @@ export function createMiniverso(rootEl, opts = {}) {
     capaEl.classList.toggle('live', capa > 0.5);
     css('--spark', smooth(0.17, 0.2, p) * (1 - smooth(0.22, 0.28, p)) * alive);
     css('--hint', 1 - smooth(0.01, 0.05, p));
-    css('--world', worldUi * (1 - focusT * 0.9)); css('--p', pRaw);
+    css('--world', worldUi * (1 - focusT)); css('--p', pRaw);
     css('--forming', reduced ? 0 : smooth(0.6, 0.66, p) * (1 - smooth(0.9, 0.95, p))); css('--reveal', reveal);
+    // Tela de carregamento da formação: progresso de 0 a 100% das partículas até a faixa de luz terminar.
+    const load = reduced ? 1 : smooth(0.6, 0.93, p), pct = Math.round(load * 100);
+    css('--load', load); if (pct !== lastPct) { root.style.setProperty('--pct', String(pct)); lastPct = pct; }
     css('--fit', fitFx); css('--merge', merge);
     css('--veil', reduced ? 1 - smooth(0, 0.06, Math.abs(p - 0.5)) : 0);
 

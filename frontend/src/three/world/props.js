@@ -33,12 +33,13 @@ function waveFlag(g, x, z, h, tex, w = 0.12) {
 }
 // Confete colorido (comemorações).
 function confetti(g, x, y, z) {
+  // Miudeza: só aparece com a área aberta (nível de detalhe do motor).
   const n = 40, m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.008, 0.008, 0.002), new THREE.MeshBasicMaterial({ toneMapped: false }), n);
   const cols = [C.coral, C.amber, C.teal, C.violet, '#ffffff', '#00b7e3'].map(h => new THREE.Color(h));
   const vel = Array.from({ length: n }, () => new THREE.Vector3((R() - 0.5) * 0.3, 0.22 + R() * 0.25, (R() - 0.5) * 0.3));
   const o = new THREE.Object3D(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let i = 0; i < n; i++) { m.setColorAt(i, cols[i % cols.length]); m.setMatrixAt(i, zero); }
-  m.position.set(x, y, z); m.frustumCulled = false; m.userData.at = -1;
+  m.position.set(x, y, z); m.frustumCulled = false; m.userData.at = -1; m.userData.detail = true;
   m.userData.anim = t => {
     const age = m.userData.at < 0 ? -1 : t - m.userData.at;
     if (age < 0 || age > 2.6) { if (m.userData.live) { for (let i = 0; i < n; i++) m.setMatrixAt(i, zero); m.instanceMatrix.needsUpdate = true; m.userData.live = false; } return; }

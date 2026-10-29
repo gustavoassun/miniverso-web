@@ -63,7 +63,7 @@ const CAR_COLS = VEHICLES.cars, BUS_COLS = VEHICLES.buses;
 function fleet(g, list) {
   carGeoC ??= paintGeo(carParts()); busGeoC ??= paintGeo(busParts(0.028, 0.0095, 0.011, '#ffffff'));
   const nb = list.filter(v => v.bus).length;
-  const mk = (geo, n) => { const m = new THREE.InstancedMesh(geo, vehMat(), Math.max(1, n)); m.count = n; m.frustumCulled = false; m.userData.vehicle = true; m.userData.keep = true; g.add(m); return m; };
+  const mk = (geo, n) => { const m = new THREE.InstancedMesh(geo, vehMat(), Math.max(1, n)); m.count = n; m.frustumCulled = false; m.userData.vehicle = true; m.userData.keep = true; m.userData.detail = true; g.add(m); return m; };
   const cars = mk(carGeoC, list.length - nb), buses = mk(busGeoC, nb);
   let ic = 0, ib = 0;
   list.forEach(v => { v.mesh = v.bus ? buses : cars; v.idx = v.bus ? ib++ : ic++; v.mesh.setColorAt(v.idx, new THREE.Color(v.bus ? BUS_COLS[v.idx % BUS_COLS.length] : CAR_COLS[v.idx % CAR_COLS.length])); });

@@ -12,7 +12,16 @@
         <svg viewBox="-100 -100 200 200"><circle class="fit-a" r="92" /><circle class="fit-b" r="80" /></svg>
         <span>Entrando no Miniverso</span>
       </div>
-      <div class="forming" aria-hidden="true"><span>Formando o Miniverso</span><i></i></div>
+      <div class="forming" aria-hidden="true">
+        <div class="forming-box">
+          <span class="forming-kicker">Formando o Miniverso</span>
+          <b class="forming-pct"></b>
+          <i class="forming-bar"><i></i></i>
+          <ol class="forming-steps">
+            <li style="--at: 0">Partículas</li><li style="--at: .3">Relevo</li><li style="--at: .55">Cores</li><li style="--at: .85">Áreas</li>
+          </ol>
+        </div>
+      </div>
       <div class="capa">
         <div class="capa-top"><span>Um estúdio. Infinitas possibilidades.</span><span>São Luís, Brasil</span></div>
         <div class="capa-bottom">
@@ -30,7 +39,10 @@
         </div>
       </div>
       <div class="labels">
-        <button v-for="name in ZONE_NAMES" :key="name" type="button" class="zone-label">{{ name }}</button>
+        <button v-for="(name, i) in ZONE_NAMES" :key="name" type="button" class="zone-label" :style="{ '--c': ZONE_COLORS[i] }">
+          <span class="tag"><i class="dot"></i><span class="name">{{ name }}</span><span class="go">ver área ›</span></span>
+          <i class="stem"></i>
+        </button>
       </div>
       <div class="game-hud" aria-live="polite" hidden>
         <b class="gh-title"></b><span class="gh-score"></span><span class="gh-hint"></span>
@@ -38,7 +50,10 @@
       </div>
       <div class="train-tip" hidden>Clique para ir na cabine do trem</div>
       <div class="zone-card" role="dialog" aria-live="polite" hidden>
-        <span class="world-label">Miniverso · São Luís</span>
+        <div class="zone-top">
+          <span class="world-label zone-index">Miniverso · São Luís</span>
+          <button type="button" class="zone-close" aria-label="Fechar e voltar ao planeta">×</button>
+        </div>
         <h3></h3>
         <p class="zone-text"></p>
         <div class="zone-actions">
@@ -65,7 +80,7 @@
 
 <script setup>
 import { onMounted, onUnmounted, ref } from 'vue';
-import { ZONE_NAMES } from '../three/zoneNames.js';
+import { ZONE_COLORS, ZONE_NAMES } from '../three/zoneNames.js';
 
 const emit = defineEmits(['scene-change']);
 const root = ref(null);
@@ -126,9 +141,20 @@ onUnmounted(() => {
 .veil { position: absolute; inset: 0; background: var(--bg); opacity: var(--veil, 0); }
 
 /* Formação do planeta: legenda e barra que acompanha a faixa de luz. */
-.forming { position: absolute; left: 50%; top: calc(96px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; opacity: var(--forming, 0); }
-.forming span { font: 11px var(--font-mono); letter-spacing: .32em; text-transform: uppercase; color: var(--cyan); text-shadow: 0 0 12px rgba(0, 183, 227, .6); }
-.forming i { width: min(240px, 60vw); height: 1px; background: linear-gradient(90deg, var(--cyan), #fff) left / calc(var(--reveal, 0) * 100%) 100% no-repeat, rgba(154, 154, 184, .25); box-shadow: 0 0 10px rgba(0, 183, 227, .5); }
+/* Formação do planeta: no centro, por cima das partículas, a porcentagem, a barra e as etapas que acendem. */
+.forming { position: absolute; inset: 0; display: grid; place-items: center; opacity: var(--forming, 0);
+  background: radial-gradient(circle at 50% 50%, rgba(4, 6, 16, .62), transparent 42%); }
+.forming-box { display: grid; justify-items: center; gap: 14px; transform: translateY(calc((1 - var(--forming, 0)) * 12px)); }
+.forming-kicker { padding: 7px 14px 7px calc(14px + .42em); border-radius: 999px; font: 11px var(--font-mono); letter-spacing: .42em; text-transform: uppercase; color: var(--cyan);
+  background: rgba(4, 8, 20, .72); border: 1px solid rgba(0, 183, 227, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 0 20px rgba(0, 183, 227, .25); }
+.forming-pct { counter-reset: pct var(--pct, 0); font: 700 clamp(64px, 9vw, 112px)/.9 var(--font-title); letter-spacing: .01em; color: #fff; text-shadow: 0 0 40px rgba(0, 183, 227, .55); }
+.forming-pct::before { content: counter(pct); }
+.forming-pct::after { content: "%"; margin-left: 4px; font-size: .4em; color: var(--cyan); }
+.forming-bar { position: relative; width: min(320px, 70vw); height: 3px; border-radius: 3px; overflow: hidden; background: rgba(255, 255, 255, .12); }
+.forming-bar i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(var(--load, 0)); background: linear-gradient(90deg, #0a7fa3, var(--cyan), #fff); box-shadow: 0 0 14px var(--cyan); }
+.forming-steps { display: flex; gap: 18px; margin: 0; padding: 0; list-style: none; font: 10px var(--font-mono); letter-spacing: .16em; text-transform: uppercase; color: var(--ice); }
+.forming-steps li { display: flex; align-items: center; gap: 7px; opacity: clamp(.3, calc((var(--load, 0) - var(--at)) * 20 + .3), 1); }
+.forming-steps li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
 
 /* Capa: rótulos no topo, frase e descrição embaixo, barra de navegação da abertura. */
 .capa { position: absolute; inset: 0; opacity: var(--capa, 1); }
@@ -154,24 +180,47 @@ onUnmounted(() => {
 .world-label { font: 10px var(--font-mono); letter-spacing: .18em; color: var(--cyan); text-transform: uppercase; }
 .world h2 { margin: 0; max-width: 16ch; font: 700 clamp(44px, 6.4vw, 88px)/.95 var(--font-title); letter-spacing: .01em; text-wrap: balance; text-shadow: 0 2px 30px rgba(12, 4, 7, .9); }
 .world-tip { font: 10px var(--font-mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
-.zone-label { position: absolute; left: 0; top: 0; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px;
-  font: 500 12px var(--font-display); color: var(--ice); background: rgba(20, 14, 40, .72); border: 1px solid var(--cyan-soft);
-  opacity: 0; transition: border-color .2s, background .2s; white-space: nowrap; }
-.zone-label::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
-.zone-label.on { border-color: var(--cyan); background: rgba(30, 68, 136, .85); }
+/* Rótulo da área: etiqueta de vidro com o ponto na cor da área e uma haste fina que desce até ela. */
+.zone-label { --c: var(--cyan); position: absolute; left: 0; top: 0; display: grid; justify-items: center; padding: 0; border: 0; background: none;
+  font: inherit; color: var(--ice); opacity: 0; white-space: nowrap; }
+.zone-label .tag { display: flex; align-items: center; gap: 8px; padding: 7px 13px 7px 10px; border-radius: 999px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .13), rgba(255, 255, 255, .03)), rgba(12, 10, 30, .55);
+  border: 1px solid rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); transition: border-color .25s, box-shadow .25s, transform .25s; }
+.zone-label .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); animation: label-pulse 2.4s ease-out infinite; }
+.zone-label .name { font: 600 11px var(--font-display); letter-spacing: .14em; text-transform: uppercase; }
+.zone-label .go { max-width: 0; overflow: hidden; opacity: 0; font: 10px var(--font-mono); letter-spacing: .08em; color: var(--c); transition: max-width .3s, opacity .3s; }
+.zone-label .stem { width: 1px; height: 22px; background: linear-gradient(var(--c), transparent); opacity: .85; }
+.zone-label.on .tag, .zone-label.live:hover .tag { border-color: var(--c); transform: translateY(-2px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .4), 0 0 18px color-mix(in srgb, var(--c) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14); }
+.zone-label.on .go, .zone-label.live:hover .go { max-width: 80px; opacity: 1; }
 .zone-label.live { pointer-events: auto; cursor: pointer; }
-.zone-card { position: absolute; left: max(16px, 4vw); bottom: calc(32px + env(safe-area-inset-bottom, 0px)); width: min(360px, calc(100% - 32px)); display: grid; gap: 10px; padding: 20px; border-radius: 16px;
-  background: rgba(20, 14, 40, .82); border: 1px solid var(--cyan-soft); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+@keyframes label-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 70%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
+/* Cartão da área: faixa e brilho na cor da área, número da área, título com traço e ações marcadas. */
+.zone-card { --c: var(--cyan); position: absolute; left: max(16px, 4vw); bottom: calc(32px + env(safe-area-inset-bottom, 0px)); width: min(380px, calc(100% - 32px));
+  display: grid; gap: 12px; padding: 22px 22px 18px; border-radius: 20px; overflow: hidden;
+  background: radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--c) 20%, transparent), transparent 60%), linear-gradient(160deg, rgba(28, 22, 62, .93), rgba(10, 8, 24, .9));
+  border: 1px solid rgba(255, 255, 255, .12); box-shadow: 0 30px 70px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .1);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); animation: card-in .5s cubic-bezier(.2, .8, .2, 1); }
+.zone-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: linear-gradient(90deg, var(--c), transparent 85%); }
 .stage > .zone-card { pointer-events: auto; }
 .zone-card[hidden] { display: none; }
-.zone-card h3 { margin: 0; font: 700 40px/.95 var(--font-title); letter-spacing: .01em; }
-.zone-card p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; }
-.zone-card button { justify-self: start; font: 500 13px var(--font-display); color: var(--ice); background: none; border: 1px solid var(--cyan-soft); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
-.zone-card button:hover { border-color: var(--cyan); }
+.zone-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.zone-card .zone-index { color: var(--c); }
+.zone-card .zone-close { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; font-size: 18px; line-height: 1; }
+.zone-card h3 { margin: 0; font: 700 46px/.92 var(--font-title); letter-spacing: .01em; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 35%, transparent); }
+.zone-card h3::after { content: ""; display: block; width: 48px; height: 2px; margin-top: 12px; border-radius: 2px; background: var(--c); }
+.zone-card p { margin: 0; color: #c4c4dc; font-size: 14.5px; line-height: 1.6; }
+.zone-card button { justify-self: start; font: 500 13px var(--font-display); color: var(--ice); background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 999px; padding: 9px 15px; cursor: pointer; transition: background .2s, border-color .2s, transform .2s; }
+.zone-card button:hover { border-color: var(--c); transform: translateY(-1px); }
 .zone-card button[hidden] { display: none; }
-.zone-card .zone-act { border-color: var(--cyan); background: rgba(0, 183, 227, .16); }
-.zone-card .zone-status { min-height: 1.4em; font: 11px/1.4 var(--font-mono); letter-spacing: .06em; color: var(--cyan); }
-.zone-card .zone-hint { font: 11px/1.4 var(--font-mono); letter-spacing: .04em; color: rgba(255, 255, 255, .6); }
+.zone-card .zone-act { font-weight: 600; color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
+.zone-card .zone-act:hover { background: color-mix(in srgb, var(--c) 36%, transparent); }
+.zone-card .zone-status { min-height: 1.4em; font: 11px/1.4 var(--font-mono); letter-spacing: .06em; color: var(--c); }
+.zone-card .zone-hint { padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .08); font: 11px/1.4 var(--font-mono); letter-spacing: .04em; color: rgba(255, 255, 255, .55); }
+@keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .zone-label .dot, .zone-card { animation: none; } }
 .zone-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .game-hud { position: absolute; left: 50%; top: calc(88px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; min-width: min(340px, calc(100% - 32px)); padding: 14px 20px; border-radius: 16px;
   background: rgba(20, 12, 42, .82); border: 1px solid #ff4fd8; box-shadow: 0 0 24px rgba(255, 79, 216, .35); text-align: center; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
@@ -207,6 +256,6 @@ onUnmounted(() => {
   .capa-bar .step, .capa-bar .enter { display: none; }
   .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px 16px; }
 }
-@media (max-width: 700px) { .meter { display: none; } .zone-label { font-size: 11px; padding: 5px 8px; } }
-.reduced .mini, .reduced .verso { animation: none; }
+@media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; } .zone-card h3 { font-size: 38px; } }
+.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card { animation: none; }
 </style>

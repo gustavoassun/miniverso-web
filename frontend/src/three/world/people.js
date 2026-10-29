@@ -6,7 +6,7 @@ import { animated, fxT } from './runtime.js';
 // Bonequinhos (público): corpo, cabeça e braços em 3 desenhos só (instâncias). Pulam e levantam os braços na festa.
 function crowd(g, spots, zi, colors, opts = {}) {
   const fx = opts.fx || fxT;
-  const n = spots.length, mk = (geo) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), geo.userData.per * n); m.frustumCulled = false; g.add(m); return m; };
+  const n = spots.length, mk = (geo) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), geo.userData.per * n); m.frustumCulled = false; m.userData.detail = true; g.add(m); return m; };
   const bg = new THREE.CylinderGeometry(0.0032, 0.0042, 0.013, 6); bg.translate(0, 0.0065, 0); bg.userData.per = 1;
   const hg = new THREE.SphereGeometry(0.0033, 8, 6); hg.translate(0, 0.016, 0); hg.userData.per = 1;
   const ag = new THREE.BoxGeometry(0.0016, 0.009, 0.0016); ag.translate(0, -0.0045, 0); ag.userData.per = 2;
@@ -46,7 +46,7 @@ function walkers(g, loops, per, colors, yAt = sag, hat) {
   const paths = loops.map(loopPath), n = loops.length * per;
   const bg = new THREE.CylinderGeometry(0.0032, 0.0042, 0.013, 6); bg.translate(0, 0.0065, 0);
   const hg = new THREE.SphereGeometry(0.0033, 8, 6); hg.translate(0, 0.016, 0);
-  const mk = geo => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), n); m.frustumCulled = false; g.add(m); return m; };
+  const mk = geo => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), n); m.frustumCulled = false; m.userData.detail = true; g.add(m); return m; };
   const bodies = mk(bg), heads = mk(hg), skin = ['#8d5a3b', '#c68a5e', '#5a3a2a', '#e0b08a'].map(h => new THREE.Color(h));
   const hats = hat ? mk(new THREE.SphereGeometry(0.0038, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.0175, 0)) : null;
   if (hats) for (let i = 0; i < n; i++) hats.setColorAt(i, new THREE.Color(hat));
