@@ -83,7 +83,8 @@ for (const [i, z] of ZONES.entries()) BUILDERS[i](z.group = zoneGroup(z.dir, z.r
 // Árvores e turbinas espalhadas pelo terreno (fora das áreas construídas, da ferrovia e das dunas).
 {
   const spots = [];
-  const free = d => ZONES.every(z => d.angleTo(z.dir) > (z.flat ? z.flat[0] : 0.3)) && railDist(d) > 0.07 && d.angleTo(DUNES) > 0.5;
+  // z.clear: margem extra sem enfeites em volta de uma área (o mar de manobra do Porto, por exemplo).
+  const free = d => ZONES.every(z => d.angleTo(z.dir) > (z.clear ?? (z.flat ? z.flat[0] : 0.3))) && railDist(d) > 0.07 && d.angleTo(DUNES) > 0.5;
   for (let tries = 0; spots.length < (small ? 60 : 110) && tries < 5000; tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize(), h = terrain(d);
     if (h > 0.03 && h < 0.13 && free(d)) spots.push([d, h]);
@@ -115,7 +116,7 @@ for (const [i, z] of ZONES.entries()) BUILDERS[i](z.group = zoneGroup(z.dir, z.r
   let villages = 0;
   for (let tries = 0; villages < (small ? 4 : 7) && tries < 4000; tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize(), h = terrain(d);
-    if (h < 0.03 || h > 0.09 || !free(d) || ZONES.some(z => d.angleTo(z.dir) < (z.flat ? z.flat[1] : 0.45))) continue;
+    if (h < 0.03 || h > 0.09 || !free(d) || ZONES.some(z => d.angleTo(z.dir) < (z.clear ?? (z.flat ? z.flat[1] : 0.45)))) continue;
     const v = new THREE.Group(); v.position.copy(d).multiplyScalar(radiusAt(h) - 0.004); v.quaternion.setFromUnitVectors(up, d); planet.add(v);
     for (let k = 0; k < 4; k++) {
       const a = k * 1.7 + R(), x = Math.cos(a) * 0.035, z = Math.sin(a) * 0.035, s = 0.8 + R() * 0.4;
@@ -128,7 +129,7 @@ for (const [i, z] of ZONES.entries()) BUILDERS[i](z.group = zoneGroup(z.dir, z.r
   let boats = 0;
   for (let tries = 0; boats < (small ? 4 : 8) && tries < 4000; tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize();
-    if (terrain(d) > -0.05 || ZONES.some(z => d.angleTo(z.dir) < (z.flat ? z.flat[1] : 0.4))) continue;
+    if (terrain(d) > -0.05 || ZONES.some(z => d.angleTo(z.dir) < (z.clear ?? (z.flat ? z.flat[1] : 0.4)))) continue;
     const b = new THREE.Group(); b.position.copy(d).multiplyScalar(PR + 0.004); b.quaternion.setFromUnitVectors(up, d); planet.add(b);
     const inner = new THREE.Group(); inner.rotation.y = R() * TAU; b.add(inner);
     inner.add(sailboat(sails[boats % 4]));

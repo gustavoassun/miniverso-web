@@ -53,7 +53,12 @@ export function createMiniverso(rootEl, opts = {}) {
   // Zoom numa área do planeta: a câmera voa até ela e um cartão explica o que é.
   let focusZone = -1, lastFocus = 0, focusT = 0;
   // Órbita em volta da área focada: giro (yaw), inclinação (pitch, até quase de cima) e distância.
-  let zYaw = 0.06, zPitch = 0.36, zDist = 1, zYawT = 0.06, zPitchT = 0.36, zDistT = 1;
+  // Ao abrir, a área aparece um pouco afastada (vista do conjunto); o zoom vai de bem perto até o dobro da distância.
+  const ZD = 1.35, ZD_MIN = 0.35, ZD_MAX = 2;
+  // Centro da órbita: começa no ponto da área (focus) e, ao aproximar com a roda, anda para o que está sob o cursor.
+  const zF = new THREE.Vector3(), zFT = new THREE.Vector3(), zF0 = new THREE.Vector3(), lo = new THREE.Vector3(), ld = new THREE.Vector3();
+  const zoneFocus = i => zF0.fromArray(ZONES[i].focus || [0, 0.035, 0]);
+  let zYaw = 0.06, zPitch = 0.36, zDist = ZD, zYawT = 0.06, zPitchT = 0.36, zDistT = ZD;
   // Apresentação de uma área (o boi no palco): a câmera vai até a plateia; arrastar, rolar ou as setas devolvem o controle.
   let show = false, showT = 0;
   const showCam = new THREE.Vector3(), showLook = new THREE.Vector3();
@@ -62,7 +67,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (!worldLive) return;
     if (focusZone !== i) stopGame();
     if (focusZone !== i) show = false;
-    if (focusZone !== i) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = 1; if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; } }
+    if (focusZone !== i) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = ZD; zFT.copy(zoneFocus(i)); if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; zF.copy(zFT); } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
     zoneCard.querySelector('h3').textContent = ZONES[i].name;
     zoneCard.querySelector('.zone-text').textContent = ZONES[i].text;
@@ -177,7 +182,17 @@ export function createMiniverso(rootEl, opts = {}) {
     if (e.pointerType !== 'mouse') { hoverVisor = 0; hoverZone = -1; }
   };
   on(canvas, 'pointerup', endDrag);
-  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), 0.45, 1.5); }, { passive: false });
+  // Aproximar leva o centro da órbita na direção do ponto do chão sob o cursor (como num mapa); afastar o devolve
+  // aos poucos ao centro da área. O centro fica dentro da área.
+  function zoomAt(e, k) {
+    if (focusZone < 0 || k === 1) return;
+    const zg = ZONES[focusZone].group; toNdc(e); ray.setFromCamera(pointer, worldCamera);
+    lo.copy(ray.ray.origin); zg.worldToLocal(lo); ld.copy(ray.ray.origin).add(ray.ray.direction); zg.worldToLocal(ld); ld.sub(lo);
+    if (k < 1 && ld.y < -1e-4) { const t = (zFT.y - lo.y) / ld.y; zFT.x += (lo.x + ld.x * t - zFT.x) * (1 - k); zFT.z += (lo.z + ld.z * t - zFT.z) * (1 - k); }
+    if (k > 1) zFT.lerp(zoneFocus(focusZone), Math.min(1, (k - 1) * 1.5));
+    const R = (ZONES[focusZone].R || 0.33) * 1.25, d = Math.hypot(zFT.x, zFT.z); if (d > R) { zFT.x *= R / d; zFT.z *= R / d; }
+  }
+  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; const before = zDistT; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), ZD_MIN, ZD_MAX); zoomAt(e, zDistT / before); }, { passive: false });
   on(canvas, 'pointercancel', endDrag);
   on(canvas, 'keydown', e => {
     const k = e.key;
@@ -185,7 +200,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (worldLive && focusZone >= 0 && !cab && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', '+', '-'].includes(k)) {
       if (k === 'ArrowLeft') zYawT += 0.3; else if (k === 'ArrowRight') zYawT -= 0.3;
       else if (k === 'ArrowUp') zPitchT = clamp(zPitchT + 0.15, 0.18, 1.45); else if (k === 'ArrowDown') zPitchT = clamp(zPitchT - 0.15, 0.18, 1.45);
-      else zDistT = clamp(zDistT * (k === '+' ? 0.85 : 1.18), 0.45, 1.5);
+      else zDistT = clamp(zDistT * (k === '+' ? 0.85 : 1.18), ZD_MIN, ZD_MAX);
       show = false; e.preventDefault(); return;
     }
     if (worldLive && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(k)) {
@@ -418,10 +433,12 @@ export function createMiniverso(rootEl, opts = {}) {
       const zg = ZONES[lastFocus].group, far = (portrait ? 1.9 : 1) * (ZONES[lastFocus].view || 1), k = smoother(0, 1, focusT);
       fdir.copy(zoneMarks[lastFocus].dir).transformDirection(planet.matrixWorld);
       const ez = 1 - Math.exp(-dt * (reduced ? 30 : 6));
-      zYaw += (zYawT - zYaw) * ez; zPitch += (zPitchT - zPitch) * ez; zDist += (zDistT - zDist) * ez;
+      zYaw += (zYawT - zYaw) * ez; zPitch += (zPitchT - zPitch) * ez; zDist += (zDistT - zDist) * ez; zF.lerp(zFT, ez);
       const yaw = zYaw + (drag ? 0 : mx * 0.05), r = 0.745 * far * zDist, pitch = Math.max(zPitch, Math.asin(Math.min(1, 0.1 / r))), cp = Math.cos(pitch), sp = Math.sin(pitch); // nunca abaixo de ~0.1 do chão
-      fcam.set(Math.sin(yaw) * cp * r, sp * r, Math.cos(yaw) * cp * r); zg.localToWorld(fcam);
-      vb.set(0, 0.035, 0); zg.localToWorld(vb);
+      // Gira e aproxima em volta do centro da órbita (zF, em coordenadas da área).
+      const fx = zF.x, fy = zF.y, fz = zF.z;
+      fcam.set(fx + Math.sin(yaw) * cp * r, fy + sp * r, fz + Math.cos(yaw) * cp * r); zg.localToWorld(fcam);
+      vb.set(fx, fy, fz); zg.localToWorld(vb);
       camPos.lerp(fcam, k); camLook.lerp(vb, k);
       if (camPos.length() < PR + 0.08) camPos.setLength(PR + 0.08);
       // "Para cima" da câmera perpendicular à visão, para a vista de cima não virar.
