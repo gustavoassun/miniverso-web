@@ -18,6 +18,7 @@ import { buildGames } from './zones/jogos.js';
 import { buildDunes } from './zones/lencois.js';
 import { buildBusiness } from './zones/negocios.js';
 import { buildPort } from './zones/porto.js';
+import { applyReveal } from './reveal.js';
 
 const planet = new THREE.Group();
 const tilt = new THREE.Group();
@@ -220,7 +221,7 @@ const zoneMarks = ZONES.map(z => {
 const formUniforms = { uForm: { value: 0 }, uFade: { value: 0 }, uPx: { value: dpr } };
 const formPts = new THREE.Group(); tilt.add(formPts);
 {
-  const n = small ? 1600 : 3000, pos = new Float32Array(n * 3), start = new Float32Array(n * 3), col = new Float32Array(n * 3), seed = new Float32Array(n);
+  const n = small ? 2200 : 4200, pos = new Float32Array(n * 3), start = new Float32Array(n * 3), col = new Float32Array(n * 3), seed = new Float32Array(n);
   const d = new THREE.Vector3(), c = new THREE.Color();
   for (let i = 0; i < n; i++) {
     d.set(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize();
@@ -252,6 +253,7 @@ const formPts = new THREE.Group(); tilt.add(formPts);
 
 const worldMaterials = [];
 worldScene.traverse(o => { if (o.material) worldMaterials.push(...[].concat(o.material)); });
+applyReveal(worldMaterials);
 function worldStencil(on) {
   for (const m of worldMaterials) { m.stencilWrite = on; m.stencilRef = 1; m.stencilFunc = THREE.EqualStencilFunc; m.stencilZPass = THREE.KeepStencilOp; }
 }

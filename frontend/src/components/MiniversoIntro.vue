@@ -12,6 +12,7 @@
         <svg viewBox="-100 -100 200 200"><circle class="fit-a" r="92" /><circle class="fit-b" r="80" /></svg>
         <span>Entrando no Miniverso</span>
       </div>
+      <div class="forming" aria-hidden="true"><span>Formando o Miniverso</span><i></i></div>
       <div class="capa">
         <div class="capa-top"><span>Um estúdio. Infinitas possibilidades.</span><span>São Luís, Brasil</span></div>
         <div class="capa-bottom">
@@ -123,6 +124,11 @@ onUnmounted(() => {
 .hint { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px)); transform: translateX(-50%); margin: 0; text-align: center; opacity: calc(var(--hint, 1) * var(--capa, 1));
   font: 10px var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .veil { position: absolute; inset: 0; background: var(--bg); opacity: var(--veil, 0); }
+
+/* Formação do planeta: legenda e barra que acompanha a faixa de luz. */
+.forming { position: absolute; left: 50%; top: calc(96px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 10px; opacity: var(--forming, 0); }
+.forming span { font: 11px var(--font-mono); letter-spacing: .32em; text-transform: uppercase; color: var(--cyan); text-shadow: 0 0 12px rgba(0, 183, 227, .6); }
+.forming i { width: min(240px, 60vw); height: 1px; background: linear-gradient(90deg, var(--cyan), #fff) left / calc(var(--reveal, 0) * 100%) 100% no-repeat, rgba(154, 154, 184, .25); box-shadow: 0 0 10px rgba(0, 183, 227, .5); }
 
 /* Capa: rótulos no topo, frase e descrição embaixo, barra de navegação da abertura. */
 .capa { position: absolute; inset: 0; opacity: var(--capa, 1); }

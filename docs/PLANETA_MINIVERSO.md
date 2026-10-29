@@ -11,12 +11,15 @@ que só a abertura seja 3D e interativa; abaixo dela o site segue com estrutura 
 1. **Capa:** `mini` e `verso` nas laterais do óculos de realidade virtual, rótulos no topo
    ("Um estúdio. Infinitas possibilidades." / "São Luís, Brasil"), frase "O mundo real é só o começo."
    e barra com Role para entrar, Reduzir movimento, Automática e Ir aos projetos.
-2. **Entrada:** rolando um pouco, os nomes se juntam e entram no visor; dali a abertura segue sozinha
-   (cerca de 12 s). O óculos gira, vem até o rosto, a poeira passa, um anel de calibragem aparece e as
-   lentes se abrem no mundo.
-3. **Planeta:** forma-se a partir de partículas e pode ser girado em qualquer direção. Clicar numa área
-   aproxima a câmera, abre um cartão com o texto da área e um botão de interação.
-4. **Saída:** rolando além do planeta, a página continua nas seções normais (Sobre, Projetos, Contato).
+2. **Entrada:** rolando um pouco, os nomes se juntam e entram no visor; dali a abertura segue sozinha.
+   O óculos gira, vem até o rosto, a poeira passa, um anel de calibragem aparece e as lentes se abrem no
+   mundo (trecho rápido, ~4 s).
+3. **Formação do planeta** (trecho calmo, ~7 s): partículas chegam girando e formam o planeta, que nasce
+   como holograma azul com linhas de latitude; uma faixa de luz ciano varre de cima para baixo revelando as
+   cores reais, e o nome de cada área acende quando a faixa passa por ela (legenda "Formando o Miniverso").
+4. **Planeta:** pode ser girado em qualquer direção. Clicar numa área aproxima a câmera, abre um cartão com
+   o texto da área e um botão de interação.
+5. **Saída:** rolando além do planeta, a página continua nas seções normais (Sobre, Projetos, Contato).
    Os efeitos da Home (menu flutuante, molduras, cursor) só entram depois que o planeta sai de cena.
 
 ### Áreas e interações
@@ -57,6 +60,7 @@ frontend/src/
     core/            matemática comum (math.js) e qualidade por aparelho (quality.js)
     world/
       palette.js     TODAS as cores do planeta, com comentário de onde cada uma aparece
+      reveal.js      holograma e faixa de luz da formação do planeta
       zones.js       nome, texto e botões de cada área
       terrain.js     relevo, mar e platôs das áreas
       rail.js        traçado da ferrovia

@@ -12,6 +12,7 @@ import { PR, RAIL_R, TRAIN_SPEED } from './world/terrain.js';
 import { ZONES } from './world/zones.js';
 import { game } from './world/zones/jogos.js';
 import { createGames } from './games.js';
+import { revealEdge, revealUniforms } from './world/reveal.js';
 
 // Motor da abertura: capa com o óculos, entrada pelo visor e o planeta Miniverso.
 // createMiniverso(rootEl) liga tudo dentro do elemento do componente e devolve dispose() para desligar.
@@ -329,8 +330,9 @@ export function createMiniverso(rootEl, opts = {}) {
     const turn = reduced ? 0 : smoother(0.34, 0.53, p);           // óculos gira, mostrando as lentes
     const approach = reduced ? 0 : smoother(0.39, 0.62, p);       // e vem até o rosto
     const merge = reduced ? (p > 0.5 ? 1 : 0) : smoother(0.6, 0.72, p); // lentes se abrem no mundo
-    const arrive = reduced ? 1 : smoother(0.62, 0.92, p);         // chegada ao planeta
-    const worldUi = smooth(0.82, 0.93, p);
+    const arrive = reduced ? 1 : smoother(0.62, 0.96, p);         // chegada ao planeta (a câmera segue girando enquanto ele se forma)
+    const worldUi = smooth(0.9, 0.98, p);
+    const reveal = reduced ? 1 : smooth(0.74, 0.93, p);            // faixa de luz revela o planeta de cima para baixo
     const form = reduced ? 1 : smooth(0.46, 0.8, p);               // partículas chegam girando e formam o planeta
     const solid = reduced ? 1 : smooth(0.62, 0.8, p);              // o planeta sólido cresce por dentro delas
     const scatter = reduced ? 1 : smooth(0.76, 0.92, p);           // e o que sobra se dissipa
@@ -425,6 +427,8 @@ export function createMiniverso(rootEl, opts = {}) {
     const sc = Math.max(0.001, 1 + 2.2 * (solid - 1) ** 3 + 1.2 * (solid - 1) ** 2);
     for (const o of [planet, atmosphere, clouds, orbit, islands, balloons]) { o.scale.setScalar(sc); o.visible = solid > 0.001; }
     formUniforms.uForm.value = form; formUniforms.uFade.value = scatter;
+    revealUniforms.uReveal.value = reveal;
+    const edge = revealEdge(reveal);
     formPts.visible = form > 0.001 && scatter < 0.999;
     for (const a of animated) a.userData.anim(clock);
     const wd = mix(portrait ? 7 : 4.1, portrait ? 12.5 : 6.4, arrive);
@@ -494,7 +498,9 @@ export function createMiniverso(rootEl, opts = {}) {
       vc.project(worldCamera);
       const el = labels[i];
       el.style.transform = `translate(${((vc.x * 0.5 + 0.5) * stage.clientWidth).toFixed(1)}px, ${((-vc.y * 0.5 + 0.5) * stage.clientHeight).toFixed(1)}px) translate(-50%, -50%)`;
-      el.style.opacity = (worldUi * smooth(0.05, 0.35, facing) * (1 - focusT)).toFixed(3);
+      // Cada rótulo acende quando a faixa de luz passa pela sua área.
+      const shownByScan = smooth(edge, edge + 0.12, n.dot(revealUniforms.uRevealAxis.value)) * smooth(0.74, 0.77, p);
+      el.style.opacity = (Math.max(worldUi, shownByScan) * smooth(0.05, 0.35, facing) * (1 - focusT)).toFixed(3);
       el.classList.toggle('live', worldLive && facing > 0.2 && focusT < 0.5);
       el.classList.toggle('on', hoverZone === i);
     });
@@ -509,6 +515,7 @@ export function createMiniverso(rootEl, opts = {}) {
     css('--spark', smooth(0.17, 0.2, p) * (1 - smooth(0.22, 0.28, p)) * alive);
     css('--hint', 1 - smooth(0.01, 0.05, p));
     css('--world', worldUi * (1 - focusT * 0.9)); css('--p', pRaw);
+    css('--forming', reduced ? 0 : smooth(0.6, 0.66, p) * (1 - smooth(0.9, 0.95, p))); css('--reveal', reveal);
     css('--fit', fitFx); css('--merge', merge);
     css('--veil', reduced ? 1 - smooth(0, 0.06, Math.abs(p - 0.5)) : 0);
 
