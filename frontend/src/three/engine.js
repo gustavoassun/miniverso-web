@@ -258,9 +258,11 @@ export function createMiniverso(rootEl, opts = {}) {
   setAutoOn(autoOn, false);
   const introEnd = () => intro.offsetTop + intro.offsetHeight - innerHeight;
   let lastProgress = clamp(scrollY / introEnd());
+  // Dois trechos: o óculos vem até o rosto e entra (rápido, ~4 s) e o planeta se forma (com calma, ~7 s).
+  const SPLIT = 0.68, AUTO_IN = 4200, AUTO_PLANET = 6800;
   function startAuto() {
-    const left = clamp((introEnd() - scrollY) / (introEnd() * (1 - JOINED)), 0.25, 1);
-    auto = { from: scrollY, to: introEnd(), start: performance.now(), dur: 12000 * left };
+    const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
+    auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
   }
   function intercept(e, down) {
     if (!auto) return;
@@ -294,10 +296,11 @@ export function createMiniverso(rootEl, opts = {}) {
     raf = requestAnimationFrame(tick);
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (auto) {
-      const t = clamp((now - auto.start) / auto.dur);
+      const el = now - auto.start;
+      const y = el < auto.d1 ? mix(auto.from, auto.split, autoEase(el / auto.d1)) : mix(auto.split, auto.to, autoEase(clamp((el - auto.d1) / auto.d2)));
       // 'instant': o site usa rolagem suave no CSS, que reiniciaria a cada quadro e travaria a animação.
-      scrollTo({ top: mix(auto.from, auto.to, autoEase(t)), behavior: 'instant' });
-      if (t >= 1) auto = null;
+      scrollTo({ top: y, behavior: 'instant' });
+      if (el >= auto.d1 + auto.d2) auto = null;
     }
     if (!visible || document.hidden) return;
     if (!reduced) clock += dt;
