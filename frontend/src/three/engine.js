@@ -36,7 +36,7 @@ export function createMiniverso(rootEl, opts = {}) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
   const pmrem = new THREE.PMREMGenerator(renderer);
-  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+  const envMap = pmrem.fromScene(new RoomEnvironment(), 0.06).texture;
   introScene.environment = envMap;
 
   // ───────────── Interação ─────────────

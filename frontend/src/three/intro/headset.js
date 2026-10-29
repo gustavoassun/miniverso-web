@@ -132,7 +132,7 @@ const W = 1.5, H = 0.7, out = goggle(W, H, 4.4, 0.22);
 const rig = new THREE.Group();
 introScene.add(rig);
 
-const glassM = new THREE.MeshPhysicalMaterial({ color: '#1b1f26', roughness: 0.04, metalness: 0.25, clearcoat: 1, clearcoatRoughness: 0.02, envMapIntensity: 1.6 });
+const glassM = new THREE.MeshPhysicalMaterial({ color: '#1b1f26', roughness: 0.1, metalness: 0.2, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 0.9 });
 const bodyM = new THREE.MeshPhysicalMaterial({ color: '#eef3f8', roughness: 0.22, metalness: 0.15, clearcoat: 0.8, clearcoatRoughness: 0.15, envMapIntensity: 1.1 });
 const chromeM = new THREE.MeshPhysicalMaterial({ color: '#d5dde6', roughness: 0.16, metalness: 1, envMapIntensity: 1.3 });
 const padM = new THREE.MeshStandardMaterial({ color: '#30343c', roughness: 0.85, bumpMap: perforated(6, 3), bumpScale: 1.2 });
@@ -143,6 +143,16 @@ const glowM = new THREE.MeshBasicMaterial({ color: ledBase, transparent: true, o
 
 // Visor: placa de vidro com bordas bem arredondadas, levemente abaulada.
 const visor = new THREE.Mesh(bend(extrude(shapeOf(out, 1, 1), 0.12, 0.16, 0.13, 14), W, 0.12), glassM); visor.position.z = 0.3; rig.add(visor);
+// A face da frente vem em poucos triângulos grandes; curvados, cada um refletia a luz de um jeito (cunhas
+// brancas em alguns ângulos). As normais da frente passam a seguir a curva real do visor: reflexo contínuo.
+{
+  const p = visor.geometry.attributes.position, nrm = visor.geometry.attributes.normal, n = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), flat = p.getZ(i) - 0.12 * (1 - (x / W) ** 2);
+    if (flat > 0.28 - 1e-4) { n.set(2 * 0.12 * x / (W * W), 0, 1).normalize(); nrm.setXYZ(i, n.x, n.y, n.z); }
+  }
+  nrm.needsUpdate = true;
+}
 const frontAt = x => 0.3 + 0.12 + 0.16 + 0.12 * (1 - (x / W) ** 2);
 
 // Luz do contorno, logo dentro da borda do visor, com halo suave.
