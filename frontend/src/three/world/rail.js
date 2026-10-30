@@ -12,7 +12,7 @@ const onRail = th => RAIL_U.clone().multiplyScalar(Math.cos(th)).addScaledVector
 // passar à vista da Educação, do Centro, dos Jogos, da Ecologia e dos Lençóis sem entrar neles.
 // Perto da Ferrovia e do Porto não há desvio: os dois terminais continuam encostados na linha.
 const baseLat = th => 0.3 * Math.sin(2 * th + 0.6);
-const BENDS = [[2.2, -0.36], [3.1, 0.04], [4.5, -0.28], [5.05, -0.06], [5.5, 0.24]];
+const BENDS = [[2.2, -0.36], [3.1, 0.04], [4.5, -0.1], [5.05, -0.06], [5.5, 0.24]];
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const railLat = th => baseLat(th) + BENDS.reduce((s, [c, a]) => s + a * Math.exp(-((wrap(th - c) / 0.35) ** 2)), 0);
 const latPt = (th, l) => onRail(th).multiplyScalar(Math.cos(l)).addScaledVector(RAIL_AXIS, Math.sin(l)).normalize();

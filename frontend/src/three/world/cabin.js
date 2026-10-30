@@ -11,7 +11,7 @@ const D = 0.02;                                                                 
 const cabin = new THREE.Group(); cabin.visible = false;
 const CYAN = '#00b7e3', AMBER = '#ffc56b', SANS = "'Random Grotesque', system-ui, sans-serif", MONO = 'ui-monospace, Menlo, Consolas, monospace', TAU = Math.PI * 2;
 // Áreas ao longo da linha (posição na volta e nome), para o mapa e a "próxima área".
-const STOPS = [[0.25, 'Porto', '#3fbfe8'], [0.85, 'Ferrovia', AMBER], [1.45, 'Negócios', '#9f8cff'], [2.2, 'Educação', '#3ee07a'], [3.1, 'Centro Histórico', '#ff8a6b'], [4.5, 'Jogos', '#ff4fd8'], [5.05, 'Ecologia', '#3aa58c'], [5.5, 'Lençóis', '#f4ecd6']];
+const STOPS = [[0.25, 'Porto', '#3fbfe8'], [0.85, 'Ferrovia', AMBER], [1.45, 'Negócios', '#9f8cff'], [2.2, 'Educação', '#3ee07a'], [3.1, 'Centro Histórico', '#ff8a6b'], [4.2, 'Jogos', '#ff4fd8'], [5.05, 'Ecologia', '#3aa58c'], [5.5, 'Lençóis', '#f4ecd6']];
 
 const layer = (material, order) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material); m.renderOrder = order; m.frustumCulled = false; m.position.z = -D; cabin.add(m); return m; };
 const flat = (extra = {}) => new THREE.MeshBasicMaterial({ transparent: true, depthTest: false, depthWrite: false, toneMapped: false, ...extra });

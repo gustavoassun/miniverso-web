@@ -49,6 +49,16 @@
         <b class="gh-title"></b><span class="gh-score"></span><span class="gh-hint"></span>
         <button type="button" class="gh-btn" hidden></button>
       </div>
+      <div class="arcade" role="dialog" aria-label="Fliperama: Quebra-pixel" hidden>
+        <div class="ac-top"><b class="ac-title">Quebra-pixel</b><span class="ac-score"></span><button type="button" class="ac-close" aria-label="Sair do fliperama">×</button></div>
+        <div class="ac-screen"><canvas width="320" height="240"></canvas></div>
+        <p class="ac-hint"></p>
+      </div>
+      <div class="race-pad" hidden>
+        <button type="button" class="rp-btn" data-k="l" aria-label="Virar à esquerda">◀</button>
+        <button type="button" class="rp-btn rp-brake" data-k="b" aria-label="Frear">Freio</button>
+        <button type="button" class="rp-btn" data-k="r" aria-label="Virar à direita">▶</button>
+      </div>
       <div class="train-tip" hidden>Clique para ir na cabine do trem</div>
       <div class="burst" aria-hidden="true"><span class="b-flash"></span><span class="b-ring"></span><span class="b-ring b-ring2"></span><span class="b-sparks"><i style="--a: 0deg; --d: 0.70"></i><i style="--a: 41deg; --d: 0.88"></i><i style="--a: 60deg; --d: 1.06"></i><i style="--a: 101deg; --d: 0.70"></i><i style="--a: 120deg; --d: 0.88"></i><i style="--a: 161deg; --d: 1.06"></i><i style="--a: 180deg; --d: 0.70"></i><i style="--a: 221deg; --d: 0.88"></i><i style="--a: 240deg; --d: 1.06"></i><i style="--a: 281deg; --d: 0.70"></i><i style="--a: 300deg; --d: 0.88"></i><i style="--a: 341deg; --d: 1.06"></i></span></div>
       <div class="pois"></div>
@@ -79,6 +89,7 @@
           <button type="button" class="zone-act"></button>
           <button type="button" class="zone-act zone-act2" hidden></button>
           <button type="button" class="zone-act zone-act3" hidden></button>
+          <button type="button" class="zone-act zone-act4" hidden></button>
           <p class="zone-status" aria-live="polite"></p>
         </div>
       </div>
@@ -409,16 +420,43 @@ onUnmounted(() => {
 @media (prefers-reduced-motion: reduce) { .zone-label .dot, .zone-card { animation: none; } }
 .zone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .zone-actions .zone-status { flex: 1 1 180px; min-height: 0; }
-.game-hud { position: absolute; left: 50%; top: calc(88px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 6px; min-width: min(340px, calc(100% - 32px)); padding: 14px 20px; border-radius: 16px;
+.game-hud { position: absolute; left: 50%; top: calc(72px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; min-width: min(300px, calc(100% - 32px)); padding: 9px 16px; border-radius: 14px;
   background: rgba(20, 12, 42, .82); border: 1px solid #ff4fd8; box-shadow: 0 0 24px rgba(255, 79, 216, .35); text-align: center; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .game-hud[hidden] { display: none; }
-.gh-title { font: 700 28px/1 var(--font-title); letter-spacing: .02em; color: #ffc56b; }
-.gh-score { font: 700 34px/1 var(--font-title); color: #fff; min-height: 1em; }
-.gh-hint { font: 12px/1.4 var(--font-mono); color: #7fe9ff; max-width: 34ch; }
+.gh-title { font: 700 18px/1 var(--font-title); letter-spacing: .02em; color: #ffc56b; }
+.gh-score { font: 700 26px/1 var(--font-title); color: #fff; min-height: 1em; }
+.gh-hint { font: 11px/1.35 var(--font-mono); color: #7fe9ff; max-width: 40ch; }
 .stage > .game-hud .gh-btn { pointer-events: auto; }
 .gh-btn { margin-top: 4px; font: 700 22px/1 var(--font-title); letter-spacing: .04em; color: #140c2a; background: #ffc56b; border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer; box-shadow: 0 0 18px rgba(255, 197, 107, .6); touch-action: manipulation; }
 .gh-btn[hidden] { display: none; }
 .gh-btn:active { transform: scale(.95); }
+/* Corrida: placar menor (a câmera fica atrás do kart) e, em telas de toque, botões para virar e frear. */
+.game-hud.racing { gap: 4px; padding: 8px 16px; min-width: 0; }
+.game-hud.racing .gh-title { display: none; }
+.game-hud.racing .gh-score { font-size: 22px; }
+.race-pad { position: absolute; left: 16px; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; align-items: flex-end; }
+.race-pad[hidden] { display: none; }
+.stage > .race-pad .rp-btn { pointer-events: auto; }
+.rp-btn { width: 72px; height: 72px; border-radius: 50%; font: 700 24px/1 var(--font-title); color: #fff; background: rgba(20, 12, 42, .6); border: 1px solid rgba(127, 233, 255, .55);
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: pointer; }
+.rp-btn:active { background: rgba(0, 183, 227, .35); transform: scale(.94); }
+.rp-btn.rp-brake { width: 64px; height: 44px; border-radius: 999px; font: 600 11px var(--font-display); letter-spacing: .1em; text-transform: uppercase; border-color: rgba(255, 79, 216, .55); }
+@media (hover: hover) and (pointer: fine) { .race-pad { display: none; } }
+/* Fliperama: gabinete com letreiro, tela de tubo (linhas de varredura) e a dica embaixo. */
+.arcade { position: absolute; left: 50%; top: calc(76px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(460px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 12px 10px;
+  border-radius: 18px; background: linear-gradient(#241a46, #140c2a); border: 2px solid #ff4fd8; box-shadow: 0 0 32px rgba(255, 79, 216, .45), inset 0 0 0 3px #140c2a; }
+.arcade[hidden] { display: none; }
+.stage > .arcade { pointer-events: auto; }
+.ac-top { display: flex; align-items: center; gap: 10px; }
+.ac-title { font: 700 22px/1 var(--font-title); letter-spacing: .04em; color: #ffc56b; text-shadow: 0 0 10px rgba(255, 197, 107, .6); }
+.ac-score { flex: 1; font: 12px var(--font-mono); color: #7fe9ff; text-align: right; }
+.ac-close { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .06); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.ac-close:hover { border-color: #7fe9ff; }
+.ac-screen { position: relative; border-radius: 10px; overflow: hidden; border: 2px solid #0b0618; box-shadow: 0 0 18px rgba(0, 183, 227, .35); }
+.ac-screen canvas { display: block; width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; touch-action: none; cursor: none; }
+.ac-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px); }
+.ac-hint { margin: 0; font: 11px/1.4 var(--font-mono); color: rgba(233, 234, 243, .78); text-align: center; }
+.arcade:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
 .train-tip { position: absolute; left: 0; top: 0; padding: 6px 10px; border-radius: 999px; font: 500 12px var(--font-display); color: var(--bg); background: #ffc56b; white-space: nowrap; }
 .train-tip[hidden] { display: none; }
 
