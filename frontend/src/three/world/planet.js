@@ -20,6 +20,10 @@ import { buildBusiness } from './zones/negocios.js';
 import { buildPort } from './zones/porto.js';
 import { applyReveal } from './reveal.js';
 
+// O mundo é montado em pedaços: entre um pedaço e outro o navegador respira (desenha a capa, responde a cliques),
+// em vez de travar a página inteira enquanto o planeta é construído.
+const breathe = () => (globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise(r => setTimeout(r, 0)));
+
 const planet = new THREE.Group();
 const tilt = new THREE.Group();
 tilt.add(planet); worldScene.add(tilt);
@@ -45,8 +49,9 @@ const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(PR * 1.17, 48, 32), n
   fragmentShader: `uniform float uAlpha; varying vec3 vN; void main(){ float i = pow(clamp(.78 - dot(vN, vec3(0., 0., 1.)), 0., 1.), 3.2); gl_FragColor = vec4(vec3(.3, .78, 1.) * i * 1.6 * uAlpha, 1.); }`
 }));
 tilt.add(atmosphere);
+await breathe();
 const BUILDERS = [buildCentro, buildEducation, buildEcology, buildGames, buildBusiness, buildRailway, buildPort, buildDunes];
-for (const [i, z] of ZONES.entries()) BUILDERS[i](z.group = zoneGroup(z.dir, z.rail), i);
+for (const [i, z] of ZONES.entries()) { BUILDERS[i](z.group = zoneGroup(z.dir, z.rail), i); await breathe(); }
 // Trilhos, dormentes e os trens de minério percorrendo o planeta pelo caminho sinuoso.
 {
   const railMat = mat(C.steel, { metalness: 0.6, roughness: 0.4 });
@@ -190,6 +195,7 @@ const balloons = new THREE.Group(); tilt.add(balloons);
 });
 
 // Junta as peças paradas por material para desenhar o planeta com poucas chamadas.
+await breathe();
 {
   planet.updateMatrixWorld(true);
   const groups = new Map(), toRemove = [], inv = new THREE.Matrix4().copy(planet.matrixWorld).invert();
@@ -206,6 +212,7 @@ const balloons = new THREE.Group(); tilt.add(balloons);
   for (const [m, list] of groups) planet.add(new THREE.Mesh(mergeGeometries(list), m));
 }
 
+await breathe();
 // Marcadores das áreas (anel no chão), alvos de clique e pontos dos rótulos.
 const zoneMarks = ZONES.map(z => {
   const ring = new THREE.Mesh(new THREE.RingGeometry(z.R || 0.33, (z.R || 0.33) + 0.015, 96), new THREE.MeshBasicMaterial({ color: '#00b7e3', transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));

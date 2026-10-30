@@ -442,7 +442,20 @@ export function createMiniverso(rootEl, opts = {}) {
     return Math.abs(vb.x - va.x) / 2 * stage.clientWidth;
   }
 
-  const t0 = performance.now(); let last = t0, clock = 0;
+  const t0 = performance.now(); let last = t0, clock = 0, nextFrame = 0;
+  // Até 60 quadros por segundo, mesmo em monitores mais rápidos: o mesmo movimento com bem menos trabalho.
+  const FRAME = 1000 / 60;
+  // Qualidade adaptativa: se o aparelho não sustenta ~45 quadros por segundo, a resolução baixa um degrau (até 75%);
+  // com folga por um bom tempo, volta a subir até a resolução normal. Só mede com a cena na tela.
+  const Q_MIN = 0.75; let q = dpr, qN = 0, qSum = 0, qSlow = 0, qFast = 0;
+  function adapt(ms) {
+    qSum += ms; if (++qN < 90) return;
+    const avg = qSum / qN; qN = qSum = 0;
+    if (avg > 22) { qFast = 0; if (++qSlow >= 2 && q > Q_MIN) { q = Math.max(Q_MIN, q - 0.25); qSlow = 0; applyQ(); } }
+    else if (avg < 17.5) { qSlow = 0; if (++qFast >= 6 && q < dpr) { q = Math.min(dpr, q + 0.25); qFast = 0; applyQ(); } }
+    else qSlow = qFast = 0;
+  }
+  function applyQ() { renderer.setPixelRatio(q); formUniforms.uPx.value = q; resize(); }
   const css = (k, v) => root.style.setProperty(k, v.toFixed(4));
   let lastPct = -1, lastLoad = 0;
   const burstEl = $('.burst');
@@ -451,7 +464,9 @@ export function createMiniverso(rootEl, opts = {}) {
   function tick(now) {
     if (disposed) return;
     raf = requestAnimationFrame(tick);
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (now < nextFrame - 1) return;
+    nextFrame = Math.max(nextFrame + FRAME, now);
+    const frameMs = now - last, dt = Math.min(0.05, frameMs / 1000); last = now;
     if (auto) {
       const el = now - auto.start;
       const y = el < auto.d1 ? mix(auto.from, auto.split, autoEase(el / auto.d1)) : mix(auto.split, auto.to, autoEase(clamp((el - auto.d1) / auto.d2)));
@@ -459,7 +474,9 @@ export function createMiniverso(rootEl, opts = {}) {
       scrollTo({ top: y, behavior: 'instant' });
       if (el >= auto.d1 + auto.d2) { auto = null; if (place === 'capa' && scrollY >= introEnd() - 2) setPlace('planet'); }
     }
-    if (!visible || document.hidden) return;
+    // Fora da tela (no site, aba escondida ou abertura rolada para fora) o planeta hiberna: nada é animado nem desenhado.
+    if (!visible || document.hidden || rootEl.classList.contains('away')) { music.setActive(false); return; }
+    if (frameMs < 250) adapt(frameMs);
     if (!reduced) clock += dt;
     rt.clock = clock;
     const alive = reduced ? 0 : 1;
@@ -730,6 +747,19 @@ export function createMiniverso(rootEl, opts = {}) {
     }
   }
   raf = requestAnimationFrame(tick);
+  // Prepara o planeta enquanto a capa está parada: compila os shaders em paralelo (sem travar a página) e envia as
+  // texturas para a placa de vídeo, para a formação não engasgar no primeiro quadro do planeta.
+  const warm = setTimeout(async () => {
+    if (disposed) return;
+    const shown = []; worldScene.traverse(o => { if (!o.visible) { o.visible = true; shown.push(o); } });
+    const job = renderer.compileAsync(worldScene, worldCamera);
+    for (const o of shown) o.visible = false;
+    const texs = new Set();
+    worldScene.traverse(o => { for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture) texs.add(m[k]); });
+    for (const t of texs) renderer.initTexture(t);
+    try { await job; } catch { /* sem compilação em paralelo: o primeiro quadro do planeta compila como antes */ }
+  }, 900);
+  offs.push(() => clearTimeout(warm));
   return {
     dispose() {
       disposed = true; cancelAnimationFrame(raf); auto = null;
