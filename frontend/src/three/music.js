@@ -6,6 +6,8 @@
 //   trem  (Ferrovia) o "ta-dum" das rodas nas juntas dos trilhos e o ronco da locomotiva.
 // Efeitos da formação do planeta: um som que sobe junto com a barra de carregamento, um bipe a cada 5% e um acorde
 // de chegada com um grave quando o planeta fica pronto.
+// Efeitos dos minigames (sfx): bipes, acertos, erros, a largada, o motor do kart (que sobe com a velocidade) e uma
+// fanfarra de vitória. Tudo sintetizado na hora e curto; a música abaixa um pouco enquanto um jogo está rolando.
 // O navegador só libera som depois de um clique, toque ou tecla (rolar não conta). Por isso a capa tem o botão
 // "Entrar com som", e o primeiro gesto em qualquer lugar já prepara o áudio, para a formação soar desde o início.
 // Vem ligada: começa bem baixinho quando o planeta se forma e cresce devagar. O botão desliga, e a escolha fica
@@ -37,7 +39,7 @@ export function createMusic() {
   try { want = localStorage.getItem(KEY) !== '0'; } catch { /* sem armazenamento: fica ligada */ }
   // No iPhone (Safari 17+), áudio "ambiente" respeita a chave de silencioso e não interrompe outra música tocando.
   try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { /* navegador sem suporte */ }
-  let ctx = null, master, noiseBuf, timer = 0, sus = 0, step = 0, nextT = 0, nextHorn = 0, load = 1, riser = null;
+  let ctx = null, master, noiseBuf, timer = 0, sus = 0, step = 0, nextT = 0, nextHorn = 0, load = 1, riser = null, duck = false, motor = null;
   const buses = {}, offAt = {};
 
   function ensure() {
@@ -183,7 +185,7 @@ export function createMusic() {
       if (!ctx && !gestured && !navigator.userActivation?.hasBeenActive) return;
       ensure(); clearTimeout(sus);
       if (ctx.state !== 'running') ctx.resume().catch(() => {});
-      ramp(master.gain, VOL, master.gain.value < 0.05 ? 2.5 : 0.9);                // do silêncio, entra bem devagar
+      ramp(master.gain, duck ? VOL * 0.45 : VOL, master.gain.value < 0.05 ? 2.5 : 0.9); // do silêncio, entra bem devagar
       ramp(buses.sfx.gain, 1, 0.05);
     } else if (ctx) {
       ramp(master.gain, 0, 0.25); ramp(buses.sfx.gain, 0, 0.1); clearTimeout(sus);
@@ -197,6 +199,28 @@ export function createMusic() {
     for (const z of ['boi', 'porto', 'trem']) ramp(buses[z].gain, z === zone ? (show ? 1.8 : 1.3) : 0, 0.7);
     ramp(buses.base.gain, show ? 0.6 : zone ? 0.8 : 1, 1); ramp(buses.arp.gain, show ? 0.3 : zone ? 0.75 : 1, 1);
   }
+  // Efeitos dos jogos. at: atraso em segundos; arg: altura extra (o tijolo do fliperama, por exemplo).
+  const SFX = {
+    tap: t => tone(t, 'triangle', 1200, 0.05, 0.05, buses.sfx),
+    hit: (t, a = 0) => { tone(t, 'square', mtof(76 + a), 0.08, 0.05, buses.sfx, { filter: 4000 }); tone(t, 'sine', mtof(88 + a), 0.12, 0.03, buses.sfxRev); },
+    good: t => { tone(t, 'square', mtof(83), 0.07, 0.045, buses.sfx, { filter: 4500 }); tone(t + 0.07, 'square', mtof(88), 0.18, 0.05, buses.sfx, { filter: 4500 }); },
+    bonus: t => [76, 79, 83, 88, 91].forEach((m, k) => tone(t + k * 0.045, 'square', mtof(m), 0.12, 0.04, buses.sfxRev, { filter: 5000 })),
+    bad: t => { tone(t, 'sawtooth', 165, 0.28, 0.07, buses.sfx, { freqEnd: 98, filter: 900 }); tone(t, 'square', 82, 0.28, 0.04, buses.sfx, { filter: 500 }); },
+    tick: t => tone(t, 'square', 660, 0.14, 0.05, buses.sfx, { filter: 3000 }),
+    go: t => { tone(t, 'square', 1320, 0.45, 0.06, buses.sfx, { filter: 4000 }); tone(t, 'square', 660, 0.45, 0.04, buses.sfx, { filter: 2500 }); },
+    boost: t => { noise(t, 0.45, 'bandpass', 1800, 1.2, 0.12, buses.sfxRev); tone(t, 'sawtooth', 220, 0.45, 0.04, buses.sfx, { freqEnd: 880, filter: 2400 }); },
+    bump: t => { tone(t, 'sine', 95, 0.18, 0.2, buses.sfx, { freqEnd: 45 }); noise(t, 0.08, 'lowpass', 600, 0.8, 0.12, buses.sfx); },
+    whoosh: t => noise(t, 0.3, 'bandpass', 1200, 1.5, 0.08, buses.sfxRev),
+    paddle: t => tone(t, 'square', 440, 0.06, 0.05, buses.sfx, { filter: 2400 }),
+    lap: t => { tone(t, 'triangle', mtof(81), 0.14, 0.07, buses.sfx); tone(t + 0.1, 'triangle', mtof(88), 0.3, 0.07, buses.sfxRev); },
+    lose: t => [72, 69, 65, 60].forEach((m, k) => tone(t + k * 0.16, 'square', mtof(m), 0.2, 0.045, buses.sfx, { filter: 1800 })),
+    win: t => {
+      // Fanfarra curtinha: subida de arpejo, acorde final com brilho de sino e um grave.
+      [72, 76, 79].forEach((m, k) => tone(t + k * 0.11, 'square', mtof(m), 0.16, 0.05, buses.sfx, { filter: 4000 }));
+      [72, 76, 79, 84].forEach(m => { tone(t + 0.36, 'square', mtof(m), 1.1, 0.035, buses.sfxRev, { filter: 3500 }); tone(t + 0.36, 'triangle', mtof(m + 12), 1.4, 0.025, buses.sfxRev); });
+      tone(t + 0.36, 'sine', mtof(48), 0.9, 0.12, buses.sfx);
+    }
+  };
   function ramp(p, v, tc) { const n = ctx.currentTime; p.cancelScheduledValues(n); p.setValueAtTime(p.value, n); p.setTargetAtTime(v, n, tc); }
 
   return {
@@ -222,6 +246,28 @@ export function createMusic() {
       k = k || null; if (k === zone) return;
       if (ctx) { if (zone) offAt[zone] = ctx.currentTime; if (k === 'porto') nextHorn = ctx.currentTime + 2.5; }
       zone = k; mixZone();
+    },
+    // Toca um efeito dos jogos (só com o som ligado e o áudio já liberado pelo navegador).
+    sfx(kind, arg, at = 0) { if (!ctx || ctx.state !== 'running' || !isOn() || !SFX[kind]) return; SFX[kind](ctx.currentTime + at, arg); },
+    // Música mais baixa enquanto um minigame está rolando.
+    setDuck(v) { if (v === duck) return; duck = v; if (ctx && isOn()) ramp(master.gain, duck ? VOL * 0.45 : VOL, 0.4); },
+    // Motor do kart: level de 0 (marcha lenta) a 1+ (turbo); null desliga. Dois osciladores com filtro e um leve tremor.
+    engine(level) {
+      if (level == null || !ctx || ctx.state !== 'running' || !isOn()) {
+        if (motor) { const m = motor; motor = null; ramp(m.g.gain, 0, 0.08); setTimeout(() => { m.a.stop(); m.b.stop(); m.l.stop(); }, 500); }
+        return;
+      }
+      if (!motor) {
+        const a = ctx.createOscillator(), b = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
+        a.type = 'sawtooth'; b.type = 'square'; b.detune.value = -1200 + 7; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
+        l.frequency.value = 18; lg.gain.value = 0.012; l.connect(lg).connect(g.gain);
+        a.connect(f); b.connect(f); f.connect(g).connect(buses.sfx); a.start(); b.start(); l.start();
+        motor = { a, b, f, g, l };
+      }
+      const n = ctx.currentTime, k = Math.max(0, Math.min(1.3, level));
+      motor.a.frequency.setTargetAtTime(48 + k * 120, n, 0.08); motor.b.frequency.setTargetAtTime(48 + k * 120, n, 0.08);
+      motor.f.frequency.setTargetAtTime(380 + k * 1500, n, 0.08); motor.g.gain.setTargetAtTime(0.03 + k * 0.025, n, 0.1);
+      motor.l.frequency.setTargetAtTime(14 + k * 30, n, 0.1);
     },
     dispose() { clearInterval(timer); clearTimeout(sus); ctx?.close(); ctx = null; }
   };

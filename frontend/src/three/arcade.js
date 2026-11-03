@@ -1,13 +1,14 @@
 // Fliperama do Salão Arcade: "Quebra-pixel", um quebra-blocos em pixel numa tela de fliperama sobre a cena.
 // Só roda e desenha enquanto está aberto. Mouse, dedo ou ← → movem a raquete; clique, toque ou espaço lançam a bola.
 // Cada fase limpa acelera a bola; blocos dourados valem mais e alargam a raquete por alguns segundos.
+// sfx(tipo, altura) toca os efeitos (raquete, tijolo, vida perdida, fase limpa, fim) e buzz(padrão) vibra o celular.
 const W = 320, H = 240, COLS = 8, ROWS = 5, BW = 34, BH = 10, GAP = 4, OX = (W - (COLS * BW + (COLS - 1) * GAP)) / 2, OY = 34;
 const ROW_COLORS = ['#ff4fd8', '#ffc56b', '#3ee0b5', '#00b7e3', '#b07cff'];
 const BEST_KEY = 'miniverso-fliperama';
 
-export function createArcade({ el, on, onClose }) {
+export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} }) {
   const cv = el.querySelector('canvas'), x = cv.getContext('2d'), scoreEl = el.querySelector('.ac-score'), hintEl = el.querySelector('.ac-hint');
-  let open = false, raf = 0, last = 0, keys = { l: false, r: false };
+  let open = false, raf = 0, last = 0, kv = 0, keys = { l: false, r: false };
   let px = W / 2, pw = 48, wideUntil = 0, ball, bricks, lives, score, level, msg = '', msgUntil = 0, over = false, sparks = [];
   let best = 0; try { best = Number(localStorage.getItem(BEST_KEY)) || 0; } catch { /* sem armazenamento */ }
 
@@ -23,7 +24,7 @@ export function createArcade({ el, on, onClose }) {
   function launch() {
     if (over) return reset();
     if (!ball.stuck) return;
-    const a = (Math.random() - 0.5) * 0.9; ball.vx = Math.sin(a) * speed(); ball.vy = -Math.cos(a) * speed(); ball.stuck = false;
+    const a = (Math.random() - 0.5) * 0.9; ball.vx = Math.sin(a) * speed(); ball.vy = -Math.cos(a) * speed(); ball.stuck = false; sfx('tap');
   }
   function reset() { level = 1; score = 0; lives = 3; over = false; pw = 48; wideUntil = 0; layout(); serve(); say('Fase 1', 1.4); hud(); }
   function say(t, s) { msg = t; msgUntil = performance.now() / 1000 + s; }
@@ -31,7 +32,9 @@ export function createArcade({ el, on, onClose }) {
   function burst(bx, by, c) { for (let i = 0; i < 8; i++) sparks.push({ x: bx, y: by, vx: (Math.random() - 0.5) * 160, vy: (Math.random() - 0.5) * 160, t: 0.5, c }); }
 
   function step(dt, now) {
-    if (keys.l) px -= 260 * dt; if (keys.r) px += 260 * dt;
+    // Teclado: a raquete arranca rápido até 420 px/s e para na hora em que a tecla é solta.
+    const dir = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
+    kv = dir && Math.sign(kv) !== -dir ? Math.max(-420, Math.min(420, kv + dir * 2600 * dt)) : dir * 120; px += kv * dt;
     if (now > wideUntil) pw = 48;
     px = Math.max(pw / 2, Math.min(W - pw / 2, px));
     if (over) return;
@@ -43,14 +46,15 @@ export function createArcade({ el, on, onClose }) {
     // Raquete: o ponto onde a bola bate decide o ângulo da volta.
     if (ball.vy > 0 && ball.y > 216 && ball.y < 226 && Math.abs(ball.x - px) < pw / 2 + 3) {
       const k = (ball.x - px) / (pw / 2), sp = Math.min(330, Math.hypot(ball.vx, ball.vy) * 1.03), a = k * 1.05;
-      ball.vx = Math.sin(a) * sp; ball.vy = -Math.cos(a) * sp; ball.y = 216;
+      ball.vx = Math.sin(a) * sp; ball.vy = -Math.cos(a) * sp; ball.y = 216; sfx('paddle'); buzz(8);
     }
     if (ball.y > H + 6) {
       lives--; hud();
       if (lives <= 0) {
         over = true; if (score > best) { best = score; try { localStorage.setItem(BEST_KEY, String(best)); } catch { /* sem armazenamento */ } }
         hintEl.textContent = `Fim de jogo! ${score} pts · recorde ${best} pts. Toque ou aperte espaço para jogar de novo.`;
-      } else { serve(); say('Mais uma!', 1); }
+        sfx('lose'); buzz([60, 40, 60]);
+      } else { serve(); say('Mais uma!', 1); sfx('bad'); buzz([40, 30, 40]); }
       return;
     }
     for (const b of bricks) {
@@ -59,11 +63,11 @@ export function createArcade({ el, on, onClose }) {
       if (dx < dy) ball.vx = -ball.vx; else ball.vy = -ball.vy;
       if (--b.hp <= 0) {
         score += b.pts; burst(b.x + BW / 2, b.y + BH / 2, b.c);
-        if (b.gold) { pw = 72; wideUntil = now + 8; say('Raquete larga!', 1.2); }
-      }
+        if (b.gold) { pw = 72; wideUntil = now + 8; say('Raquete larga!', 1.2); sfx('bonus'); buzz(25); } else { sfx('hit', (ROWS - Math.round((b.y - OY) / (BH + GAP))) * 2); buzz(10); }
+      } else sfx('paddle');
       hud(); break;
     }
-    if (bricks.every(b => b.hp <= 0)) { level++; layout(); serve(); say(`Fase ${level}!`, 1.6); hud(); }
+    if (bricks.every(b => b.hp <= 0)) { level++; layout(); serve(); say(`Fase ${level}!`, 1.6); hud(); sfx('win'); buzz([30, 60, 30, 60, 80]); }
   }
   function draw(now) {
     x.fillStyle = '#0b0618'; x.fillRect(0, 0, W, H);
@@ -80,7 +84,7 @@ export function createArcade({ el, on, onClose }) {
     sparks = sparks.filter(s => (s.t -= 1 / 60) > 0);
     for (const s of sparks) { s.x += s.vx / 60; s.y += s.vy / 60; x.fillStyle = s.c; x.globalAlpha = s.t * 2; x.fillRect(s.x, s.y, 3, 3); }
     x.globalAlpha = 1;
-    const m = over ? 'FIM DE JOGO' : now < msgUntil ? msg : ball.stuck ? 'TOQUE PARA LANÇAR' : '';
+    const m = over ? 'FIM DE JOGO' : paused ? 'PAUSA · CLIQUE PARA VOLTAR' : now < msgUntil ? msg : ball.stuck ? 'CLIQUE PARA LANÇAR' : '';
     if (m) { x.font = '700 18px monospace'; x.textAlign = 'center'; x.fillStyle = '#ffc56b'; x.fillText(m, W / 2, 150); }
   }
   function frame(t) {
@@ -88,31 +92,49 @@ export function createArcade({ el, on, onClose }) {
     raf = requestAnimationFrame(frame);
     const now = t / 1000, dt = Math.min(0.033, now - last); last = now;
     if (document.hidden) return;
-    step(dt, now); draw(now);
+    if (!paused) step(dt, now);
+    draw(now);
   }
 
+  // Mouse preso no jogo: ao clicar na tela, o ponteiro some e só move a raquete, sem escapar para o planeta. Esc solta
+  // o mouse e pausa; um clique na tela volta ao jogo (e o × fica clicável com o mouse solto). No toque, o dedo já fica
+  // preso à tela enquanto arrasta.
+  let paused = false, lockLostAt = -1e9;
   const toX = e => { const r = cv.getBoundingClientRect(); return (e.clientX - r.left) / r.width * W; };
-  on(cv, 'pointermove', e => { if (open) px = toX(e); });
-  on(cv, 'pointerdown', e => { if (!open) return; px = toX(e); cv.setPointerCapture(e.pointerId); launch(); e.preventDefault(); });
+  const locked = () => document.pointerLockElement === cv;
+  on(document, 'pointerlockchange', () => { if (!locked()) lockLostAt = performance.now(); if (open && !locked() && !over) { paused = true; keys = { l: false, r: false }; } });
+  // Com o mouse preso, a raquete anda pelo movimento; sem a trava (navegador que não permite), ela segue o mouse mesmo
+  // fora da tela do jogo, parando na beirada.
+  on(document, 'pointermove', e => { if (!open) return; if (locked()) px += e.movementX * 1.5 * W / cv.getBoundingClientRect().width; else if (e.pointerType === 'mouse' || e.target === cv) px = toX(e); });
+  on(cv, 'pointerdown', e => {
+    if (!open) return;
+    e.preventDefault();
+    if (e.pointerType === 'mouse') { if (!locked()) { px = toX(e); try { cv.requestPointerLock()?.catch?.(() => {}); } catch { /* sem trava de ponteiro */ } } }
+    else { px = toX(e); try { cv.setPointerCapture(e.pointerId); } catch { /* toque já encerrado */ } }
+    if (paused) { paused = false; return; }
+    launch();
+  });
   on(el.querySelector('.ac-close'), 'click', () => close());
   const KEYS = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r' };
   on(window, 'keydown', e => {
     if (!open) return;
     if (KEYS[e.key]) { keys[KEYS[e.key]] = true; e.preventDefault(); }
-    else if (e.key === ' ' || e.key === 'Enter') { launch(); e.preventDefault(); }
-    else if (e.key === 'Escape') { close(); e.preventDefault(); e.stopImmediatePropagation(); }
+    else if (e.key === ' ' || e.key === 'Enter') { if (paused) paused = false; else launch(); e.preventDefault(); }
+    // O primeiro Esc só solta o mouse (e pausa); com o mouse já solto, o Esc sai do fliperama.
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); if (!locked() && performance.now() - lockLostAt > 400) close(); }
   }, true);
   on(window, 'keyup', e => { if (KEYS[e.key]) keys[KEYS[e.key]] = false; });
 
   function start() {
     if (open) return;
-    open = true; el.hidden = false; keys = { l: false, r: false }; sparks = [];
-    hintEl.textContent = 'Mova com o mouse, o dedo ou ← →. Clique, toque ou espaço para lançar a bola. Esc sai.';
+    open = true; paused = false; el.hidden = false; keys = { l: false, r: false }; sparks = [];
+    hintEl.textContent = matchMedia('(hover: none)').matches ? 'Arraste para mover · toque para lançar' : 'Clique na tela: o mouse fica preso no jogo · Esc solta o mouse e pausa';
     reset(); last = performance.now() / 1000; raf = requestAnimationFrame(frame);
   }
   function close(silent) {
     if (!open) return;
     open = false; el.hidden = true; cancelAnimationFrame(raf);
+    if (locked()) document.exitPointerLock();
     if (!silent) onClose?.();
   }
   return { start, close, get on() { return open; } };

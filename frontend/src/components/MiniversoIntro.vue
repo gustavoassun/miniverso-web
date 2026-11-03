@@ -48,6 +48,17 @@
       <div class="game-hud" aria-live="polite" hidden>
         <b class="gh-title"></b><span class="gh-score"></span><span class="gh-hint"></span>
         <button type="button" class="gh-btn" hidden></button>
+        <div class="gh-bar" hidden><i></i></div>
+        <div class="gh-bins" hidden>
+          <button type="button" data-bin="0" style="--b: #2f7dff"><kbd>1</kbd>Papel</button><button type="button" data-bin="1" style="--b: #2fbf5a"><kbd>2</kbd>Vidro</button><button type="button" data-bin="2" style="--b: #ffc21a"><kbd>3</kbd>Metal</button><button type="button" data-bin="3" style="--b: #e8452f"><kbd>4</kbd>Plástico</button><button type="button" data-bin="4" style="--b: #8a5a34"><kbd>5</kbd>Orgânico</button>
+        </div>
+      </div>
+      <div class="how" role="dialog" aria-label="Como jogar" hidden>
+        <button type="button" class="how-x" aria-label="Fechar">×</button>
+        <span class="how-icon" aria-hidden="true"></span>
+        <b class="how-title"></b>
+        <ol class="how-steps"></ol>
+        <button type="button" class="how-go">Jogar ▶</button>
       </div>
       <div class="arcade" role="dialog" aria-label="Fliperama: Quebra-pixel" hidden>
         <div class="ac-top"><b class="ac-title">Quebra-pixel</b><span class="ac-score"></span><button type="button" class="ac-close" aria-label="Sair do fliperama">×</button></div>
@@ -173,6 +184,8 @@ onUnmounted(() => {
 .scene-canvas.orbiting { touch-action: none; }
 .scene-canvas.dragging { cursor: grabbing; }
 .scene-canvas.pointing { cursor: pointer; }
+/* Acerte os blocos: o cursor vira um martelinho. */
+.scene-canvas.whacking, .scene-canvas.whacking.pointing { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><text x='2' y='30' font-size='28'>🔨</text></svg>") 6 6, pointer; }
 .stage > :not(canvas) { pointer-events: none; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
@@ -256,7 +269,7 @@ onUnmounted(() => {
 .world-inner { display: grid; gap: 12px; justify-items: center; text-align: center; transform: translateY(calc((1 - var(--world, 0)) * 18px)); }
 .world-label { font: 10px var(--font-mono); letter-spacing: .18em; color: var(--cyan); text-transform: uppercase; }
 .world h2 { margin: 0; max-width: 16ch; font: 700 clamp(44px, 6.4vw, 88px)/.95 var(--font-title); letter-spacing: .01em; text-wrap: balance; text-shadow: 0 2px 30px rgba(12, 4, 7, .9); }
-.world-tip { font: 10px var(--font-mono); letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.world-tip { font: 500 12px var(--font-display); letter-spacing: .02em; color: rgba(233, 234, 243, .78); }
 /* Saída do planeta para o resto do site: botão de vidro com a seta descendo; pulsa quando a pessoa tenta rolar. */
 .planet-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
 .planet-home { display: inline-flex; align-items: center; gap: 10px; padding: 12px 20px 12px 12px; border-radius: 999px; cursor: pointer; pointer-events: none;
@@ -336,7 +349,7 @@ onUnmounted(() => {
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .12); transition: border-color .25s, box-shadow .25s, transform .25s; }
 .zone-label .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); animation: label-pulse 2.4s ease-out infinite; }
 .zone-label .name { font: 600 11px var(--font-display); letter-spacing: .14em; text-transform: uppercase; }
-.zone-label .go { max-width: 0; overflow: hidden; opacity: 0; font: 10px var(--font-mono); letter-spacing: .08em; color: var(--c); transition: max-width .3s, opacity .3s; }
+.zone-label .go { max-width: 0; overflow: hidden; opacity: 0; font: 600 11px var(--font-display); letter-spacing: .02em; color: var(--c); transition: max-width .3s, opacity .3s; }
 .zone-label .stem { width: 1px; height: 22px; background: linear-gradient(var(--c), transparent); opacity: .85; }
 .zone-label.on .tag, .zone-label.live:hover .tag { border-color: var(--c); transform: translateY(-2px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .4), 0 0 18px color-mix(in srgb, var(--c) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14); }
@@ -358,7 +371,7 @@ onUnmounted(() => {
 /* Na cabine, compacta no canto esquerdo, longe do painel de instrumentos. */
 .zone-card.compact { left: max(16px, 4vw); translate: 0 0; width: min(420px, calc(100% - 32px)); }
 .zone-head { display: flex; align-items: center; gap: 12px; }
-.zone-card .zone-index { color: var(--c); white-space: nowrap; }
+.zone-card .zone-index { font: 600 11px var(--font-display); letter-spacing: .08em; color: var(--c); white-space: nowrap; }
 .zone-card .zone-close { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
 .zone-card h3 { flex: 1; min-width: 0; margin: 0; font: 700 28px/1 var(--font-title); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 35%, transparent); }
 .zone-card p { margin: 0; color: #c4c4dc; font-size: 14px; line-height: 1.55; }
@@ -374,7 +387,7 @@ onUnmounted(() => {
 .poi-now { display: grid; gap: 3px; min-width: 0; }
 .poi-top { display: flex; align-items: baseline; gap: 10px; }
 .poi-name { font: 600 14px var(--font-display); color: #fff; }
-.poi-count { font: 10px var(--font-mono); letter-spacing: .1em; color: var(--c); white-space: nowrap; }
+.poi-count { font: 600 12px var(--font-display); letter-spacing: .02em; color: var(--c); white-space: nowrap; }
 .zone-card .poi-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .zone-card .poi-nav { display: grid; place-items: center; width: 36px; height: 36px; padding: 0 0 2px; font-size: 22px; line-height: 1; }
 .zone-card .poi-play { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
@@ -414,8 +427,8 @@ onUnmounted(() => {
 .zone-card button[hidden] { display: none; }
 .zone-card .zone-act { font-weight: 600; color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
 .zone-card .zone-act:hover { background: color-mix(in srgb, var(--c) 36%, transparent); }
-.zone-card .zone-status { min-height: 1.4em; font: 11px/1.4 var(--font-mono); letter-spacing: .06em; color: var(--c); }
-.zone-card .zone-hint { font: 11px/1.4 var(--font-mono); letter-spacing: .04em; color: rgba(255, 255, 255, .55); }
+.zone-card .zone-status { min-height: 1.4em; font: 500 13px/1.4 var(--font-display); color: var(--c); }
+.zone-card .zone-hint { font: 13px/1.45 var(--font-display); color: rgba(255, 255, 255, .7); }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .zone-label .dot, .zone-card { animation: none; } }
 .zone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -425,15 +438,54 @@ onUnmounted(() => {
 .game-hud[hidden] { display: none; }
 .gh-title { font: 700 18px/1 var(--font-title); letter-spacing: .02em; color: #ffc56b; }
 .gh-score { font: 700 26px/1 var(--font-title); color: #fff; min-height: 1em; }
-.gh-hint { font: 11px/1.35 var(--font-mono); color: #7fe9ff; max-width: 40ch; }
+.gh-hint { font: 500 14px/1.35 var(--font-display); color: #bff4ff; max-width: 42ch; }
 .stage > .game-hud .gh-btn { pointer-events: auto; }
 .gh-btn { margin-top: 4px; font: 700 22px/1 var(--font-title); letter-spacing: .04em; color: #140c2a; background: #ffc56b; border: 0; border-radius: 999px; padding: 12px 28px; cursor: pointer; box-shadow: 0 0 18px rgba(255, 197, 107, .6); touch-action: manipulation; }
 .gh-btn[hidden] { display: none; }
+/* Reciclaverso: barra do tempo de cada item (esvazia e muda de cor) e as cinco lixeiras como botões coloridos. */
+.gh-bar { width: min(240px, 60vw); height: 8px; border-radius: 999px; background: rgba(255, 255, 255, .12); overflow: hidden; }
+.gh-bar[hidden] { display: none; }
+.gh-bar i { display: block; height: 100%; border-radius: inherit; background: #3dff8f; transform-origin: left; transition: background .3s; }
+.gh-bins { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
+.gh-bins[hidden] { display: none; }
+.stage > .game-hud .gh-bins button { pointer-events: auto; }
+.gh-bins button { display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px 9px 9px; border-radius: 999px; border: 0; cursor: pointer; touch-action: manipulation;
+  font: 700 14px var(--font-display); color: #fff; background: var(--b); box-shadow: 0 0 12px color-mix(in srgb, var(--b) 60%, transparent); }
+.gh-bins button:active { transform: scale(.94); }
+.gh-bins kbd { font: 600 10px var(--font-mono); padding: 1px 5px; border-radius: 4px; background: rgba(0, 0, 0, .25); }
+@media (hover: none) { .gh-bins kbd { display: none; } }
+/* No computador as lixeiras do palco são clicáveis (e há as teclas 1 a 5): os botões ficam só nas telas de toque. */
+@media (hover: hover) and (pointer: fine) { .gh-bins { display: none; } }
 .gh-btn:active { transform: scale(.95); }
-/* Corrida: placar menor (a câmera fica atrás do kart) e, em telas de toque, botões para virar e frear. */
-.game-hud.racing { gap: 4px; padding: 8px 16px; min-width: 0; }
-.game-hud.racing .gh-title { display: none; }
-.game-hud.racing .gh-score { font-size: 22px; }
+/* Corrida e Reciclaverso: placar menor, no canto (a câmera fica em primeira pessoa e a cena precisa aparecer inteira) e, em telas de toque, botões para virar e frear. */
+.game-hud.corner { left: max(16px, 3vw); transform: none; justify-items: start; gap: 2px; padding: 8px 14px; min-width: 0; text-align: left; }
+.game-hud.corner .gh-title { display: none; }
+.game-hud.corner .gh-score { font-size: 22px; }
+.game-hud.corner .gh-bar { margin-top: 6px; width: 200px; }
+.game-hud .gh-hint:empty { display: none; }
+/* Como jogar: cartão de vidro com ícone grande, passos com ícone e poucas palavras e o botão Jogar. */
+.how { position: absolute; left: 50%; top: 45%; translate: -50% -50%; width: min(380px, calc(100% - 32px)); display: grid; justify-items: center; gap: 10px; padding: 22px 22px 18px;
+  border-radius: 22px; background: rgba(20, 12, 42, .86); border: 1px solid rgba(255, 79, 216, .6); box-shadow: 0 0 40px rgba(255, 79, 216, .3), 0 20px 60px rgba(0, 0, 0, .45);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: how-in .35s cubic-bezier(.2, .8, .2, 1); }
+.how[hidden] { display: none; }
+.stage > .how { pointer-events: auto; }
+@keyframes how-in { from { opacity: 0; translate: -50% -44%; scale: .96; } }
+.how-icon { font-size: 40px; line-height: 1; filter: drop-shadow(0 0 14px rgba(255, 255, 255, .25)); }
+.how-title { font: 700 30px/1 var(--font-title); letter-spacing: .02em; color: #ffc56b; }
+.how-steps { display: grid; gap: 8px; width: 100%; margin: 4px 0 2px; padding: 0; list-style: none; }
+.how-steps :deep(li) { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 14px; background: rgba(255, 255, 255, .06);
+  font: 500 15px/1.3 var(--font-display); color: #fff; }
+.how :deep(.how-ico) { display: flex; justify-content: center; align-items: center; gap: 4px; font-size: 22px; white-space: nowrap; color: #7fe9ff; font-weight: 700; }
+.how :deep(kbd) { display: inline-grid; place-items: center; min-width: 28px; height: 28px; padding: 0 7px; border-radius: 7px; font: 700 14px var(--font-display); color: #140c2a;
+  background: #f4f1ff; box-shadow: 0 3px 0 #9a8fd0; }
+.how-steps :deep(li > span:last-child kbd) { min-width: 22px; height: 22px; font-size: 12px; box-shadow: 0 2px 0 #9a8fd0; }
+.how :deep(.sq) { display: inline-block; width: 16px; height: 16px; border-radius: 4px; background: var(--q); box-shadow: 0 0 8px var(--q); }
+.how-go { margin-top: 4px; font: 700 22px/1 var(--font-title); letter-spacing: .04em; color: #140c2a; background: #ffc56b; border: 0; border-radius: 999px; padding: 12px 34px; cursor: pointer;
+  box-shadow: 0 0 22px rgba(255, 197, 107, .55); touch-action: manipulation; }
+.how-go:hover { background: #ffd48a; } .how-go:active { transform: scale(.96); }
+.how-x { position: absolute; right: 12px; top: 12px; width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .06); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+@media (max-width: 700px) { .how { top: 42%; padding: 18px 16px 14px; } .how-steps :deep(li) { grid-template-columns: 76px 1fr; font-size: 14px; } }
+@media (prefers-reduced-motion: reduce) { .how { animation: none; } }
 .race-pad { position: absolute; left: 16px; right: 16px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; align-items: flex-end; }
 .race-pad[hidden] { display: none; }
 .stage > .race-pad .rp-btn { pointer-events: auto; }
@@ -449,13 +501,13 @@ onUnmounted(() => {
 .stage > .arcade { pointer-events: auto; }
 .ac-top { display: flex; align-items: center; gap: 10px; }
 .ac-title { font: 700 22px/1 var(--font-title); letter-spacing: .04em; color: #ffc56b; text-shadow: 0 0 10px rgba(255, 197, 107, .6); }
-.ac-score { flex: 1; font: 12px var(--font-mono); color: #7fe9ff; text-align: right; }
+.ac-score { flex: 1; font: 600 14px var(--font-display); color: #7fe9ff; text-align: right; }
 .ac-close { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .06); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
 .ac-close:hover { border-color: #7fe9ff; }
 .ac-screen { position: relative; border-radius: 10px; overflow: hidden; border: 2px solid #0b0618; box-shadow: 0 0 18px rgba(0, 183, 227, .35); }
 .ac-screen canvas { display: block; width: 100%; aspect-ratio: 4 / 3; image-rendering: pixelated; touch-action: none; cursor: none; }
 .ac-screen::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: repeating-linear-gradient(rgba(0, 0, 0, .18) 0 1px, transparent 1px 3px); }
-.ac-hint { margin: 0; font: 11px/1.4 var(--font-mono); color: rgba(233, 234, 243, .78); text-align: center; }
+.ac-hint { margin: 0; font: 13px/1.4 var(--font-display); color: rgba(233, 234, 243, .85); text-align: center; }
 .arcade:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
 .train-tip { position: absolute; left: 0; top: 0; padding: 6px 10px; border-radius: 999px; font: 500 12px var(--font-display); color: var(--bg); background: #ffc56b; white-space: nowrap; }
 .train-tip[hidden] { display: none; }

@@ -9,11 +9,15 @@ import { animated, rt, toyKick, toys } from '../runtime.js';
 import { canvasTex, holoMat } from '../textures.js';
 
 // Jogos: Parque Arcade. Um autódromo de kart contorna o parque (largada com semáforo, arquibancada com torcida, box,
-// telão com a classificação, zebras, pneus e faixas de turbo); dentro dele ficam a Praça Arcade (salão de fliperamas,
-// roda-gigante, controle gigante e blocos flutuando) e a Arena dos Blocos, com piso de LED.
+// telão com a classificação, zebras, pneus, faixas de turbo, passarela e arco inflável); dentro dele ficam a Praça
+// Arcade (salão de fliperamas, roda-gigante, carrossel, controle gigante e blocos flutuando), a Arena dos Blocos, com
+// piso de LED, e o palco do Reciclaverso, com as cinco lixeiras e o pedestal onde o lixo aparece.
 // Leveza: quase tudo que é parado vira duas malhas com cor nos vértices (uma fosca e uma acesa); peças repetidas
 // (pneus, cones, torcida, cabines da roda-gigante, luzes) são desenhadas de uma vez só.
-const game = { zi: 3, gems: [], got: 0, on: false, party: null };
+const game = { zi: 3, party: null };
+// Reciclaverso (jogo da Miniverso): cinco lixeiras, uma esteira trazendo o lixo e um estoque de itens para separar.
+const BINS = [['Papel', '#2f7dff'], ['Vidro', '#2fbf5a'], ['Metal', '#ffc21a'], ['Plástico', '#e8452f'], ['Orgânico', '#8a5a34']];
+const recy = { hover: -1, bins: [], items: [], stand: null, eye: null, look: null, timer: null, lidT: [-9, -9, -9, -9, -9], party: null, at: [0, 0, 0] };
 const whack = { on: false, end: 0, score: 0, best: 0, next: 0, lastTxt: 0, pads: [], leds: null, ledT: [], pop: null, flash: '', flashAt: 0 };
 const race = { state: 'off', karts: [], lights: null, board: null, party: null };
 // Fliperama do Salão Arcade: alvo de clique em volta das máquinas e o ponto de onde a câmera olha para elas.
@@ -111,6 +115,13 @@ function buildGames(g, zi) {
       x.lineCap = 'round'; x.lineWidth = 14; x.strokeStyle = 'rgba(176,124,255,.35)';
       x.beginPath(); x.moveTo(px(-0.2), px(0.12)); x.quadraticCurveTo(px(0), px(-0.02), px(0.19), px(0.07)); x.moveTo(px(-0.22), px(-0.08)); x.quadraticCurveTo(px(-0.05), px(0), px(0.02), px(0.12)); x.stroke();
       x.restore();
+      // Caixas de brita por fora das curvas mais fechadas.
+      for (let i = 0; i < N; i += 6) {
+        let k = 0; for (let j = -5; j <= 5; j++) k += K[(i + j + N) % N]; k /= 11; if (Math.abs(k) < 4.5) continue;
+        const side = k > 0 ? -1 : 1, bx = X[i] - TZ[i] * (W + 0.045) * side, bz = Z[i] + TX[i] * (W + 0.045) * side;
+        x.fillStyle = '#e6d6ad'; x.beginPath(); x.arc(px(bx), px(bz), 0.035 / (2 * FR) * SZ, 0, TAU); x.fill();
+        x.fillStyle = '#cdbb8f'; for (let d = 0; d < 14; d++) x.fillRect(px(bx) + (R() - 0.5) * 22, px(bz) + (R() - 0.5) * 22, 2, 2);
+      }
       loop(); x.lineJoin = 'round'; x.lineWidth = (2 * W + 0.05) / (2 * FR) * SZ; x.strokeStyle = '#ddd2bc'; x.stroke();
       x.lineWidth = (2 * W + 0.016) / (2 * FR) * SZ; x.strokeStyle = '#f4f1ea'; x.stroke();
       const gr = x.createRadialGradient(w / 2, h / 2, w * 0.44, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
@@ -392,35 +403,18 @@ function buildGames(g, zi) {
     animated.push(beams);
   }
 
-  // Controle de videogame gigante flutuando (genérico) no meio da praça.
+  // Controle de videogame gigante (genérico) em cima do telhado do salão Arcade, girando devagar (clique nele!).
   {
-    const pad = new THREE.Group(), padY = sag(0.02, -0.13) + 0.2; pad.position.set(0.02, padY, -0.13); g.add(pad);
+    const pad = new THREE.Group(), padY = sag(-0.205, 0.15) + 0.105; pad.position.set(-0.205, padY, 0.15); g.add(pad); pad.scale.setScalar(0.75);
     const PS = [], PG = [];
     piece(PS, new RoundedBoxGeometry(0.09, 0.022, 0.045, 3, 0.009), '#7a5cff', 0, 0, 0);
     for (const s of [-1, 1]) { const gr = new THREE.SphereGeometry(0.017, 12, 8); gr.scale(1, 0.7, 1.3); piece(PS, gr, '#7a5cff', s * 0.036, -0.004, 0.02); }
     for (const [w, d] of [[0.024, 0.007], [0.007, 0.024]]) piece(PS, Bx(w, 0.006, d), '#f6f6f6', -0.025, 0.012, 0);
     [['#ff8a6b', 0.025, -0.009], ['#ffc56b', 0.034, 0], ['#3ee0b5', 0.025, 0.009], ['#00b7e3', 0.016, 0]].forEach(([c, x, z]) => piece(PG, new THREE.SphereGeometry(0.0045, 8, 6), c, x, 0.012, z));
     pad.add(meshOf(PS, vcMat), meshOf(PG, glowMat));
-    pad.userData.anim = t => { const k = toyKick(pad, t); pad.rotation.set(0.7 + Math.sin(t * 0.9) * 0.1, Math.sin(t * 0.5) * 0.5 + k * TAU, Math.sin(t * 0.7) * 0.08); pad.position.y = padY + Math.sin(t * 1.3) * 0.01 + k * 0.05; };
+    pad.userData.anim = t => { const k = toyKick(pad, t); pad.rotation.set(0.35, t * 0.4 + k * TAU, 0); pad.position.y = padY + Math.sin(t * 1.3) * 0.004 + k * 0.05; };
     animated.push(pad); toys.push(pad);
   }
-  // Ilha de blocos flutuando e blocos voando em volta do parque (clique neles!).
-  {
-    const blocks = new THREE.Group(), bly = sag(-0.03, 0.04) + 0.16; blocks.position.set(-0.03, bly, 0.04); g.add(blocks);
-    const BS = [];
-    [[0, 0, 0, '#3ee0b5'], [0.022, 0, 0, '#3ee0b5'], [-0.022, 0, 0, '#ffc56b'], [0, 0, 0.022, '#b07cff'], [0, 0.022, 0, '#ff8a6b'], [0.022, -0.022, 0.022, '#8a7f9e'], [-0.022, -0.022, 0, '#8a7f9e']]
-      .forEach(([x, y, z, c]) => piece(BS, Bx(0.021, 0.021, 0.021), c, x, y, z));
-    blocks.add(meshOf(BS, vcMat));
-    blocks.userData.anim = t => { const k = toyKick(blocks, t); blocks.rotation.y = t * 0.5 + k * TAU; blocks.position.y = bly + Math.sin(t * 1.2) * 0.012 + k * 0.06; };
-    animated.push(blocks); toys.push(blocks);
-    ['#ff8a6b', '#ffc56b', '#3ee0b5', '#b07cff', '#ff4fd8', '#00b7e3'].forEach((c, k) => {
-      const b = new THREE.Mesh(new RoundedBoxGeometry(0.024, 0.024, 0.024, 2, 0.004), new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.35, flatShading: true })); g.add(b);
-      const r = 0.3 + (k % 2) * 0.04, h = 0.24 + k * 0.012, sp = 0.2 + k * 0.03, ph = k / 6 * TAU;
-      b.userData.anim = t => { const kk = toyKick(b, t), a = ph + t * sp; b.position.set(Math.cos(a) * r, sag(Math.cos(a) * r, Math.sin(a) * r) + h + Math.sin(t * 2 + k) * 0.01 + kk * 0.07, Math.sin(a) * r); b.rotation.set(t + k + kk * 6, t * 0.7 + kk * 6, 0); };
-      animated.push(b); toys.push(b);
-    });
-  }
-
   // Praça: carrossel, fonte de pixels, torre de queda, quiosques, pódio, postes, bancos, canteiros e gente passeando.
   {
     // Carrossel: plataforma e teto listrado girando, lâmpadas no beiral e cavalinhos que sobem e descem.
@@ -450,7 +444,7 @@ function buildGames(g, zi) {
     animated.push(car);
   }
   {
-    // Fonte de pixels embaixo da ilha de blocos: bacia, espelho d'água e cubinhos coloridos saltando.
+    // Fonte de pixels no meio da praça: bacia, espelho d'água e cubinhos coloridos saltando.
     const fx = 0, fz = 0.03, fy = topAt(fx, fz, 0.04);
     piece(S, Cy(0.04, fy + 0.008 - sag(fx, fz), 20), '#e9ecf5', fx, (fy + 0.008 + sag(fx, fz)) / 2, fz);
     piece(S, Cy(0.034, 0.002, 20), '#5fd8ff', fx, fy + 0.008, fz);
@@ -486,7 +480,7 @@ function buildGames(g, zi) {
     animated.push(ride);
   }
   // Quiosques com toldo listrado: pipoca, sorvete e refri.
-  [[0.07, -0.25, '#e8452f', '#ffd23f'], [-0.06, -0.25, '#ff9de9', '#7fe9ff'], [0.32, -0.13, '#00b7e3', '#ff8a6b']].forEach(([x, z, c1, c2]) => {
+  [[0.135, -0.255, '#e8452f', '#ffd23f'], [-0.115, -0.255, '#ff9de9', '#7fe9ff'], [0.32, -0.13, '#00b7e3', '#ff8a6b']].forEach(([x, z, c1, c2]) => {
     const y0 = sag(x, z);
     piece(S, Bx(0.032, 0.022, 0.022), '#f4f1ea', x, y0 + 0.011, z);
     piece(S, Bx(0.034, 0.003, 0.024), c1, x, y0 + 0.016, z + 0.001);
@@ -503,7 +497,7 @@ function buildGames(g, zi) {
     piece(G, Cy(0.003, 0.003, 8), '#ffd23f', px, y0 + 0.0255, pz);
   }
   // Postes neon, bancos e canteiros com árvores coloridas.
-  [[-0.135, 0.08], [0.08, -0.04], [-0.145, -0.04], [-0.09, 0.25], [0.12, 0.24], [-0.3, 0.1], [0.12, -0.17], [-0.17, -0.27]].forEach(([x, z], k) => {
+  [[-0.15, 0.08], [0.09, -0.05], [-0.15, -0.05], [-0.09, 0.25], [0.12, 0.24], [-0.3, 0.1], [0.12, -0.17], [-0.17, -0.27]].forEach(([x, z], k) => {
     const y0 = sag(x, z);
     piece(S, Cy(0.0016, 0.05, 5), '#3a3f4a', x, y0 + 0.025, z);
     piece(G, new THREE.SphereGeometry(0.0045, 8, 6), k % 2 ? '#ff9de9' : '#7fe9ff', x, y0 + 0.052, z);
@@ -514,7 +508,7 @@ function buildGames(g, zi) {
     piece(S, Bx(0.022, 0.008, 0.0018), '#ff8a6b', x - Math.sin(ry) * 0.0035, y0 + 0.011, z - Math.cos(ry) * 0.0035, ry);
     for (const s of [-1, 1]) piece(S, Bx(0.002, 0.006, 0.006), '#3a3f4a', x + Math.cos(ry) * s * 0.009, y0 + 0.003, z - Math.sin(ry) * s * 0.009, ry);
   });
-  [[-0.15, -0.24, '#ff7bb0'], [0.15, -0.21, '#3ee0b5'], [-0.33, 0.24, '#b07cff'], [0.16, 0.29, '#ffd23f'], [-0.33, -0.27, '#2f9b7a'], [0.33, 0.24, '#ff7bb0']].forEach(([x, z, c]) => {
+  [[-0.168, -0.222, '#ff7bb0'], [0.19, -0.17, '#3ee0b5'], [-0.33, 0.24, '#b07cff'], [0.16, 0.29, '#ffd23f'], [-0.33, -0.27, '#2f9b7a'], [0.33, 0.24, '#ff7bb0']].forEach(([x, z, c]) => {
     const y0 = sag(x, z);
     piece(S, Cy(0.014, 0.008, 10), '#e9ecf5', x, y0 + 0.004, z);
     piece(S, Cy(0.0025, 0.016, 5), '#7a5a3a', x, y0 + 0.016, z);
@@ -522,14 +516,16 @@ function buildGames(g, zi) {
   });
   // Gente: passeando pela praça e em volta do carrossel, na fila dos quiosques, nos fliperamas e assistindo à arena.
   const ppl = ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6', '#7a5cff'];
-  walkers(g, [[[-0.12, -0.08], [0.05, -0.08], [0.05, 0.11], [-0.12, 0.11]], [[-0.04, 0.13], [0.12, 0.13], [0.12, 0.25], [-0.04, 0.25]], [[-0.12, -0.29], [0.2, -0.29], [0.2, -0.195], [-0.12, -0.195]]], 5, ppl, (x, z) => sag(x, z) + FLOOR);
-  crowd(g, [[0.07, -0.226], [0.07, -0.212], [-0.06, -0.226], [0.32, -0.106], [-0.27, 0.25], [-0.24, 0.25], [-0.17, 0.25], [-0.14, 0.25], [0.06, -0.1], [0.08, -0.08], [0.31, 0.03], [0.3, 0.12], [0.18, 0.21]].map(([x, z]) => [x, z, sag(x, z) + FLOOR]), zi, ppl);
+  walkers(g, [[[-0.13, -0.06], [-0.065, -0.06], [-0.065, 0.11], [-0.13, 0.11]], [[-0.04, 0.13], [0.12, 0.13], [0.12, 0.25], [-0.04, 0.25]], [[-0.12, -0.292], [0.2, -0.292], [0.2, -0.278], [-0.12, -0.278]]], 5, ppl, (x, z) => sag(x, z) + FLOOR);
+  crowd(g, [[0.135, -0.231], [0.135, -0.217], [-0.115, -0.231], [0.32, -0.106], [-0.135, -0.115], [0.135, -0.12], [-0.27, 0.25], [-0.24, 0.25], [-0.17, 0.25], [-0.14, 0.25], [0.1, -0.1], [0.31, 0.03], [0.3, 0.12], [0.18, 0.21]].map(([x, z]) => [x, z, sag(x, z) + FLOOR]), zi, ppl);
 
   // Karts: o seu (amarelo) e três rivais. Fora da corrida eles dão voltas sozinhos pela pista.
   [['#ffc56b', 'Você', 0.17, -0.012], ['#ff4fd8', 'Rosa', 0.19, 0.012], ['#00b7e3', 'Azul', 0.18, -0.01], ['#3ee0b5', 'Verde', 0.2, 0.011]].forEach(([color, name, speed, lane], k) => {
     const kart = new THREE.Mesh(kartGeo(color), vcMat); g.add(kart);
     const info = { mesh: kart, color, name, s: k * track.L / 4, lane, speed, last: -1 };
-    info.place = (x, z, h) => { kart.position.set(x, sag(x, z) + LIFT, z); kart.rotation.y = -h; };
+    // roll: o kart deita um pouco para fora nas curvas.
+    kart.rotation.order = 'YXZ';
+    info.place = (x, z, h, roll = 0) => { kart.position.set(x, sag(x, z) + LIFT, z); kart.rotation.set(roll, -h, 0); };
     kart.userData.anim = t => {
       const dt = info.last < 0 ? 0 : Math.min(0.1, t - info.last); info.last = t;
       if (race.state !== 'off') return;
@@ -539,17 +535,8 @@ function buildGames(g, zi) {
     race.karts.push(info); animated.push(kart);
   });
 
-  // Gemas do minigame 1, espalhadas pelo parque (na roda-gigante, no salão, na arquibancada, no telão, na pista...).
-  [[-0.24, 0.27, -0.15], [-0.205, 0.12, 0.165], [0, 0.11, -0.5], [0.32, 0.215, -0.5], [0.19, 0.06, 0.075], [0.44, 0.04, 0.1], [-0.42, 0.04, 0], [0.04, 0.05, 0.31]].forEach(([x, h, z], k) => {
-    const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.014), new THREE.MeshStandardMaterial({ color: '#7fe9ff', emissive: '#00b7e3', emissiveIntensity: 1.2, flatShading: true, transparent: true }));
-    const gy = sag(x, z) + h; gem.position.set(x, gy, z); gem.scale.y = 1.4; gem.visible = false; gem.userData.got = -1;
-    const hit = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ visible: false })); gem.add(hit); hit.userData.gem = gem;
-    gem.userData.anim = t => {
-      if (gem.userData.got >= 0) { const age = t - gem.userData.got; gem.scale.setScalar(1 + age * 4); gem.material.opacity = 1 - age * 3; if (age > 0.33) gem.visible = false; return; }
-      gem.rotation.y = t * 2 + k; gem.position.y = gy + Math.sin(t * 2 + k) * 0.008;
-    };
-    g.add(gem); animated.push(gem); game.gems.push(gem);
-  });
+  buildRecycle(g, S, G);
+  buildTrackside(S, G);
   game.party = confetti(g, 0, sag(0, 0) + 0.12, 0);
 
   g.add(meshOf(S, vcMat), meshOf(G, glowMat));
@@ -557,4 +544,240 @@ function buildGames(g, zi) {
   const ctl = new THREE.Group(); g.add(ctl); ctl.userData.anim = () => rt.gameTick(); animated.push(ctl);
 }
 
-export { arcade, buildGames, game, race, track, trackAt, whack };
+// Itens do Reciclaverso: nome, ícone, lixeira (índice em BINS) e o desenho (peças com cor, base no chão, ~2 cm).
+// O item aparece ampliado no pedestal, então cada um tem os detalhes que o identificam (rótulo, tampa, talo...).
+const crumple = (geo, k) => { geo = geo.toNonIndexed(); const p = geo.attributes.position, seen = new Map();
+  for (let i = 0; i < p.count; i++) { const key = `${p.getX(i).toFixed(4)},${p.getY(i).toFixed(4)},${p.getZ(i).toFixed(4)}`; if (!seen.has(key)) seen.set(key, 1 + (R() - 0.5) * k); const f = seen.get(key); p.setXYZ(i, p.getX(i) * f, p.getY(i) * f, p.getZ(i) * f); }
+  geo.computeVertexNormals(); return geo; };
+const TRASH = [
+  ['Jornal velho', '📰', 0, L => {
+    piece(L, Bx(0.024, 0.003, 0.017), '#ecebe4', 0, 0.0015, 0); piece(L, Bx(0.023, 0.003, 0.016), '#dcdad0', 0.001, 0.0042, 0.0005, 0.08);
+    piece(L, Bx(0.018, 0.0006, 0.003), '#222630', 0.001, 0.006, -0.005, 0.08);
+    piece(L, Bx(0.007, 0.0006, 0.006), '#7a8597', -0.005, 0.006, 0.002, 0.08);
+    for (const z of [0, 0.003, 0.006]) piece(L, Bx(0.008, 0.0006, 0.001), '#8a8f99', 0.006, 0.006, z, 0.08);
+  }],
+  ['Caixa de papelão', '📦', 0, L => {
+    piece(L, Bx(0.02, 0.015, 0.017), '#c08a52', 0, 0.0075, 0);
+    for (const s of [-1, 1]) piece(L, Bx(0.02, 0.001, 0.009), '#b07a44', 0, 0.0155 + 0.003, s * 0.0115, 0, s * 0.7);
+    piece(L, Bx(0.0205, 0.0035, 0.0012), '#e9d3a8', 0, 0.011, 0.0086);
+    piece(L, new THREE.TorusGeometry(0.0025, 0.0005, 3, 10), '#7a4e24', 0.005, 0.006, 0.0087);
+  }],
+  ['Bola de papel', '📄', 0, L => piece(L, crumple(new THREE.IcosahedronGeometry(0.0085, 1), 0.45), '#f6f6f2', 0, 0.0085, 0)],
+  ['Garrafa de vidro', '🍾', 1, L => {
+    piece(L, Cy(0.0058, 0.017, 12), '#2fa35a', 0, 0.0085, 0); piece(L, Cy(0.0024, 0.006, 12, 0.0058), '#2fa35a', 0, 0.02, 0);
+    piece(L, Cy(0.0024, 0.007, 10), '#2fa35a', 0, 0.0265, 0); piece(L, Cy(0.0029, 0.0015, 10), '#1f7a40', 0, 0.0298, 0);
+    piece(L, Cy(0.006, 0.007, 12), '#f2e6c4', 0, 0.008, 0);
+  }],
+  ['Pote de vidro', '🫙', 1, L => {
+    piece(L, Cy(0.0082, 0.015, 14), '#bfeee0', 0, 0.0075, 0); piece(L, Cy(0.0085, 0.0035, 14), '#c9d0de', 0, 0.0167, 0);
+    piece(L, Cy(0.0084, 0.006, 14), '#ffd23f', 0, 0.007, 0);
+  }],
+  ['Lata de refrigerante', '🥤', 2, L => {
+    piece(L, Cy(0.0058, 0.018, 14), '#e8452f', 0, 0.009, 0);
+    for (const y of [0.0008, 0.0174]) piece(L, Cy(0.0052, 0.0016, 14), '#d9dde5', 0, y, 0);
+    piece(L, Cy(0.0059, 0.0025, 14), '#f6f6f6', 0, 0.011, 0);
+    piece(L, Bx(0.004, 0.0008, 0.002), '#b8bec9', 0.001, 0.0186, 0);
+  }],
+  ['Lata de conserva', '🥫', 2, L => {
+    piece(L, Cy(0.0078, 0.014, 16), '#c9d0de', 0, 0.007, 0);
+    piece(L, Cy(0.0079, 0.008, 16), '#ff8a3c', 0, 0.007, 0);
+    for (const y of [0.0005, 0.0135]) piece(L, Cy(0.0081, 0.001, 16), '#8a919c', 0, y, 0);
+  }],
+  ['Garrafa PET', '🧴', 3, L => {
+    piece(L, Cy(0.0058, 0.02, 12), '#8fd8ff', 0, 0.01, 0); piece(L, Cy(0.0025, 0.006, 12, 0.0058), '#8fd8ff', 0, 0.023, 0);
+    piece(L, Cy(0.0026, 0.0035, 10), '#2f7dff', 0, 0.0275, 0); piece(L, Cy(0.0059, 0.007, 12), '#2f7dff', 0, 0.011, 0);
+    for (const y of [0.004, 0.017]) piece(L, Cy(0.0061, 0.001, 12), '#bfeaff', 0, y, 0);
+  }],
+  ['Copo plástico', '🥤', 3, L => {
+    piece(L, Cy(0.0078, 0.018, 14, 0.0055), '#ff9de9', 0, 0.009, 0); piece(L, Cy(0.0081, 0.0025, 14), '#f6f6f6', 0, 0.0185, 0);
+    piece(L, Cy(0.0009, 0.016, 6), '#2f7dff', 0.002, 0.024, 0, 0, 0, -0.25);
+  }],
+  ['Sacola plástica', '🛍️', 3, L => {
+    piece(L, crumple(new THREE.BoxGeometry(0.017, 0.018, 0.007, 2, 2, 1), 0.12), '#f6f6f6', 0, 0.009, 0);
+    piece(L, Bx(0.0172, 0.004, 0.0072), '#3ee0b5', 0, 0.01, 0);
+    for (const s of [-1, 1]) piece(L, new THREE.TorusGeometry(0.0035, 0.0008, 4, 10, Math.PI), '#f6f6f6', s * 0.004, 0.018, 0);
+  }],
+  ['Casca de banana', '🍌', 4, L => {
+    // Talo amarelo com a ponta marrom e quatro tiras de casca abertas, caindo para os lados.
+    piece(L, Cy(0.0032, 0.014, 8, 0.0036), '#f2d23c', 0, 0.013, 0); piece(L, Cy(0.0018, 0.003, 6, 0.003), '#5a3a1a', 0, 0.0215, 0);
+    for (let k = 0; k < 4; k++) {
+      const a = k / 4 * TAU + 0.4, petal = new THREE.TorusGeometry(0.008, 0.0026, 5, 10, 2.2); petal.scale(1, 1, 0.5);
+      petal.rotateZ(Math.PI / 2); petal.translate(0, 0.011, 0); petal.rotateY(a);
+      L.push(paint(petal, k % 2 ? '#f2d23c' : '#e6c02a'));
+      const tip = new THREE.SphereGeometry(0.002, 6, 4); tip.translate(-0.0065 * Math.cos(a), 0.0063, 0.0065 * Math.sin(a)); L.push(paint(tip, '#6a4a22'));
+    }
+  }],
+  ['Resto de maçã', '🍎', 4, L => {
+    // Miolo mordido: casca vermelha só em cima e embaixo, polpa clara no meio com sementes, talo e folhinha.
+    const top = new THREE.SphereGeometry(0.0078, 12, 6, 0, TAU, 0, Math.PI / 2.6), bot = new THREE.SphereGeometry(0.0078, 12, 6, 0, TAU, Math.PI - Math.PI / 2.6, Math.PI / 2.6);
+    piece(L, top, '#d8402f', 0, 0.0148, 0); piece(L, bot, '#d8402f', 0, 0.0062, 0);
+    // Polpa em forma de ampulheta: mais fina no meio, onde foi mordida.
+    const core = new THREE.CylinderGeometry(0.0062, 0.0062, 0.0105, 14, 4), p = core.attributes.position;
+    for (let i = 0; i < p.count; i++) { const f = 0.72 + 0.28 * Math.abs(p.getY(i)) / 0.00525; p.setX(i, p.getX(i) * f); p.setZ(i, p.getZ(i) * f); }
+    piece(L, core, '#f4e6b8', 0, 0.0105, 0);
+    for (const [x, y] of [[-0.0018, 0.012], [0.0018, 0.012], [0, 0.009]]) { const seed = new THREE.SphereGeometry(0.0011, 6, 4); seed.scale(0.7, 1.2, 0.5); piece(L, seed, '#4a2a14', x, y, 0.0047); }
+    piece(L, Cy(0.0006, 0.005, 5), '#5a3a1a', 0, 0.0218, 0);
+    const leaf = new THREE.SphereGeometry(0.0032, 8, 4); leaf.scale(1, 0.18, 0.5); piece(L, leaf, '#3aa858', 0.003, 0.0232, 0, 0, 0, 0.4);
+  }],
+  ['Folhas secas', '🍂', 4, L => {
+    [[0, 0.002, 0, 0.3, '#c9762f'], [0.004, 0.005, 0.003, -0.6, '#a85a24'], [-0.003, 0.008, -0.002, 1.4, '#e09a3a']].forEach(([x, y, z, ry, c]) => {
+      const leaf = new THREE.SphereGeometry(0.0085, 10, 6); leaf.scale(1, 0.12, 0.5);
+      piece(L, leaf, c, x, y, z, ry, 0.15); piece(L, Bx(0.016, 0.0006, 0.0006), '#6a3a14', x, y + 0.0011, z, ry, 0.15);
+    });
+  }]
+];
+
+// Caixa com o sombreado já pintado (frente clara, laterais e fundo mais escuros), desenhada sem depender da luz da
+// cena: as lixeiras ficam sempre vivas, de qualquer ângulo. Ordem das faces: +x, -x, +y, -y, +z, -z.
+const flatMat = new THREE.MeshBasicMaterial({ vertexColors: true });
+// Itens do jogo: sombreado que acompanha a câmera (matcap pintado), iluminados de frente de qualquer lado do planeta.
+const itemMat = new THREE.MeshMatcapMaterial({ vertexColors: true, flatShading: true, matcap: canvasTex(64, 64, (x, w) => {
+  const gr = x.createRadialGradient(w * 0.38, w * 0.32, 2, w / 2, w / 2, w / 2);
+  gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.55, '#e4e4ea'); gr.addColorStop(1, '#8c8c99');
+  x.fillStyle = gr; x.fillRect(0, 0, w, w);
+}) });
+function shadedBox(list, w, h, d, color, x, y, z) {
+  const geo = Bx(w, h, d).toNonIndexed(), base = new THREE.Color(color), shade = [0.8, 0.8, 1.12, 0.6, 1, 0.7], c = new Float32Array(geo.attributes.position.count * 3);
+  geo.deleteAttribute('uv');
+  for (let f = 0; f < 6; f++) { _c.copy(base).multiplyScalar(shade[f]); for (let v = 0; v < 6; v++) c.set([_c.r, _c.g, _c.b], (f * 6 + v) * 3); }
+  geo.setAttribute('color', new THREE.BufferAttribute(c, 3)); geo.translate(x, y, z); list.push(geo);
+}
+
+// Palco do Reciclaverso (um game show): borda neon verde, painel com letreiro, cinco lixeiras com tampa que abre,
+// pedestal com holofotes e cronômetro de luzes, símbolo de reciclagem girando em holograma e lixo flutuando em volta.
+function buildRecycle(g, S, G) {
+  const PX = 0, PZ = -0.2, base = sag(PX, PZ) - 0.004, PT = topAt(PX, PZ, 0.115) + 0.004;
+  piece(S, Bx(0.22, PT - base, 0.1), '#1d2b3a', PX, (PT + base) / 2, PZ);
+  piece(G, Bx(0.222, 0.0025, 0.0025), '#3dff8f', PX, PT, PZ + 0.05);
+  for (const s of [-1, 1]) piece(G, Bx(0.0025, 0.0025, 0.1), '#3dff8f', PX + s * 0.11, PT, PZ);
+  // Painel do fundo com faixas acesas e o letreiro.
+  piece(S, Bx(0.22, 0.085, 0.008), '#12261d', PX, PT + 0.0425, PZ - 0.046);
+  for (let k = 0; k < 6; k++) piece(G, Bx(0.0022, 0.07, 0.001), k % 2 ? '#2fbf5a' : '#7dffb0', PX - 0.1 + k * 0.04, PT + 0.04, PZ - 0.0415);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.21, 0.042), signMat(512, 102, (x, w, h) => {
+    x.fillStyle = '#0c1a14'; x.fillRect(0, 0, w, h); x.strokeStyle = '#3dff8f'; x.lineWidth = 5; x.strokeRect(2.5, 2.5, w - 5, h - 5);
+    let fs = 72; do x.font = `900 ${fs--}px "Arial Black", Arial, sans-serif`; while (x.measureText('RECICLAVERSO').width > w - 40);
+    x.textBaseline = 'middle';
+    const a = 'RECICLA', b = 'VERSO', wa = x.measureText(a).width, wb = x.measureText(b).width, x0 = (w - wa - wb) / 2;
+    x.fillStyle = '#5dff7a'; x.fillText(a, x0, h / 2 + 2); x.fillStyle = '#f4f8ff'; x.fillText(b, x0 + wa, h / 2 + 2);
+  }));
+  sign.position.set(PX, PT + 0.108, PZ - 0.041); sign.userData.keep = true; g.add(sign);
+  for (const s of [-1, 1]) piece(S, Bx(0.004, 0.03, 0.004), '#3a3f4a', PX + s * 0.08, PT + 0.09, PZ - 0.044);
+  // Nomes das lixeiras no painel, em cima de cada uma.
+  const XS = BINS.map((_, k) => PX - 0.08 + k * 0.04);
+  const labels = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.014), signMat(512, 36, (x, w) => {
+    x.fillStyle = '#12261d'; x.fillRect(0, 0, w, 36); x.font = '700 17px Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    BINS.forEach(([name, c], k) => { const cx = (XS[k] - PX + 0.1) / 0.2 * w; x.fillStyle = c; x.fillRect(cx - 46, 5, 92, 26); x.fillStyle = '#ffffff'; x.fillText(name.toUpperCase(), cx, 19); });
+  }));
+  labels.position.set(PX, PT + 0.062, PZ - 0.0415); labels.userData.keep = true; g.add(labels);
+  // Canos verdes nos cantos.
+  for (const s of [-1, 1]) {
+    piece(S, Cy(0.006, 0.12, 10), '#2c7a4c', PX + s * 0.113, PT + 0.06, PZ - 0.04);
+    for (const y of [0.03, 0.07, 0.11]) piece(G, Cy(0.0068, 0.003, 10), '#3dff8f', PX + s * 0.113, PT + y, PZ - 0.04);
+  }
+  // Lixeiras: corpo, símbolo branco na frente e a tampa (uma peça repetida que abre quando o lixo entra).
+  const BZ = PZ - 0.014, BH = 0.036, BB = [];
+  BINS.forEach(([, c], k) => {
+    const x = XS[k];
+    shadedBox(BB, 0.03, BH, 0.026, c, x, PT + BH / 2, BZ);
+    piece(S, Bx(0.031, 0.004, 0.027), '#1d2b3a', x, PT + 0.002, BZ);
+    piece(S, new THREE.TorusGeometry(0.006, 0.0012, 4, 12), '#ffffff', x, PT + 0.02, BZ + 0.0132);
+    for (let a = 0; a < 3; a++) piece(S, new THREE.ConeGeometry(0.0022, 0.004, 3), '#ffffff', x + Math.cos(a * TAU / 3 + 0.5) * 0.006, PT + 0.02 + Math.sin(a * TAU / 3 + 0.5) * 0.006, BZ + 0.0135, 0, Math.PI / 2, a * TAU / 3 + 0.5);
+    const hit = new THREE.Mesh(new THREE.BoxGeometry(0.038, 0.07, 0.05), new THREE.MeshBasicMaterial({ visible: false }));
+    hit.position.set(x, PT + 0.03, BZ + 0.01); hit.userData.keep = true; hit.userData.bin = k; g.add(hit);
+    recy.bins.push({ hit, x, y: PT + BH, z: BZ });
+  });
+  const lidGeo = Bx(0.032, 0.004, 0.028); lidGeo.translate(0, 0.002, 0.014);
+  g.add(meshOf(BB, flatMat));
+  const lids = new THREE.InstancedMesh(lidGeo, new THREE.MeshBasicMaterial(), 5);
+  BINS.forEach(([, c], k) => lids.setColorAt(k, _c.set(c).multiplyScalar(0.85)));
+  lids.frustumCulled = false; g.add(lids);
+  lids.userData.anim = t => {
+    for (let k = 0; k < 5; k++) {
+      const age = t - recy.lidT[k], open = Math.max(age < 0 || age > 0.7 ? 0 : Math.sin(Math.min(1, age / 0.7) * Math.PI), recy.hover === k ? 0.35 : 0);
+      lids.setMatrixAt(k, _m.makeRotationX(-open * 1.1).setPosition(XS[k], PT + BH, BZ - 0.014));
+    }
+    lids.instanceMatrix.needsUpdate = true;
+  };
+  animated.push(lids);
+  const timer = new THREE.InstancedMesh(Bx(0.004, 0.0025, 0.0025), new THREE.MeshBasicMaterial({ color: '#3dff8f', toneMapped: false }), 24);
+  // Quem joga fica na plateia, de frente para o palco (eye/look); o item da vez aparece flutuando na frente dele, com
+  // o anel de luzes do cronômetro em volta.
+  const FX = 0, FZ = PZ + 0.125, FY = sag(FX, FZ) + FLOOR + 0.016;
+  for (let k = 0; k < 24; k++) { const a = -Math.PI / 2 + k / 24 * TAU; timer.setMatrixAt(k, _m.makeRotationY(-a).setPosition(FX + Math.cos(a) * 0.017, FY - 0.004, FZ + Math.sin(a) * 0.017)); }
+  recy.eye = { x: 0, y: sag(0, PZ + 0.19) + FLOOR + 0.04, z: PZ + 0.19 }; recy.look = { x: 0, y: PT + 0.032, z: PZ - 0.01 };
+  timer.count = 0; timer.userData.keep = true; g.add(timer); recy.timer = timer;
+  recy.stand = { x: FX, y: FY, z: FZ };
+  recy.at = [PX, PT + 0.03, PZ];
+  // Estoque de itens (um de cada; só o da vez e o que está voando para a lixeira aparecem).
+  for (const [name, icon, bin, draw] of TRASH) {
+    const L = []; draw(L); const m = new THREE.Mesh(mergeGeometries(L), itemMat);
+    m.visible = false; m.userData.keep = true; g.add(m);
+    recy.items.push({ mesh: m, name, icon, bin });
+  }
+  // Símbolo de reciclagem (três setas em triângulo) em neon, balançando devagar em cima do letreiro.
+  {
+    const sym = new THREE.Mesh(new THREE.PlaneGeometry(0.05, 0.05), new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, map: canvasTex(128, 128, (x, w) => {
+      const c = w / 2, R0 = 44, ang = k => -Math.PI / 2 + k * TAU / 3, P = (k, r = R0) => [c + Math.cos(ang(k)) * r, c + 6 + Math.sin(ang(k)) * r];
+      x.lineCap = 'round'; x.lineJoin = 'round';
+      for (const [lw, col] of [[20, 'rgba(61,255,143,.25)'], [11, '#3dff8f']]) for (let k = 0; k < 3; k++) {
+        // Cada seta corre por um lado do triângulo, com uma folga nos cantos, e termina numa ponta.
+        const [ax, ay] = P(k), [bx, by] = P(k + 1), sx = ax + (bx - ax) * 0.2, sy = ay + (by - ay) * 0.2, ex = ax + (bx - ax) * 0.68, ey = ay + (by - ay) * 0.68;
+        x.strokeStyle = col; x.lineWidth = lw; x.beginPath(); x.moveTo(sx, sy); x.lineTo(ex, ey); x.stroke();
+        const dx = (bx - ax), dy = (by - ay), l = Math.hypot(dx, dy), ux = dx / l, uy = dy / l, hs = lw * 1.5;
+        x.fillStyle = col; x.beginPath(); x.moveTo(ex + ux * hs, ey + uy * hs); x.lineTo(ex - uy * hs, ey + ux * hs); x.lineTo(ex + uy * hs, ey - ux * hs); x.closePath(); x.fill();
+      }
+    }) }));
+    sym.position.set(PX, PT + 0.158, PZ - 0.04); sym.userData.keep = true; g.add(sym);
+    sym.userData.anim = t => { sym.rotation.y = Math.sin(t * 0.8) * 0.5; sym.position.y = PT + 0.158 + Math.sin(t * 1.4) * 0.004; };
+    animated.push(sym);
+  }
+  // Lixo flutuando em volta do pavilhão, como na arte do jogo.
+  [[TRASH[7], -0.13, 0.11, 0.6], [TRASH[5], 0.13, 0.1, 2.1], [TRASH[2], 0.07, 0.15, 4]].forEach(([[, , , draw], dx, h, ph]) => {
+    const L = []; draw(L); const m = new THREE.Mesh(mergeGeometries(L), itemMat); m.scale.setScalar(1.3); g.add(m);
+    m.userData.detail = true;
+    m.userData.anim = t => { m.position.set(PX + dx, PT + h + Math.sin(t * 1.1 + ph) * 0.01, PZ - 0.02); m.rotation.set(t * 0.7 + ph, t * 0.9, ph); };
+    animated.push(m);
+  });
+  recy.party = confetti(g, PX, PT + 0.06, PZ);
+}
+
+// Enfeites da pista: passarela sobre a reta da esquerda, arco inflável na saída do S, painéis coloridos ao longo das
+// retas e postes de luz nas curvas.
+function buildTrackside(S, G) {
+  const { X, Z, TX, TZ, K } = track;
+  // Passarela: escadas nas duas pontas, piso, guarda-corpo aceso e uma faixa quadriculada no meio.
+  {
+    const bz = 0.07, y0 = sag(-0.42, bz), BY = 0.078;
+    for (const x of [-0.485, -0.355]) { piece(S, Bx(0.014, BY, 0.022), '#e9ecf5', x, y0 + BY / 2, bz); piece(S, Bx(0.016, 0.004, 0.024), '#ff4fd8', x, y0 + BY + 0.002, bz); }
+    piece(S, Bx(0.15, 0.005, 0.022), '#2b2250', -0.42, y0 + BY + 0.0025, bz);
+    for (const s of [-1, 1]) piece(G, Bx(0.15, 0.002, 0.002), '#7fe9ff', -0.42, y0 + BY + 0.014, bz + s * 0.011);
+    for (let k = 0; k < 8; k++) piece(S, Bx(0.008, 0.008, 0.0015), k % 2 ? '#15161c' : '#f6f6f6', -0.448 + k * 0.008, y0 + BY - 0.004, bz + 0.0115);
+  }
+  // Arco inflável listrado na saída do S (a pista corre ao longo de x ali).
+  {
+    const ax = 0.22, az = 0.372, y0 = sag(ax, az), AR = 0.066;
+    for (let k = 0; k < 8; k++) {
+      const seg = new THREE.TorusGeometry(AR, 0.007, 6, 6, Math.PI / 8); seg.rotateZ(k * Math.PI / 8);
+      piece(S, seg, k % 2 ? '#ff4fd8' : '#ffc56b', ax, y0, az, Math.PI / 2);
+    }
+  }
+  // Painéis coloridos ao longo das retas, por fora da pista.
+  const cols = ['#ff4fd8', '#00b7e3', '#ffc56b', '#3ee0b5'];
+  for (let i = 0, n = 0; i < N; i += 7) {
+    let k = 0; for (let j = -4; j <= 4; j++) k = Math.max(k, Math.abs(K[(i + j + N) % N])); if (k > 2) continue;
+    for (const side of [-1, 1]) {
+      const o = W + 0.024, x = X[i] - TZ[i] * o * side, z = Z[i] + TX[i] * o * side;
+      if (Math.hypot(x, z) < 0.43 || Math.hypot(x, z) > 0.53) continue;
+      piece(S, Bx(0.022, 0.009, 0.0025), cols[n++ % 4], x, sag(x, z) + 0.0045, z, -Math.atan2(TZ[i], TX[i]));
+    }
+  }
+  // Postes de luz nas curvas grandes.
+  for (const [x, z] of [[0.49, -0.24], [0.47, 0.2], [-0.47, 0.25], [-0.48, -0.28], [0.1, 0.45], [-0.12, 0.46]]) {
+    const y0 = sag(x, z);
+    piece(S, Cy(0.002, 0.08, 6), '#3a3f4a', x, y0 + 0.04, z);
+    piece(S, Bx(0.016, 0.003, 0.003), '#3a3f4a', x, y0 + 0.08, z);
+    for (const s of [-1, 1]) piece(G, Bx(0.005, 0.004, 0.005), '#fff6d8', x + s * 0.006, y0 + 0.077, z);
+  }
+}
+
+export { arcade, BINS, buildGames, game, race, recy, track, trackAt, whack };

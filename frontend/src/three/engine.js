@@ -185,7 +185,7 @@ export function createMiniverso(rootEl, opts = {}) {
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
     zoneFx[i] = clock; show = !!ZONES[i].show;
-    if (i === game.zi) startGame(); else zoneStatus.textContent = ZONES[i].done;
+    if (i === game.zi) startRecycle(); else zoneStatus.textContent = ZONES[i].done;
   });
   // Cabine de qualquer um dos trens (pelo botão da Ferrovia ou clicando no trem).
   function enterCab(k) {
@@ -204,8 +204,8 @@ export function createMiniverso(rootEl, opts = {}) {
     return trains.findIndex(t => { for (let o = hit.object; o; o = o.parent) if (o === t.group) return true; return false; });
   }
   // Minigames: placar grande no topo da tela, com dica de como jogar (ver games.js).
-  const { stopGame, startGame, collectGem, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, racing, raceCam, whackTick, hitWhack, smack, hitToy, hitGem } = createGames({
-    $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }), compact: v => cardCompact(v), view: p => { tourStop(); aim(p); } });
+  const { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, whackTick, hitWhack, smack, hitToy } = createGames({
+    $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }), compact: v => cardCompact(v), view: p => { tourStop(); aim(p); }, sound: music });
   labels.forEach((el, i) => on(el, 'click', () => openZone(i)));
   on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0 && !cab && cabT === 0) closeZone(); });
 
@@ -224,6 +224,9 @@ export function createMiniverso(rootEl, opts = {}) {
   }
   const ripple = at => { displayUniforms.uRipP.value.copy(at); rippleAt = performance.now(); };
 
+  // Dentro de uma área, o clique fica nela: as outras áreas e os trens lá atrás não respondem (para sair, o × da barra
+  // ou os rótulos). Só na Ferrovia um clique no trem leva para a cabine.
+  const trainOk = () => focusZone < 0 || ZONES[focusZone].kind2 === 'cab';
   // Na cabine (e durante a transição) o mundo não responde: só o botão de sair, no cartão.
   const inCab = () => cab || cabT > 0.001;
   on(canvas, 'pointermove', e => {
@@ -233,7 +236,8 @@ export function createMiniverso(rootEl, opts = {}) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
       if (drag.mode === 'headset') { userY = drag.y0 + dx * 0.008; userX = clamp(drag.x0 + dy * 0.004, -0.5, 0.5); }
-      if (drag.mode === 'planet' && focusZone >= 0 && !cab) {
+      if (drag.mode === 'planet' && playing()) { /* jogo rolando: câmera fixa, arrastar não gira a vista */ }
+      else if (drag.mode === 'planet' && focusZone >= 0 && !cab) {
         zYawT -= (e.clientX - drag.lx) * 0.006; zPitchT = clamp(zPitchT + (e.clientY - drag.ly) * 0.005, 0.18, 1.45); show = false;
         if (drag.moved) busy();
         drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
@@ -245,11 +249,12 @@ export function createMiniverso(rootEl, opts = {}) {
       idleAt = performance.now();
     }
     const h = hitVisor(); hoverVisor = h ? 1 : 0; if (h) displayUniforms.uPoint.value.copy(h);
-    hoverZone = hitZone();
-    hoverTrain = drag ? -1 : hitTrain();
+    hoverZone = focusZone < 0 ? hitZone() : -1;
+    hoverTrain = drag || !trainOk() ? -1 : hitTrain();
     trainTip.hidden = hoverTrain < 0;
     if (hoverTrain >= 0) { const r = canvas.getBoundingClientRect(); trainTip.style.transform = `translate(${(e.clientX - r.left + 14).toFixed(0)}px, ${(e.clientY - r.top + 14).toFixed(0)}px)`; }
-    canvas.classList.toggle('pointing', (hoverZone >= 0 || hoverTrain >= 0 || !!hitGem() || !!hitWhack() || hitArcade() || !!hitToy()) && !drag);
+    canvas.classList.toggle('pointing', (hoverZone >= 0 || hoverTrain >= 0 || hitBin() >= 0 || !!hitWhack() || hitArcade() || !!hitToy()) && !drag);
+    canvas.classList.toggle('whacking', whacking());
   });
   on(canvas, 'pointerleave', () => { hoverVisor = 0; hoverZone = -1; hoverTrain = -1; trainTip.hidden = true; });
   on(canvas, 'pointerdown', e => {
@@ -264,14 +269,14 @@ export function createMiniverso(rootEl, opts = {}) {
     if (!drag || drag.id !== e.pointerId) return;
     if (!drag.moved && e.type === 'pointerup' && drag.mode === 'headset') { const h = hitVisor(); if (h) ripple(h); }
     if (!drag.moved && e.type === 'pointerup' && drag.mode === 'planet') {
-      toNdc(e); const gem = hitGem();
+      toNdc(e); const bin = hitBin(), gem = bin >= 0;
       const block = gem ? null : hitWhack(), cabinet = !gem && !block && hitArcade(), toy = gem || block || cabinet ? null : hitToy();
-      if (gem) collectGem(gem);
+      if (gem) sortInto(bin);
       else if (block) smack(block);
       else if (cabinet) startArcade();
       else if (toy) toy.userData.kick = clock;
-      else if (hitTrain() >= 0) enterCab(hitTrain());
-      else { const zi = hitZone(); if (zi >= 0) openZone(zi); }
+      else if (trainOk() && hitTrain() >= 0) enterCab(hitTrain());
+      else if (focusZone < 0) { const zi = hitZone(); if (zi >= 0) openZone(zi); }
     }
     if (drag.mode === 'planet' && performance.now() - drag.lt > 80) velX = velY = 0;
     drag = null; canvas.classList.remove('dragging'); idleAt = performance.now();
@@ -288,7 +293,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (k > 1) zFT.lerp(zoneFocus(focusZone), Math.min(1, (k - 1) * 1.5));
     const R = (ZONES[focusZone].R || 0.33) * 1.25, d = Math.hypot(zFT.x, zFT.z); if (d > R) { zFT.x *= R / d; zFT.z *= R / d; }
   }
-  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab()) return; show = false; busy(); const before = zDistT; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), Math.min(zMin(), zDistT), ZD_MAX); zoomAt(e, zDistT / before); }, { passive: false });
+  on(canvas, 'wheel', e => { if (focusZone < 0) return; e.preventDefault(); e.stopPropagation(); if (inCab() || playing()) return; show = false; busy(); const before = zDistT; zDistT = clamp(zDistT * Math.exp(e.deltaY * 0.0012), Math.min(zMin(), zDistT), ZD_MAX); zoomAt(e, zDistT / before); }, { passive: false });
   on(canvas, 'pointercancel', endDrag);
   on(canvas, 'keydown', e => {
     const k = e.key;
@@ -626,7 +631,7 @@ export function createMiniverso(rootEl, opts = {}) {
       fdir.copy(zoneMarks[lastFocus].dir).transformDirection(planet.matrixWorld);
       const ez = 1 - Math.exp(-dt * (reduced ? 30 : 6));
       zYaw += (zYawT - zYaw) * ez; zPitch += (zPitchT - zPitch) * ez; zDist += (zDistT - zDist) * ez; zF.lerp(zFT, ez);
-      const yaw = zYaw + (drag ? 0 : mx * 0.05), r = 0.745 * far * zDist, pitch = Math.max(zPitch, Math.asin(Math.min(1, 0.1 / r))), cp = Math.cos(pitch), sp = Math.sin(pitch); // nunca abaixo de ~0.1 do chão
+      const yaw = zYaw + (drag || playing() ? 0 : mx * 0.05), r = 0.745 * far * zDist, pitch = Math.max(zPitch, Math.asin(Math.min(1, 0.1 / r))), cp = Math.cos(pitch), sp = Math.sin(pitch); // nunca abaixo de ~0.1 do chão
       // Gira e aproxima em volta do centro da órbita (zF, em coordenadas da área).
       const fx = zF.x, fy = zF.y, fz = zF.z;
       fcam.set(fx + Math.sin(yaw) * cp * r, fy + sp * r, fz + Math.cos(yaw) * cp * r); zg.localToWorld(fcam);
