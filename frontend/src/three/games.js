@@ -4,7 +4,7 @@ import { sag } from './world/build.js';
 import { worldCamera } from './world/stage.js';
 import { rt, toys } from './world/runtime.js';
 import { createArcade } from './arcade.js';
-import { arcade, BINS, game, race, recy, track, trackAt, whack } from './world/zones/jogos.js';
+import { arcade, BINS, game, race, recy, slopeAt, track, trackAt, whack } from './world/zones/jogos.js';
 
 // Minigames da área Jogos (Reciclaverso, blocos, corrida de kart e fliperama) e os cliques nos brinquedos do planeta.
 // st() devolve o estado atual do motor (movimento reduzido, área aberta, mundo ativo, cabine).
@@ -28,11 +28,11 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   const kb = (...k) => k.map(x => `<kbd>${x}</kbd>`).join('');
   const sq = c => `<i class="sq" style="--q: ${c}"></i>`;
   const HOW = {
-    recy: { icon: '♻️', title: 'Reciclaverso', steps: [['🍌🥫🧴', 'O lixo aparece na sua frente'], [BINS.map(([, c]) => sq(c)).join(''), touch ? 'Toque na lixeira certa' : `Clique na lixeira certa ou ${kb('1')}…${kb('5')}`], ['⏱️', 'Antes de a barra de tempo acabar'], ['⭐', 'Acertos seguidos valem mais']] },
+    recy: { icon: '♻️', title: 'Reciclaverso', steps: [['🍌🥫🧴', 'O lixo aparece na sua frente'], [BINS.map(([, c]) => sq(c)).join(''), touch ? 'Toque na lixeira certa' : `Clique na lixeira certa ou ${kb('1')}…${kb('5')}`], ['⏱️', 'O tempo encurta: as últimas são relâmpago!'], ['⭐', 'Acertos seguidos valem mais']] },
     whack: { icon: '🟪', title: 'Acerte os blocos', steps: [['👆', 'Acerte os blocos que saltam'], [sq('#ffd23f'), 'Dourado: +3'], [sq('#ff3b3b'), 'Vermelho: −2'], ['⚡', 'Relâmpago: +3 segundos']] },
     race: { icon: '🏁', title: 'Corrida de kart', steps: touch
-      ? [['◀ ▶', 'Segure os botões para virar'], ['✋', 'Botão do meio freia'], ['»»', 'Setas azuis dão turbo'], ['🏆', '3 voltas: chegue em 1º']]
-      : [[kb('←', '→'), 'Virar'], [kb('↓'), 'Frear'], ['»»', 'Setas azuis dão turbo'], ['🏆', '3 voltas: chegue em 1º']] },
+      ? [['◀ ▶', 'Segure os botões para virar'], ['❓', 'Pegue as caixas e toque em Item'], ['✨', 'Segure a curva: faíscas viram turbo'], ['🏆', '3 voltas: chegue em 1º']]
+      : [[kb('←', '→'), 'Virar · ' + kb('↓') + ' freia'], [kb('Espaço'), 'Usa o item das caixas ❓'], ['✨', 'Segure a curva: faíscas viram turbo'], ['🏆', '3 voltas: chegue em 1º']] },
     arcade: { icon: '🕹️', title: 'Quebra-pixel', steps: touch
       ? [['👆', 'Arraste para mover a raquete'], ['👆', 'Toque para lançar a bola'], [sq('#ffd23f'), 'Bloco dourado alarga a raquete'], ['❤️', '3 vidas']]
       : [[`${kb('←', '→')} 🖱️`, 'Mova a raquete'], [kb('Espaço'), 'Lance a bola'], [sq('#ffd23f'), 'Bloco dourado alarga a raquete'], ['❤️', '3 vidas']] }
@@ -78,13 +78,19 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   function beginRecycle() {
     Object.assign(rc, { on: true, score: 0, combo: 0, ok: 0, bad: 0, round: 0, cur: null, fly: null, next: nowS() + 0.7, flash: '' });
     showHud('Reciclaverso', ''); hud.classList.add('corner');
-    hudBins.hidden = false; hudBar.hidden = false; sfx('go');
+    hudBins.hidden = false; hudBar.hidden = false; sfx('go'); flash('♻️ Valendo!', 'go', 1.1);
     zoneStatus.textContent = `${ROUNDS} rodadas. Valendo!`;
   }
+  // Tempo para responder: folgado no começo (8 s nas 4 primeiras), vai encurtando até 4 s na 9ª e as 3 últimas são
+  // relâmpago (3 s, 2,6 s e 2,2 s).
+  const FAST_FROM = 10;
+  const roundTime = r => (r <= 4 ? 8 : r < FAST_FROM ? 8 - (r - 4) / (FAST_FROM - 1 - 4) * 4 : [3, 2.6, 2.2][Math.min(2, r - FAST_FROM)]);
   function nextItem(n) {
     const pool = recy.items.filter(it => it !== rc.last && it !== rc.fly?.it);
     const it = pool[Math.floor(R() * pool.length)];
-    rc.round++; rc.cur = it; rc.last = it; rc.t0 = n; rc.dur = 7 - (rc.round - 1) / (ROUNDS - 1) * 3.5; rc.beep = 0;
+    rc.round++; rc.cur = it; rc.last = it; rc.t0 = n; rc.dur = roundTime(rc.round); rc.beep = 0;
+    // Entrando nas rodadas relâmpago: aviso grande, som e vibração.
+    if (rc.round === FAST_FROM) { tell('⚡ Rodadas relâmpago! Pontos em dobro.', n); flash('⚡ RELÂMPAGO · pontos x2', 'last', 1.6); sfx('go'); buzz([20, 30, 20]); }
     it.mesh.visible = true; it.mesh.position.set(recy.stand.x, recy.stand.y, recy.stand.z); it.mesh.scale.setScalar(0.01);
     sfx('whoosh');
   }
@@ -94,18 +100,19 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     recy.lidT[k] = rt.clock; rc.cur = null; rc.next = n + FLY + GAP;
   }
   function recyLoop(n) {
+    if (flashUntil && n > flashUntil && race.state === 'off') { flashEl.classList.remove('on'); flashUntil = 0; }
     if (!rc.on) return;
     if (!rc.cur && !rc.fly && n >= rc.next) { if (rc.round >= ROUNDS) return endRecycle(); nextItem(n); }
     // Item da vez: sobe crescendo e gira no pedestal; o anel de luzes vai apagando (verde, amarelo, vermelho).
     if (rc.cur) {
       const m = rc.cur.mesh, age = n - rc.t0, left = Math.max(0, 1 - age / rc.dur), grow = Math.min(1, age / SHOW);
-      m.scale.setScalar(0.95 * (1 - (1 - grow) ** 3)); m.rotation.set(0.25, age * 1.4, 0);
+      m.scale.setScalar(0.95 * (1 - (1 - grow) ** 3)); m.rotation.set(0.25, age * (rc.round >= FAST_FROM ? 3.2 : 1.4), 0);
       m.position.y = recy.stand.y + Math.sin(age * 3) * 0.0015;
       recy.timer.count = Math.ceil(left * 24);
       const col = left > 0.5 ? '#3dff8f' : left > 0.25 ? '#ffd23f' : '#ff3b3b';
       recy.timer.material.color.copy(timerC.set(col));
       hudFill.style.transform = `scaleX(${left.toFixed(3)})`; hudFill.style.background = col;
-      const sec = Math.ceil(rc.dur - age); if (sec <= 2 && sec !== rc.beep) { rc.beep = sec; sfx('tick'); buzz(10); }
+      const sec = Math.ceil(rc.dur - age); if (sec <= (rc.dur < 3.5 ? 1 : 2) && sec !== rc.beep) { rc.beep = sec; sfx('tick'); buzz(10); }
       if (left <= 0) {
         rc.bad++; rc.combo = 0; tell(`O tempo acabou! ${rc.cur.icon} ${rc.cur.name} vai no ${binOf(rc.cur.bin)}.`, n);
         sfx('bad'); buzz([30, 40, 30]); sendTo(rc.cur, rc.cur.bin, n);
@@ -117,7 +124,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       m.position.lerpVectors(f.from, f.to, u); m.position.y += Math.sin(Math.PI * u) * 0.05; m.rotation.x += 0.25; m.scale.setScalar(f.s * (1 - u * 0.75));
       if (u >= 1) { m.visible = false; rc.fly = null; }
     }
-    hudScore.textContent = `Rodada ${Math.max(1, rc.round)}/${ROUNDS} · ${rc.score} pts`;
+    hudScore.textContent = `${rc.round >= FAST_FROM ? '⚡ ' : ''}Rodada ${Math.max(1, rc.round)}/${ROUNDS} · ${rc.score} pts`;
     hudHint.textContent = rc.flash && n - rc.flashAt < 1.8 ? rc.flash : '';
   }
   function tell(t, n) { rc.flash = t; rc.flashAt = n; }
@@ -125,8 +132,10 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     if (!rc.on || !rc.cur) return;
     const n = nowS(), it = rc.cur, left = Math.max(0, 1 - (n - rc.t0) / rc.dur);
     if (it.bin === k) {
-      rc.ok++; rc.combo++; const pts = 10 + Math.round(left * 10) + Math.min(5, rc.combo - 1) * 2; rc.score += pts;
+      rc.ok++; rc.combo++; const pts = (10 + Math.round(left * 10) + Math.min(5, rc.combo - 1) * 2) * (rc.round >= FAST_FROM ? 2 : 1); rc.score += pts;
       tell(rc.combo >= 3 ? `Certo! +${pts} · ${rc.combo} seguidas!` : `Certo! +${pts}`, n);
+      // Sequências marcantes: aviso grande e confete no palco.
+      if (rc.combo === 3 || rc.combo === 5 || rc.combo === 8) { flash(`🔥 ${rc.combo} seguidas!`, 'boost', 1); recy.party.userData.at = rt.clock; }
       sfx(rc.combo >= 3 ? 'bonus' : 'good'); buzz(15);
     } else {
       rc.bad++; rc.combo = 0;
@@ -138,7 +147,10 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   function endRecycle() {
     const win = rc.ok >= 9;
     stopRecycle(); compact(false); rc.best = Math.max(rc.best, rc.score);
-    hudScore.textContent = `${rc.ok}/${ROUNDS} certos · ${rc.score} pts`;
+    // Estrelas pelo número de acertos: 6+ uma, 9+ duas, 11+ três.
+    const stars = rc.ok >= 11 ? 3 : rc.ok >= 9 ? 2 : rc.ok >= 6 ? 1 : 0, starTxt = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    flash(starTxt, stars === 3 ? 'win' : 'end', 3.2);
+    hudScore.textContent = `${starTxt} ${rc.ok}/${ROUNDS} certos · ${rc.score} pts`;
     hudHint.textContent = (rc.ok === ROUNDS ? 'Perfeito! Reciclador de primeira!' : win ? 'Muito bem, o planeta agradece!' : 'Dá para reciclar melhor! Tente de novo.') + ` Recorde: ${rc.best} pts`;
     zoneStatus.textContent = 'Toque de novo em Reciclaverso para jogar outra vez.';
     if (win) { recy.party.userData.at = rt.clock; sfx('win'); buzz([30, 60, 30, 60, 80]); } else sfx('lose');
@@ -220,14 +232,24 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     if (d < 0) { sfx('bad'); buzz([40, 30, 40]); } else if (d > 1 || kind === 'time') { sfx('bonus'); buzz(25); } else { sfx('hit', (whack.score % 5) * 2); buzz(12); }
   }
 
-  // 3) Corrida de kart: você pilota o kart amarelo contra três rivais, 3 voltas. O kart acelera sozinho;
-  // ← → (ou A/D, ou os botões na tela) viram e ↓ freia. Sem tocar em nada, ele se alinha sozinho com a pista; as
-  // zebras seguram o kart dentro da pista, mas em cima delas ele anda devagar e a mureta freia; as setas azuis dão turbo.
-  const LAPS = 3, VMAX = 0.27, ACC = 0.24, BRAKE = 0.7, KERB = 0.15, EDGE = track.W + 0.004, ON_KERB = track.W - 0.008;
+  // 3) Corrida de kart: você pilota o kart amarelo contra três rivais, 3 voltas por um circuito com viaduto. O kart
+  // acelera sozinho; ← → (ou A/D, ou os botões na tela) viram, ↓ freia e Espaço (ou o botão Item) usa o item.
+  // Sem tocar em nada, ele se alinha sozinho com a pista; as zebras seguram o kart dentro da pista, mas em cima delas
+  // ele anda devagar e a mureta freia; as setas azuis dão turbo. Segurar a curva em velocidade solta faíscas
+  // (azuis, depois laranja) e, ao soltar, vira um turbo curto. Nas caixas "?" você ganha um item: turbo, casca de
+  // banana (larga atrás de você e faz quem passar rodar) ou escudo (6 s protegido).
+  // PACE: a corrida anda num ritmo 18% mais calmo que o relógio (com os karts menores, a pista parece maior).
+  const PACE = 0.82, LAPS = 3, VMAX = 0.27, ACC = 0.24, BRAKE = 0.7, KERB = 0.15, ON_KERB = track.W - 0.008;
+  // Até onde o centro do kart vai: a lateral dele encosta na face da mureta (no chão) ou na mureta da ponte (no viaduto).
+  const HALF = 0.0116 * track.KART_S, edgeAt = i => (track.Y[i] > 0.004 ? track.W + 0.002 - HALF : track.BARRIER - 0.0016 - HALF);
   const input = { l: false, r: false, b: false };
   const KEYS = { ArrowLeft: 'l', a: 'l', A: 'l', ArrowRight: 'r', d: 'r', D: 'r', ArrowDown: 'b', s: 'b', S: 'b' };
   const racing = () => race.state === 'count' || race.state === 'run';
-  on(window, 'keydown', e => { const k = KEYS[e.key]; if (!k || !racing()) return; input[k] = true; e.preventDefault(); });
+  on(window, 'keydown', e => {
+    if (!racing()) return;
+    if (e.key === ' ' || e.key === 'x' || e.key === 'X') { e.preventDefault(); if (!e.repeat) useItem(); return; }
+    const k = KEYS[e.key]; if (!k) return; input[k] = true; e.preventDefault();
+  });
   on(window, 'keyup', e => { const k = KEYS[e.key]; if (k) input[k] = false; });
   on(window, 'blur', () => { input.l = input.r = input.b = false; });
   for (const b of pad.querySelectorAll('[data-k]')) {
@@ -235,7 +257,26 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     on(b, 'pointerdown', set(true)); for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) on(b, ev, set(false));
     on(b, 'contextmenu', e => e.preventDefault());
   }
-  const pt = { x: 0, z: 0, h: 0 };
+  const itemBtn = pad.querySelector('.rp-item');
+  if (itemBtn) { on(itemBtn, 'pointerdown', e => { e.preventDefault(); useItem(); }); on(itemBtn, 'contextmenu', e => e.preventDefault()); }
+  // Painel da corrida: posição grande, volta, item guardado e o mini-mapa; avisos grandes no meio da tela.
+  const rh = $('.race-hud'), rhPos = rh.querySelector('.rh-pos'), rhLap = rh.querySelector('.rh-lap'), rhItem = rh.querySelector('.rh-item'), rhMap = rh.querySelector('.rh-map');
+  const flashEl = $('.race-flash');
+  let flashUntil = 0;
+  function flash(text, kind = '', dur = 1.2) { flashEl.textContent = text; flashEl.className = `race-flash ${kind}`; flashEl.hidden = false; void flashEl.offsetWidth; flashEl.classList.add('on'); flashUntil = nowS() + dur; }
+  const ITEMS = { turbo: '🚀', banana: '🍌', escudo: '🛡️' };
+  const mapX = rhMap.getContext('2d'), MAP = 120, mapK = MAP / 1.42, mp = (x, z) => [MAP / 2 + x * mapK, MAP / 2 + z * mapK];
+  const mapPath = new Path2D(); for (let i = 0; i <= track.N; i++) { const [x, y] = mp(track.X[i % track.N], track.Z[i % track.N]); i ? mapPath.lineTo(x, y) : mapPath.moveTo(x, y); }
+  let mapAt = 0;
+  function drawMap(n) {
+    if (n - mapAt < 0.066) return; mapAt = n;
+    mapX.clearRect(0, 0, MAP, MAP);
+    mapX.lineJoin = 'round'; mapX.lineWidth = 7; mapX.strokeStyle = 'rgba(20,12,42,.7)'; mapX.stroke(mapPath);
+    mapX.lineWidth = 3.5; mapX.strokeStyle = '#d9d4ea'; mapX.stroke(mapPath);
+    const [sx, sy] = mp(track.X[0], track.Z[0]); mapX.fillStyle = '#ffffff'; mapX.fillRect(sx - 1, sy - 5, 2, 10);
+    for (const a of [...ais, me]) { const [x, y] = mp(a.x, a.z); mapX.fillStyle = a.k.color; mapX.strokeStyle = '#140c2a'; mapX.lineWidth = 2; mapX.beginPath(); mapX.arc(x, y, a === me ? 5.5 : 4, 0, Math.PI * 2); mapX.fill(); mapX.stroke(); }
+  }
+  const pt = { x: 0, z: 0, h: 0, y: 0 }, ptY = { x: 0, z: 0, h: 0, y: 0 };
   let me = null, ais = [], best = null, boardKey = '', lights = -1;
   function setLights(red, green) {
     const L = race.lights; for (let k = 0; k < 5; k++) L.setColorAt(k, ledC.set(green ? '#3dff7a' : k < red ? '#ff2a2a' : '#3a1414'));
@@ -246,22 +287,29 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     const K = race.karts;
     // Grid: você larga na segunda fila, à esquerda.
     trackAt(-0.085, -0.013, pt);
-    me = { k: K[0], x: pt.x, z: pt.z, h: pt.h, v: 0, st: 0, prog: -0.085, lane: -0.013, lat: -0.013, i: Math.round((track.L - 0.085) / track.ds) % track.N, lap: 0, lapAt: 0, fin: 0, boost: 0, hitAt: -9 };
-    ais = [[K[1], -0.035, -0.013, 0.86], [K[2], -0.035, 0.013, 0.8], [K[3], -0.085, 0.013, 0.83]].map(([k, prog, lane, skill]) => ({ k, prog, lane, laneT: lane, skill, v: 0, fin: 0 }));
-    for (const a of [me, ...ais]) { trackAt(a.prog, a.lane, pt); a.k.place(pt.x, pt.z, pt.h); }
-    Object.assign(race, { state: 'grid', last: nowS(), order: 0 }); setLights(0, false); lights = 0;
+    me = { sp: undefined, k: K[0], x: pt.x, z: pt.z, h: pt.h, y: 0, v: 0, st: 0, prog: -0.085, lane: -0.013, lat: -0.013, i: Math.round((track.L - 0.085) / track.ds) % track.N, lap: 0, lapAt: 0, fin: 0, boost: 0, hitAt: -9, drift: 0, spin: 0, item: null, rollAt: 0, shieldUntil: 0 };
+    // Rivais com jeito próprio: Rosa é agressiva e cola em quem está na frente; Azul é rápido mas às vezes erra a
+    // curva; Verde guarda força e acelera na última volta.
+    // Cinco rivais competitivos: Rosa e Roxo são agressivos, Azul é muito rápido mas às vezes erra, Verde e Laranja
+    // guardam força para a última volta. Você larga no meio do grid.
+    ais = [[K[1], -0.035, -0.013, 1, 'agressiva'], [K[2], -0.035, 0.013, 0.99, 'erra'], [K[3], -0.085, 0.013, 0.95, 'final'], [K[4], -0.135, -0.013, 0.98, 'agressiva'], [K[5], -0.135, 0.013, 0.96, 'final']]
+      .map(([k, prog, lane, skill, mood]) => ({ k, prog, lane, laneT: lane, skill, mood, v: 0, fin: 0, x: 0, z: 0, spin: 0, boostT: 0, dropAt: 0, slowUntil: 0, nextSlip: 4 + R() * 6 }));
+    for (const a of [me, ...ais]) { trackAt(a.prog, a.lane, pt); a.x = pt.x; a.z = pt.z; a.k.place(pt.x, pt.z, pt.h, 0, pt.y); }
+    race.bananas.length = 0; for (const it of race.items) it.off = -9; race.shield.visible = false;
+    Object.assign(race, { state: 'grid', last: nowS(), order: 0, gridAt: nowS() }); setLights(0, false); lights = 0;
     input.l = input.r = input.b = false; compact(true); boardKey = '';
-    zoneStatus.textContent = `Você é o kart amarelo. ${LAPS} voltas contra Rosa, Azul e Verde.`;
+    zoneStatus.textContent = `Você é o kart amarelo. ${LAPS} voltas contra Rosa, Azul, Verde, Roxo e Laranja.`;
     intro('race', goRace);
   }
   function goRace() {
     Object.assign(race, { state: 'count', t0: nowS(), last: nowS() });
-    showHud('Corrida de kart', 'Olho no semáforo…');
-    hud.classList.add('corner'); pad.hidden = false;
+    hud.hidden = true; rh.hidden = false; rhItem.textContent = ''; rhItem.classList.remove('has');
+    pad.hidden = false;
   }
   function endRace() {
-    race.state = 'off'; pad.hidden = true; compact(false); sound?.engine(null);
+    race.state = 'off'; pad.hidden = true; rh.hidden = true; flashEl.hidden = true; compact(false); sound?.engine(null);
     for (const a of [me, ...ais]) if (a) a.k.s = ((a.prog % track.L) + track.L) % track.L;
+    race.bananas.length = 0; if (race.shield) race.shield.visible = false;
     setLights(0, false);
   }
   const standings = () => [me, ...ais].map(a => ({ a, key: a.fin ? 1e6 - a.fin : a.prog })).sort((p, q) => q.key - p.key).map(p => p.a);
@@ -276,42 +324,131 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     return best;
   }
   const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+  // Suspensão: o kart inclina com a rampa um pouquinho atrasado, como mola (empina na subida, assenta e balança de
+  // leve no topo e no fim da descida). Devolve [inclinação, quanto o chassi sobe na mola].
+  function susp(a, target, dt) {
+    if (a.sp === undefined) { a.sp = target; a.sv = 0; }
+    a.sv += ((target - a.sp) * 150 - a.sv * 14) * dt; a.sp += a.sv * dt;
+    return [a.sp, Math.min(0.0016, Math.abs(target - a.sp) * 0.012)];
+  }
+  const yAt = (x, z, y) => sag(x, z) + 0.0068 + y;
+  // Itens: a caixa sorteia um item (com a roleta girando no painel por um instante); Espaço ou o botão usa.
+  function grabBoxes(a, n) {
+    for (const it of race.items) {
+      if (it.off > 0 && rt.clock - it.off < 3) continue;
+      if ((a.x - it.x) ** 2 + (a.z - it.z) ** 2 > 0.016 ** 2) continue;
+      it.off = rt.clock;
+      for (let k = 0; k < 10; k++) race.fx(it.x, it.y, it.z, (R() - 0.5) * 0.12, R() * 0.1, (R() - 0.5) * 0.12, 0.5, ['#ff4fd8', '#ffc56b', '#7fe9ff', '#3ee0b5'][k % 4], 1.2);
+      if (a === me) {
+        if (!me.item && !me.rollAt) { me.rollAt = n; sfx('bonus'); buzz(20); }
+      } else if (R() < 0.5) { a.boostT = 1.3; } else { a.dropAt = n + 0.8 + R() * 1.5; }
+    }
+  }
+  function useItem() {
+    if (!me || race.state !== 'run' || !me.item) return;
+    const it = me.item; me.item = null; rhItem.textContent = ''; rhItem.classList.remove('has');
+    if (it === 'turbo') { me.boost = 0.11; me.v = Math.max(me.v, VMAX + 0.09); sfx('boost'); buzz(35); flash('TURBO!', 'boost', 0.8); }
+    else if (it === 'banana') { dropBanana(me.prog - 0.03, me.lat); sfx('whoosh'); buzz(12); }
+    else { me.shieldUntil = nowS() + 6; sfx('bonus'); buzz(20); flash('ESCUDO!', 'shield', 0.8); }
+  }
+  function dropBanana(prog, lane) {
+    trackAt(prog, lane, pt);
+    race.bananas.push({ x: pt.x, z: pt.z, y: yAt(pt.x, pt.z, pt.y), at: rt.clock });
+    if (race.bananas.length > 6) race.bananas.shift();
+  }
+  // Escorregou na casca: o kart dá uma volta inteira, perde quase toda a velocidade e solta estrelinhas.
+  function slip(a, n) {
+    a.spin = 1; a.v *= 0.3;
+    for (let k = 0; k < 8; k++) race.fx(a.x, yAt(a.x, a.z, a.y ?? 0) + 0.012, a.z, (R() - 0.5) * 0.1, 0.06 + R() * 0.05, (R() - 0.5) * 0.1, 0.6, '#ffd23f', 1.1);
+    if (a === me) { sfx('bad'); buzz([40, 30, 60]); flash('Escorregou!', 'bad', 0.9); }
+  }
+  function bananaHits(a, n) {
+    for (let i = race.bananas.length - 1; i >= 0; i--) {
+      const b = race.bananas[i]; if ((a.x - b.x) ** 2 + (a.z - b.z) ** 2 > 0.01 ** 2 || rt.clock - b.at < 0.4) continue;
+      race.bananas.splice(i, 1);
+      if (a === me && nowS() < me.shieldUntil) { sfx('paddle'); continue; }
+      slip(a, n);
+    }
+  }
+  // Chama do turbo e poeira: partículas saindo de trás do kart.
+  function exhaust(a, h, y, hot) {
+    const bx = a.x - Math.cos(h) * 0.016, bz = a.z - Math.sin(h) * 0.016;
+    race.fx(bx + (R() - 0.5) * 0.004, y + 0.009, bz + (R() - 0.5) * 0.004, -Math.cos(h) * 0.05, 0.02, -Math.sin(h) * 0.05, 0.22, hot ? (R() < 0.5 ? '#ffd23f' : '#ff7a1a') : '#d8d2c4', hot ? 1.3 : 1.6, 0);
+  }
   // Seu kart: direção suave, alinhamento automático com a pista quando você solta o volante, zebras que seguram
-  // (a batida tira velocidade e endireita o kart) e turbo nas setas azuis.
+  // (a batida tira velocidade e endireita o kart), turbo nas setas azuis e a derrapagem.
   function pilot(dt, n) {
     const { X, Z, TX, TZ, N, L, ds } = track;
-    const steer = (input.r ? 1 : 0) - (input.l ? 1 : 0); me.st += (steer - me.st) * Math.min(1, dt * 7);
+    const spinning = me.spin > 0;
+    const steer = spinning ? 0 : (input.r ? 1 : 0) - (input.l ? 1 : 0);
+    me.st += (steer - me.st) * Math.min(1, dt * 12);
     const kerb = Math.abs(me.lat) > ON_KERB, top = (kerb ? KERB : VMAX) + me.boost;
     if (input.b) me.v = Math.max(0, me.v - BRAKE * dt);
     else if (me.v < top) me.v = Math.min(top, me.v + ACC * dt); else me.v = Math.max(top, me.v - (kerb ? 0.5 : 0.25) * dt);
     me.boost = Math.max(0, me.boost - dt * 0.12);
+    // Derrapagem: virando forte em velocidade, a carga sobe (faíscas azuis, depois laranja); ao soltar, turbo curto.
+    const drifting = Math.abs(steer) > 0.5 && me.v > 0.17 && !kerb;
+    if (drifting) me.drift += dt;
+    else { if (me.drift > 0.6) { const big = me.drift > 1.3; me.boost = Math.max(me.boost, big ? 0.085 : 0.055); me.v = Math.max(me.v, VMAX + (big ? 0.06 : 0.035)); sfx('boost'); buzz(big ? 30 : 18); if (big) flash('Super derrapada!', 'boost', 0.7); } me.drift = 0; }
     const ahead = (me.i + 4) % N, tan = Math.atan2(TZ[ahead], TX[ahead]), err = wrapA(tan - me.h);
-    me.h += me.st * 2.5 * (1 - 0.3 * Math.min(1, me.v / VMAX)) * Math.min(1, me.v / 0.05) * dt;
+    me.h += me.st * 2.8 * (drifting ? 1.12 : 1) * (1 - 0.25 * Math.min(1, me.v / VMAX)) * Math.min(1, me.v / 0.05) * dt;
     if (Math.abs(steer) < 0.5) me.h += err * Math.min(1, dt * 1.6);                       // solta o volante: alinha com a pista
     me.x += Math.cos(me.h) * me.v * dt; me.z += Math.sin(me.h) * me.v * dt;
     const i = nearestFrom(me.i, me.x, me.z), nx = -TZ[i], nz = TX[i];
     me.lat = (me.x - X[i]) * nx + (me.z - Z[i]) * nz;
+    const EDGE = edgeAt(i);
     if (Math.abs(me.lat) > EDGE) {
+      // Encostou na mureta: o kart fica rente a ela e desliza junto, virando para dentro da pista.
       const push = me.lat - Math.sign(me.lat) * EDGE; me.x -= nx * push; me.z -= nz * push; me.lat -= push;
-      me.h += wrapA(Math.atan2(TZ[i], TX[i]) - me.h) * 0.5;
-      if (n - me.hitAt > 0.35) { me.hitAt = n; me.v *= 0.6; sfx('bump'); buzz(25); }
+      const into = Math.abs(wrapA(Math.atan2(TZ[i], TX[i]) - me.h));
+      me.h += wrapA(Math.atan2(TZ[i], TX[i]) - me.h) * 0.35;
+      me.v *= 1 - Math.min(0.5, into * 1.2) * Math.min(1, dt * 20);
+      if (n - me.hitAt > 0.35 && into > 0.12) {
+        me.hitAt = n; me.v *= 0.8; me.drift = 0; sfx('bump'); buzz(25);
+        for (let k = 0; k < 6; k++) race.fx(me.x + nx * Math.sign(me.lat) * 0.01, yAt(me.x, me.z, me.y) + 0.006, me.z + nz * Math.sign(me.lat) * 0.01, (R() - 0.5) * 0.1, 0.05 + R() * 0.05, (R() - 0.5) * 0.1, 0.35, '#fff6d8', 0.9);
+      }
     }
     let dsI = i - me.i; if (dsI > N / 2) dsI -= N; if (dsI < -N / 2) dsI += N; me.prog += dsI * ds; me.i = i;
+    me.y = trackAt(me.prog, 0, ptY).y;                                                      // altura exata da pista (rampa do viaduto)
     const s = ((me.prog % L) + L) % L;
-    for (const p of track.pads) if (s > p.s0 && s < p.s1 && Math.abs(me.lat - p.lat) < 0.014 && me.boost < 0.06) { me.boost = 0.1; me.v = Math.max(me.v, VMAX + 0.08); sfx('boost'); buzz(35); }
+    for (const p of track.pads) if (s > p.s0 && s < p.s1 && Math.abs(me.lat - p.lat) < 0.014 && me.boost < 0.06) { me.boost = 0.1; me.v = Math.max(me.v, VMAX + 0.08); sfx('boost'); buzz(35); flash('TURBO!', 'boost', 0.7); }
+    // Faíscas da derrapagem nas rodas de trás e poeira na zebra.
+    const gy = yAt(me.x, me.z, me.y);
+    if (drifting && me.drift > 0.25) for (const sd of [-1, 1]) {
+      const wx = me.x - Math.cos(me.h) * 0.011 - Math.sin(me.h) * 0.009 * sd, wz = me.z - Math.sin(me.h) * 0.011 + Math.cos(me.h) * 0.009 * sd;
+      race.fx(wx, gy + 0.002, wz, (R() - 0.5) * 0.06, 0.04 + R() * 0.04, (R() - 0.5) * 0.06, 0.25, me.drift > 1.3 ? (R() < 0.5 ? '#ffa63d' : '#ffd23f') : (R() < 0.5 ? '#7fe9ff' : '#ffffff'), 0.9);
+    }
+    if (kerb && me.v > 0.08 && R() < 0.22) race.fx(me.x - Math.cos(me.h) * 0.01, gy + 0.002, me.z - Math.sin(me.h) * 0.01, (R() - 0.5) * 0.02, 0.015, (R() - 0.5) * 0.02, 0.35, '#e9e1c8', 1.3, 0);
+    if (me.boost > 0.03) exhaust(me, me.h, gy, true);
+    grabBoxes(me, n); bananaHits(me, n);
+    // Roleta do item: gira os ícones por 0,8 s e para num item.
+    if (me.rollAt) {
+      const e = n - me.rollAt, keys = Object.keys(ITEMS);
+      if (e < 0.8) rhItem.textContent = ITEMS[keys[Math.floor(e * 14) % 3]];
+      else { const pos = standings().indexOf(me); const pick = pos >= 2 && R() < 0.55 ? 'turbo' : keys[Math.floor(R() * 3)]; me.item = pick; me.rollAt = 0; rhItem.textContent = ITEMS[pick]; rhItem.classList.add('has'); sfx('good'); buzz(15); }
+    }
   }
   function drive(dt, n) {
     const { N, L, ds } = track;
     // Depois da chegada o seu kart segue a pista sozinho, desacelerando.
-    if (race.state === 'done') { me.prog += me.v * dt; trackAt(me.prog, me.lat ?? 0, pt); me.x = pt.x; me.z = pt.z; me.h = pt.h; } else pilot(dt, n);
+    if (race.state === 'done') { me.prog += me.v * dt; trackAt(me.prog, me.lat ?? 0, pt); me.x = pt.x; me.z = pt.z; me.h = pt.h; me.y = pt.y; } else pilot(dt, n);
+    me.spin = Math.max(0, me.spin - dt * 1.1);
     // Rivais: seguem a linha deles, freiam antes das curvas, aliviam quando abrem vantagem e apertam se você abre.
     // Antes de encostar em alguém na mesma faixa, trocam de faixa para ultrapassar ou seguram atrás.
     const lanePos = a => (a === me ? me.lat : a.lane);
+    const lastLap = me.prog > (LAPS - 1) * L;
     for (const a of ais) {
       const ai = Math.floor((((a.prog % L) + L) % L) / ds);
       let lim = 1; for (let k = 0; k < 12; k += 2) lim = Math.min(lim, track.VL[(ai + k) % N]);
-      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.5 : 0.25);
-      let target = lim * a.skill * (a.fin ? 0.6 : rubber);
+      // Competitivos: fazem as curvas mais perto do limite e, se você abre vantagem, apertam forte (até ~27% mais
+      // rápidos); se eles abrem, aliviam só um pouco.
+      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.35 : a.mood === 'agressiva' ? 1 : 0.85);
+      let target = Math.min(0.28, lim * 1.2) * a.skill * (a.fin ? 0.6 : rubber);
+      if (a.mood === 'final' && a.prog > (LAPS - 1) * L && !a.fin) target *= 1.07;
+      if (a.mood === 'erra' && race.state === 'run') { a.nextSlip -= dt; if (a.nextSlip < 0 && lim < 0.8) { a.slowUntil = n + 0.7; a.nextSlip = 6 + R() * 8; } if (n < a.slowUntil) target *= 0.72; }
+      { const as = ((a.prog % L) + L) % L; for (const p of track.pads) if (as > p.s0 && as < p.s1 && !(a.boostT > 0)) a.boostT = 0.8; }  // também pegam as faixas de turbo
+      if (a.boostT > 0) { a.boostT -= dt; target += 0.07; }
+      if (a.spin > 0) { a.spin = Math.max(0, a.spin - dt * 1.1); target *= 0.4; }
       for (const o of [me, ...ais]) {
         if (o === a) continue;
         const ahead = o.prog - a.prog;
@@ -323,50 +460,71 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       a.lane += Math.max(-0.03 * dt, Math.min(0.03 * dt, a.laneT - a.lane));
       a.v = target > a.v ? Math.min(target, a.v + ACC * dt) : Math.max(target, a.v - 0.6 * dt);
       a.prog += a.v * dt;
-      const ai2 = Math.floor((((a.prog % L) + L) % L) / ds) % N;
-      trackAt(a.prog, a.lane, pt); a.x = pt.x; a.z = pt.z; a.k.place(pt.x, pt.z, pt.h, Math.max(-0.2, Math.min(0.2, track.K[ai2] * a.v * 0.05)));
-      // Encostou no rival: os dois se afastam um pouco e você perde velocidade.
+      if (a.dropAt && n > a.dropAt) { a.dropAt = 0; dropBanana(a.prog - 0.03, a.lane); }
+      const ai2 = Math.floor((((a.prog % L) + L) % L) / ds) % N, k2 = track.K[ai2];
+      trackAt(a.prog, a.lane, pt); a.x = pt.x; a.z = pt.z; a.y = pt.y;
+      const [ap, ah] = susp(a, slopeAt(a.prog), dt);
+      a.k.place(pt.x, pt.z, pt.h + a.spin * Math.PI * 2, Math.max(-0.2, Math.min(0.2, k2 * a.v * 0.05)), pt.y + ah, ap, Math.max(-1, Math.min(1, k2 * 0.12)));
+      if (race.state === 'run') { grabBoxes(a, n); bananaHits(a, n); }
+      if (a.boostT > 0) exhaust(a, pt.h, yAt(pt.x, pt.z, pt.y), true);
+      // Encostou no rival: os dois se afastam um pouco e você perde velocidade (o escudo protege).
       const dx = me.x - a.x, dz = me.z - a.z, d = Math.hypot(dx, dz);
-      if (d < 0.019 && d > 1e-5) { const k = (0.019 - d) / d; me.x += dx * k; me.z += dz * k; me.v *= 0.9; if (n - me.hitAt > 0.35) { me.hitAt = n; sfx('bump'); buzz(20); } }
+      if (d < 0.015 && d > 1e-5 && Math.abs(me.y - a.y) < 0.02) {
+        const k = (0.015 - d) / d; me.x += dx * k; me.z += dz * k;
+        if (nowS() < me.shieldUntil) a.v *= 0.8; else me.v *= 0.9;
+        if (n - me.hitAt > 0.35) { me.hitAt = n; sfx('bump'); buzz(20); }
+      }
       if (!a.fin && a.prog >= LAPS * L) a.fin = ++race.order;
     }
-    me.k.place(me.x, me.z, me.h, Math.max(-0.22, Math.min(0.22, me.st * me.v * 0.8)));
+    const [mp, mh] = susp(me, slopeAt(me.prog), dt);
+    me.k.place(me.x, me.z, me.h + me.spin * Math.PI * 2, Math.max(-0.16, Math.min(0.16, me.st * me.v * 0.6)), me.y + mh + (Math.abs(me.lat) > track.W - 0.004 && track.Y[me.i] < 0.004 ? 0.0012 : 0), mp, me.st);
+    const sh = race.shield; sh.visible = nowS() < me.shieldUntil;
+    if (sh.visible) { sh.position.set(me.x, yAt(me.x, me.z, me.y) + 0.009, me.z); sh.rotation.y = n * 2; sh.material.opacity = 0.22 + Math.sin(n * 10) * 0.06 * (me.shieldUntil - nowS() < 1.5 ? 2 : 1); }
     // Voltas: tempo de cada uma e melhor volta.
     const lap = Math.floor(me.prog / L);
-    if (lap > me.lap && lap >= 1) { const t = n - me.lapAt; best = Math.min(best ?? Infinity, t); me.lapAt = n; me.lastLap = t; if (lap < LAPS) sfx('lap'); }
+    if (lap > me.lap && lap >= 1) {
+      const t = n - me.lapAt; best = Math.min(best ?? Infinity, t); me.lapAt = n; me.lastLap = t;
+      // A cada volta: fogos sobre a reta, confete no pórtico e a torcida vibra.
+      if (lap < LAPS) { race.fireworks(lap === LAPS - 1 ? 5 : 3, me.prog); race.party.userData.at = rt.clock; race.cheerAt = rt.clock; }
+      if (lap === LAPS - 1) { flash('ÚLTIMA VOLTA!', 'last', 1.8); sfx('lap'); buzz([30, 40, 30]); } else if (lap < LAPS) { flash(`Volta ${lap + 1}`, '', 1); sfx('lap'); }
+    }
     me.lap = Math.max(me.lap, lap);
+    if (lastLap && !me.lastFlag) me.lastFlag = true;
   }
   function raceLoop(n) {
     if (race.state === 'off') return;
     if (!me) { race.state = 'off'; return; }
-    const dt = Math.min(0.05, n - race.last); race.last = n;
+    const dt = Math.min(0.05, n - race.last) * PACE; race.last = n;
+    if (flashUntil && n > flashUntil) { flashEl.classList.remove('on'); flashUntil = 0; }
     if (race.state === 'grid') { sound?.engine(0); return; }
     sound?.engine(race.state === 'done' ? me.v / VMAX * 0.6 : me.v / VMAX + me.boost * 3);
+    drawMap(n);
     if (race.state === 'count') {
       // Semáforo: as cinco luzes acendem em vermelho (um bipe cada), apagam juntas e a largada é dada.
       const e = n - race.t0, rem = 3 - e, red = Math.min(5, Math.floor(e / 0.5));
       if (red !== lights) { lights = red; if (red > 0) { sfx('tick'); buzz(10); } }
       setLights(red, false);
-      hudScore.textContent = rem > 0 ? String(Math.ceil(rem)) : 'JÁ!';
-      if (rem <= 0) { race.state = 'run'; me.lapAt = n; setLights(0, true); race.greenAt = n; sfx('go'); buzz(40); }
+      const c = Math.ceil(rem);
+      if (rem > 0 && c !== race.lastCount) { race.lastCount = c; flash(String(c), 'count', 0.9); }
+      rhPos.innerHTML = `${standings().indexOf(me) + 1}º<small>/${ais.length + 1}</small>`; rhLap.textContent = `Volta 1/${LAPS}`;
+      if (rem <= 0) { race.state = 'run'; race.lastCount = 0; me.lapAt = n; setLights(0, true); race.greenAt = n; sfx('go'); buzz(40); flash('JÁ!', 'go', 0.9); }
       return;
     }
     if (race.state === 'run') {
       if (n - race.greenAt > 1.2) { setLights(0, false); race.greenAt = Infinity; }
       drive(dt, n);
       const pos = standings().indexOf(me) + 1;
-      hudScore.textContent = `Volta ${Math.min(LAPS, me.lap + 1)}/${LAPS} · ${pos}º lugar`;
-      if (me.boost > 0.04) hudHint.textContent = 'TURBO!';
-      else if (me.lastLap && n - me.lapAt < 2.5) hudHint.textContent = `Volta em ${fmt(me.lastLap)} s · melhor: ${fmt(best)} s`;
-      else hudHint.textContent = Math.abs(me.lat) > ON_KERB ? 'Volte para o meio da pista!' : '';
+      if (pos !== race.lastPos) { race.lastPos = pos; rhPos.innerHTML = `${pos}º<small>/${ais.length + 1}</small>`; rhPos.classList.remove('pop'); void rhPos.offsetWidth; rhPos.classList.add('pop'); }
+      rhLap.textContent = `Volta ${Math.min(LAPS, me.lap + 1)}/${LAPS}`;
       board(`VOLTA ${Math.min(LAPS, me.lap + 1)}/${LAPS}`);
       if (me.prog >= LAPS * track.L) {
         me.fin = ++race.order; const win = me.fin === 1;
         race.state = 'done'; race.doneAt = n; pad.hidden = true; input.l = input.r = input.b = false;
-        hudScore.textContent = win ? 'Você venceu!' : `${me.fin}º lugar`;
-        hudHint.textContent = (win ? 'Que corrida!' : 'Quase! Tente de novo.') + ` Melhor volta: ${fmt(best)} s`;
+        flash(win ? 'VOCÊ VENCEU!' : `${me.fin}º LUGAR`, win ? 'win' : 'end', 4);
+        rhLap.textContent = `Melhor volta: ${fmt(best)} s`;
         zoneStatus.textContent = 'Toque em Corrida de kart para correr de novo.';
         board('CHEGADA');
+        race.fireworks(win ? 9 : 4, me.prog); race.cheerAt = rt.clock;
         if (win) { race.party.userData.at = rt.clock; sfx('win'); buzz([30, 60, 30, 60, 80]); } else sfx(me.fin === 2 ? 'lap' : 'lose');
       }
       return;
@@ -375,17 +533,27 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     me.v = Math.max(0, me.v - 0.15 * dt); drive(dt, n);
     if (n - race.doneAt > 6) endRace();
   }
-  // Câmera dos jogos em primeira pessoa: na corrida, atrás do seu kart, baixinha, seguindo com um leve atraso; no
-  // Reciclaverso, na plateia, de frente para o palco. O "para cima" é o do chão ali (a área acompanha a curvatura do
-  // planeta). Devolve o peso (0 a 1) dela.
-  const camP = new THREE.Vector3(), camL = new THREE.Vector3(), camU = new THREE.Vector3(), tmp = new THREE.Vector3();
-  let camW = 0, camOn = false;
+  // Câmeras dos jogos. Na corrida, uma câmera de perseguição: um pouco acima e atrás do seu kart, virando com
+  // atraso suave (não dá trancos quando o kart bate ou se alinha), afastando e abrindo a visão com a velocidade e
+  // tremendo de leve na batida. Antes da largada ela dá uma volta em torno do grid e encaixa atrás de você durante a
+  // contagem. No Reciclaverso, fica na plateia, de frente para o palco. Devolve o peso (0 a 1) dela.
+  const camP = new THREE.Vector3(), camL = new THREE.Vector3(), camU = new THREE.Vector3(), tmp = new THREE.Vector3(), orb = new THREE.Vector3(), orbL = new THREE.Vector3();
+  let camW = 0, camOn = false, camH = 0, camY = 0, fovNow = 52;
   const PRS = 1.6;
+  // Quanto o chão sobe no desenho a uma distância do centro da área (mesma conta do shader: toda a curva desfeita).
+  const FLAT_K = 1 / (2 * PRS), FLAT_R1 = 0.85, FLAT_R3 = 1.3;
+  const flatLift = (x, z) => { const r = Math.hypot(x, z); return FLAT_K * (r < FLAT_R1 ? r * r : FLAT_R1 * (2 * Math.min(r, FLAT_R3) - FLAT_R1)); };
+  const ground = (x, z) => sag(x, z) + flatLift(x, z) + 0.0068;
+  let kartOn = false;
+  const kartCam = () => kartOn;
+  const camFov = () => fovNow;
   function raceCam(outCam, outLook, outUp, dt) {
     const kart = me && (racing() || race.state === 'grid' || (race.state === 'done' && nowS() - race.doneAt < 3.5)), want = kart || rc.eye;
+    kartOn = !!kart;
     camW += ((want ? 1 : 0) - camW) * (1 - Math.exp(-dt * (st().reduced ? 20 : 2.2)));
-    if (camW < 0.001) { camOn = false; return 0; }
+    if (camW < 0.001) { camOn = false; fovNow = 52; return 0; }
     if (!kart) {
+      fovNow = 52;
       if (rc.eye) {
         const { eye, look } = recy, k = camOn ? 1 - Math.exp(-dt * 4) : 1;
         camU.lerp(tmp.set(eye.x, eye.y + PRS, eye.z).normalize(), k); camP.lerp(tmp.set(eye.x, eye.y, eye.z), k); camL.lerp(tmp.set(look.x, look.y, look.z), k); camOn = true;
@@ -393,12 +561,30 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
       return camW;
     }
-    const fx = Math.cos(me.h), fz = Math.sin(me.h), k = camOn ? 1 - Math.exp(-dt * 6) : 1;
-    const up = tmp.set(me.x, sag(me.x, me.z) + PRS, me.z).normalize(), cx = me.x - fx * 0.14, cz = me.z - fz * 0.14;
-    camU.lerp(up, k);
-    camP.lerp(tmp.set(cx, sag(cx, cz) + 0.052, cz), k);
-    const lx = me.x + fx * 0.1, lz = me.z + fz * 0.1;
-    camL.lerp(tmp.set(lx, sag(lx, lz) + 0.014, lz), k); camOn = true;
+    const n = nowS(), fresh = !camOn;
+    if (fresh) { camH = me.h; camY = me.y; }
+    camH += wrapA(me.h - camH) * (1 - Math.exp(-dt * 7)); camY += (me.y - camY) * (1 - Math.exp(-dt * 8));
+    // A câmera anda pela própria pista, um trecho atrás do kart (nunca sai do asfalto, nem no viaduto e no laço),
+    // e olha um pouco à frente dele.
+    const sp = Math.min(1.3, me.v / VMAX), fx = Math.cos(camH), fz = Math.sin(camH), back = 0.088 + sp * 0.02 + me.boost * 0.12;
+    trackAt(me.prog - back, (me.lat ?? 0) * 0.6, pt);
+    const cx = pt.x, cz = pt.z, cy = pt.y, lx = me.x + fx * 0.085, lz = me.z + fz * 0.085;
+    const shake = Math.max(0, 1 - (n - me.hitAt) / 0.35) * 0.0035;
+    tmp.set(cx + Math.sin(n * 83) * shake, ground(cx, cz) + cy + 0.031 + Math.sin(n * 97) * shake, cz);
+    orbL.set(lx, ground(lx, lz) + camY + 0.011, lz);
+    // Volta de cinema em torno do grid antes da largada; durante a contagem, encaixa atrás do kart.
+    const intro = race.state === 'grid' ? 1 : race.state === 'count' ? 1 - Math.min(1, Math.max(0, (n - race.t0) / 1.8)) : 0;
+    if (intro > 0) {
+      trackAt(-0.06, 0, pt);
+      // Varre só o lado de dentro da pista (de frente para o grid), longe da arquibancada.
+      const a = pt.h + Math.PI / 2 + Math.sin((n - race.gridAt) * 0.35) * 1.1, ox = pt.x + Math.cos(a) * 0.14, oz = pt.z + Math.sin(a) * 0.14, w = intro * intro * (3 - 2 * intro);
+      orb.set(ox, ground(ox, oz) + 0.115, oz); tmp.lerp(orb, w);
+      orbL.lerp(orb.set(pt.x, ground(pt.x, pt.z) + 0.01, pt.z), w);
+    }
+    const k = fresh ? 1 : 1 - Math.exp(-dt * 9);
+    camU.lerp(orb.set(0, 1, 0), k); camP.lerp(tmp, k); camL.lerp(orbL, k); camOn = true;
+    // Campo de visão: bem mais aberto que antes, abrindo mais em alta velocidade e no turbo.
+    fovNow = 64 + sp * 7 + Math.min(0.12, me.boost) * 45 - intro * 6;
     outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
     return camW;
   }
@@ -431,5 +617,5 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     for (let o = hit.object; o; o = o.parent) if (toys.includes(o)) return o;
     return null;
   }
-  return { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, whackTick, hitWhack, smack, hitToy };
+  return { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy };
 }

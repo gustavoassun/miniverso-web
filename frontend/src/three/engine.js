@@ -14,7 +14,7 @@ import { ZONE_COLORS } from './zoneNames.js';
 import { game } from './world/zones/jogos.js';
 import { createGames } from './games.js';
 import { createMusic } from './music.js';
-import { revealEdge, revealUniforms } from './world/reveal.js';
+import { bendUniforms, revealEdge, revealUniforms } from './world/reveal.js';
 
 // Motor da abertura: capa com o óculos, entrada pelo visor e o planeta Miniverso.
 // createMiniverso(rootEl) liga tudo dentro do elemento do componente e devolve dispose() para desligar.
@@ -87,6 +87,14 @@ export function createMiniverso(rootEl, opts = {}) {
   // Corrida de kart: a câmera desce para trás do seu kart (games.js diz onde e com que peso).
   const raceCamP = new THREE.Vector3(), raceLook = new THREE.Vector3(), raceUp = new THREE.Vector3();
   let raceW = 0;
+  // Modo corrida: o chão desenhado mais plano sobe as peças na tela, então o corte "fora da vista" do Three.js (que usa
+  // a posição antiga) podia sumir com o kart perto da borda; durante a corrida a área inteira é sempre desenhada.
+  // Também some o que flutua solto e fica fora de contexto na visão do kart (holofotes, hologramas, lixo voando).
+  let raceZone = null;
+  function raceMode(zg, on) {
+    if (on && zg) { raceZone = zg; zg.traverse(o => { if (o.isMesh || o.isInstancedMesh || o.isPoints) { if (o.userData.cull === undefined) o.userData.cull = o.frustumCulled; o.frustumCulled = false; } if (o.userData.noRace) o.visible = false; }); }
+    else if (raceZone) { raceZone.traverse(o => { if (o.userData.cull !== undefined) o.frustumCulled = o.userData.cull; if (o.userData.noRace) o.visible = true; }); raceZone = null; }
+  }
   const zoneAct = zoneCard.querySelector('.zone-act'), zoneAct2 = zoneCard.querySelector('.zone-act2'), zoneAct3 = zoneCard.querySelector('.zone-act3'), zoneAct4 = zoneCard.querySelector('.zone-act4'), zoneStatus = zoneCard.querySelector('.zone-status');
   const zoneMore = zoneCard.querySelector('.zone-more'), zoneInfo = zoneCard.querySelector('.zone-info'), zoneClose = zoneCard.querySelector('.zone-close');
   // Pontos de interesse: marcadores numerados na cena; a câmera voa até cada detalhe e a barra mostra uma legenda
@@ -204,7 +212,7 @@ export function createMiniverso(rootEl, opts = {}) {
     return trains.findIndex(t => { for (let o = hit.object; o; o = o.parent) if (o === t.group) return true; return false; });
   }
   // Minigames: placar grande no topo da tela, com dica de como jogar (ver games.js).
-  const { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, whackTick, hitWhack, smack, hitToy } = createGames({
+  const { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy } = createGames({
     $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }), compact: v => cardCompact(v), view: p => { tourStop(); aim(p); }, sound: music });
   labels.forEach((el, i) => on(el, 'click', () => openZone(i)));
   on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0 && !cab && cabT === 0) closeZone(); });
@@ -656,7 +664,17 @@ export function createMiniverso(rootEl, opts = {}) {
         zg.localToWorld(raceCamP); zg.localToWorld(raceLook); raceUp.transformDirection(zg.matrixWorld);
         camPos.lerp(raceCamP, s); camLook.lerp(raceLook, s); fup.lerp(raceUp, s).normalize();
       }
-    } else raceW = 0;
+      // Chão plano da corrida: só com a câmera no kart, crescendo junto com a chegada dela.
+      const bend = kartCam() ? smoother(0, 1, raceW) * k : 0;
+      bendUniforms.uBend.value = bend;
+      // Na corrida, as ilhas, balões, nuvens e satélites que flutuam em volta do planeta somem do céu (fora de contexto).
+      const sky = bend < 0.3; if (islands.visible !== sky) { islands.visible = balloons.visible = clouds.visible = orbit.visible = sky; raceMode(zg, !sky); }
+      if (bend > 0) {
+        const sc = zg.matrixWorld.getMaxScaleOnAxis();
+        zg.getWorldPosition(bendUniforms.uBendC.value); bendUniforms.uBendN.value.set(0, 1, 0).transformDirection(zg.matrixWorld);
+        bendUniforms.uBendK.value = 1 / (2 * 1.6) / sc; bendUniforms.uBendR1.value = 0.85 * sc; bendUniforms.uBendR3.value = 1.3 * sc;
+      }
+    } else { raceW = 0; bendUniforms.uBend.value = 0; if (!islands.visible) { islands.visible = balloons.visible = clouds.visible = orbit.visible = true; raceMode(null, false); } }
     cabT = clamp(cabT + (cab ? 1 : -1) * dt / (reduced ? 0.2 : 3.2));             // entrada e saída em ~3 s, com a íris da cabine
     if (cabT > 0.001) {
       // Da área até a cabine num arco por cima do planeta (nunca atravessando o chão).
@@ -671,7 +689,7 @@ export function createMiniverso(rootEl, opts = {}) {
       camPos.copy(da).multiplyScalar(mix(ra, rb, k) + Math.sin(Math.PI * k) * Math.min(1.6, ang * 0.9));
       camLook.lerp(vc, k); fup.lerp(fdir, k).normalize();
     }
-    const fov = mix(mix(30, 52, smoother(0, 1, raceW)), 58, smoother(0, 0.7, cabT)), near = cabT > 0.25 || raceW > 0.2 ? 0.004 : 0.05;
+    const fov = mix(mix(30, camFov(), smoother(0, 1, raceW)), 58, smoother(0, 0.7, cabT)), near = cabT > 0.25 || raceW > 0.2 ? 0.004 : 0.05;
     // Com uma área aberta, o centro da vista sobe para o meio do espaço livre acima da barra da área.
     if (!zoneCard.hidden) barH = zoneCard.offsetHeight + 18;
     const lift = Math.round(barH * 0.5 * smoother(0, 1, focusT) * (1 - smoother(0, 0.3, cabT)));

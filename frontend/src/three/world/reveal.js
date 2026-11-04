@@ -8,18 +8,54 @@ const revealUniforms = {
   uRevealAxis: { value: new THREE.Vector3(0.18, 1, 0.12).normalize() }
 };
 
+// Chão plano na corrida de kart: enquanto a câmera está no kart, tudo em volta do centro da área de Jogos sobe um
+// pouco conforme a distância (só no desenho), desfazendo toda a curva do planeta ali: o chão do parque fica plano e o
+// horizonte reto. Depois de uBendR1 a subida continua reta (sem degrau) até uBendR3 e para. De longe nada muda: com
+// uBend = 0 o desenho é o de sempre. uBendC/uBendN: centro e "para cima" da área; uBendK: força.
+const bendUniforms = {
+  uBend: { value: 0 },
+  uBendC: { value: new THREE.Vector3() },
+  uBendN: { value: new THREE.Vector3(0, 1, 0) },
+  uBendK: { value: 0 },
+  uBendR1: { value: 0 },
+  uBendR3: { value: 0 }
+};
+const BEND_VERT = `vec4 mvPosition = vec4(transformed, 1.0);
+  #ifdef USE_BATCHING
+    mvPosition = batchingMatrix * mvPosition;
+  #endif
+  #ifdef USE_INSTANCING
+    mvPosition = instanceMatrix * mvPosition;
+  #endif
+  vec4 bendW = modelMatrix * mvPosition;
+  if (uBend > 0.0) { vec3 ba = bendW.xyz - uBendC; ba -= uBendN * dot(ba, uBendN); float br = length(ba); float bf = br < uBendR1 ? br * br : uBendR1 * (2.0 * min(br, uBendR3) - uBendR1); bendW.xyz += uBendN * (uBend * uBendK * bf); }
+  mvPosition = viewMatrix * bendW;
+  gl_Position = projectionMatrix * mvPosition;`;
+const BEND_HEAD = '#include <common>\nuniform float uBend; uniform vec3 uBendC; uniform vec3 uBendN; uniform float uBendK; uniform float uBendR1; uniform float uBendR3;';
+const bendIn = shader => { for (const k in bendUniforms) shader.uniforms[k] = bendUniforms[k]; };
+
 // Altura da faixa de luz para um valor de uReveal (mesma conta do shader), de 1,15 até -1,15.
 const revealEdge = reveal => 1.15 - reveal * 2.3;
 
 function applyReveal(materials) {
   for (const m of new Set(materials)) {
-    if (!m.isMeshStandardMaterial) continue; // inclui MeshPhysicalMaterial
+    // Os outros materiais comuns das peças (acesos, sem luz, matcap) só ganham o chão plano da corrida.
+    if (!m.isMeshStandardMaterial) {
+      if (!(m.isMeshBasicMaterial || m.isMeshMatcapMaterial || m.isMeshLambertMaterial || m.isMeshPhongMaterial) || Object.hasOwn(m, 'onBeforeCompile')) continue;
+      m.onBeforeCompile = shader => {
+        bendIn(shader);
+        shader.vertexShader = shader.vertexShader.replace('#include <common>', BEND_HEAD).replace('#include <project_vertex>', BEND_VERT);
+      };
+      m.needsUpdate = true;
+      continue;
+    }
     m.onBeforeCompile = shader => {
       shader.uniforms.uReveal = revealUniforms.uReveal;
       shader.uniforms.uRevealAxis = revealUniforms.uRevealAxis;
+      bendIn(shader);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', '#include <common>\nvarying vec3 vRevealPos;')
-        .replace('#include <project_vertex>', `#include <project_vertex>
+        .replace('#include <common>', BEND_HEAD + '\nvarying vec3 vRevealPos;')
+        .replace('#include <project_vertex>', `${BEND_VERT}
           vec4 rvPos = vec4(transformed, 1.0);
           #ifdef USE_INSTANCING
             rvPos = instanceMatrix * rvPos;
@@ -44,4 +80,4 @@ function applyReveal(materials) {
   }
 }
 
-export { applyReveal, revealEdge, revealUniforms };
+export { applyReveal, bendUniforms, revealEdge, revealUniforms };

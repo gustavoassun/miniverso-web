@@ -65,9 +65,19 @@
         <div class="ac-screen"><canvas width="320" height="240"></canvas></div>
         <p class="ac-hint"></p>
       </div>
+      <div class="race-hud" aria-live="polite" hidden>
+        <b class="rh-pos">4º<small>/6</small></b>
+        <span class="rh-lap"></span>
+        <span class="rh-item" aria-label="Item"></span>
+        <canvas class="rh-map" width="120" height="120" aria-hidden="true"></canvas>
+      </div>
+      <div class="race-flash" aria-live="assertive" hidden></div>
       <div class="race-pad" hidden>
         <button type="button" class="rp-btn" data-k="l" aria-label="Virar à esquerda">◀</button>
-        <button type="button" class="rp-btn rp-brake" data-k="b" aria-label="Frear">Freio</button>
+        <span class="rp-mid">
+          <button type="button" class="rp-btn rp-item" aria-label="Usar item">Item</button>
+          <button type="button" class="rp-btn rp-brake" data-k="b" aria-label="Frear">Freio</button>
+        </span>
         <button type="button" class="rp-btn" data-k="r" aria-label="Virar à direita">▶</button>
       </div>
       <div class="train-tip" hidden>Clique para ir na cabine do trem</div>
@@ -400,6 +410,11 @@ onUnmounted(() => {
   background: rgba(16, 12, 36, .62); border: 1px solid rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .4s, border-color .25s, color .25s; }
 .sound-toggle.live { opacity: 1; pointer-events: auto; }
+/* Só o ícone das barrinhas, num botão redondo pequeno (o nome continua para leitor de tela). */
+.sound-toggle { width: 38px; height: 38px; padding: 0; justify-content: center; gap: 0; }
+.sound-toggle span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sound-toggle i { height: 14px; gap: 2.5px; }
+.sound-toggle b { width: 2.5px; }
 .sound-toggle:hover { border-color: rgba(0, 183, 227, .7); color: #fff; }
 .sound-toggle[aria-pressed="true"] { color: #fff; border-color: rgba(0, 183, 227, .55); box-shadow: 0 8px 24px rgba(0, 0, 0, .35), 0 0 18px rgba(0, 183, 227, .25); }
 .sound-toggle i { display: flex; align-items: flex-end; gap: 2px; height: 12px; }
@@ -408,6 +423,7 @@ onUnmounted(() => {
 .sound-toggle[aria-pressed="true"] b:nth-child(2) { animation-delay: -.35s; } .sound-toggle[aria-pressed="true"] b:nth-child(3) { animation-delay: -.7s; } .sound-toggle[aria-pressed="true"] b:nth-child(4) { animation-delay: -.2s; }
 @keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
 .game-hud:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
+.race-hud:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
 /* Marcadores numerados dos pontos de interesse: o nome aparece ao passar o mouse. */
 .pois { --c: var(--cyan); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .pois :deep(.poi) { position: absolute; left: -15px; top: -15px; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #fff; cursor: pointer; opacity: 0; transition: opacity .3s; }
@@ -494,6 +510,33 @@ onUnmounted(() => {
 .rp-btn:active { background: rgba(0, 183, 227, .35); transform: scale(.94); }
 .rp-btn.rp-brake { width: 64px; height: 44px; border-radius: 999px; font: 600 11px var(--font-display); letter-spacing: .1em; text-transform: uppercase; border-color: rgba(255, 79, 216, .55); }
 @media (hover: hover) and (pointer: fine) { .race-pad { display: none; } }
+.rp-mid { display: grid; justify-items: center; gap: 10px; }
+.rp-btn.rp-item { width: 64px; height: 44px; border-radius: 999px; font: 600 11px var(--font-display); letter-spacing: .1em; text-transform: uppercase; border-color: rgba(255, 197, 107, .7); }
+/* Painel da corrida: posição grande, volta, item guardado e mini-mapa no canto; avisos grandes no meio da tela. */
+.race-hud { position: absolute; right: max(16px, 3vw); top: calc(72px + env(safe-area-inset-top, 0px)); display: grid; grid-template-columns: auto auto; align-items: center; gap: 4px 12px; padding: 10px 12px; border-radius: 16px;
+  background: rgba(20, 12, 42, .62); border: 1px solid rgba(127, 233, 255, .35); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); color: #fff; pointer-events: none; }
+.race-hud[hidden] { display: none; }
+.rh-pos { font: 700 40px/1 var(--font-title); color: #ffc56b; text-shadow: 0 2px 0 rgba(0, 0, 0, .35); }
+.rh-pos small { font-size: 16px; color: #bff4ff; margin-left: 2px; }
+.rh-pos.pop { animation: rhPop .35s ease-out; }
+@keyframes rhPop { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+.rh-item { grid-row: span 2; width: 48px; height: 48px; display: grid; place-items: center; font-size: 28px; border-radius: 12px; border: 2px dashed rgba(255, 255, 255, .3); }
+.rh-item.has { border: 2px solid #ffc56b; background: rgba(255, 197, 107, .18); box-shadow: 0 0 14px rgba(255, 197, 107, .5); }
+.rh-lap { font: 600 13px/1.2 var(--font-display); color: #bff4ff; }
+.rh-map { grid-column: 1 / -1; width: 120px; height: 120px; justify-self: center; }
+@media (max-width: 560px) { .rh-map { width: 92px; height: 92px; } .rh-pos { font-size: 32px; } }
+.race-flash { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; white-space: nowrap;
+  font: 700 clamp(36px, 8vw, 72px)/1 var(--font-title); letter-spacing: .03em; color: #fff; text-shadow: 0 4px 0 #140c2a, 0 0 24px rgba(127, 233, 255, .7); transition: opacity .25s, transform .3s cubic-bezier(.2, 1.6, .4, 1); }
+.race-flash[hidden] { display: none; }
+.race-flash.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.race-flash.count { color: #ff4f4f; font-size: clamp(56px, 12vw, 110px); }
+.race-flash.go { color: #3dff7a; font-size: clamp(56px, 12vw, 110px); }
+.race-flash.last { color: #ffc56b; }
+.race-flash.boost { color: #7fe9ff; font-size: clamp(28px, 6vw, 48px); top: 62%; }
+.race-flash.shield { color: #7fe9ff; font-size: clamp(28px, 6vw, 48px); top: 62%; }
+.race-flash.bad { color: #ffd23f; font-size: clamp(28px, 6vw, 48px); top: 62%; }
+.race-flash.win { color: #ffd23f; }
+.race-flash.end { color: #bff4ff; }
 /* Fliperama: gabinete com letreiro, tela de tubo (linhas de varredura) e a dica embaixo. */
 .arcade { position: absolute; left: 50%; top: calc(76px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); width: min(460px, calc(100% - 32px)); display: grid; gap: 8px; padding: 12px 12px 10px;
   border-radius: 18px; background: linear-gradient(#241a46, #140c2a); border: 2px solid #ff4fd8; box-shadow: 0 0 32px rgba(255, 79, 216, .45), inset 0 0 0 3px #140c2a; }
