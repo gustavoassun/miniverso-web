@@ -44,7 +44,18 @@
   font-display: swap;
 }
 
+/* Manrope (licença SIL OFL, livre para uso comercial): texto corrido da área restrita, mais legível em
+   tamanhos pequenos e combina com a Thunder dos títulos. */
+@font-face {
+  font-family: 'Manrope';
+  src: url('../fonts/Manrope-Variable.woff2') format('woff2');
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  --font-body: 'Manrope', 'Segoe UI', system-ui, sans-serif;
   --font-title: 'Thunder', 'Arial Narrow', Impact, sans-serif;
   --font-display: 'Random Grotesque', 'Avenir Next', 'Segoe UI', sans-serif;
   --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;

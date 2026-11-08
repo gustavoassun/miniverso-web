@@ -3,6 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Home from './views/Home.vue';
 import Login from './views/Login.vue';
 import Dashboard from './views/Dashboard.vue';
+import Projects from './views/Projects.vue';
+import ProjectDetail from './views/ProjectDetail.vue';
 import { hasAdminSession } from './utils/projectStore.js';
 
 const routes = [
@@ -10,6 +12,16 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home
+  },
+  {
+    path: '/projetos',
+    name: 'Projects',
+    component: Projects
+  },
+  {
+    path: '/projetos/:id',
+    name: 'Project',
+    component: ProjectDetail
   },
   {
     path: '/login',

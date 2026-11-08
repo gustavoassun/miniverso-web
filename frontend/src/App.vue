@@ -23,7 +23,8 @@ import { computed, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import PwaStatus from './components/PwaStatus.vue';
 const route = useRoute();
-const isHome = computed(() => route.name === 'Home');
+// Home e páginas de projeto usam o visual escuro de céu (cabeçalho transparente por cima).
+const isHome = computed(() => ['Home', 'Projects', 'Project'].includes(route.name));
 const isDashboard = computed(() => route.name === 'Dashboard');
 const isLogin = computed(() => route.name === 'Login');
 const menuOpen = ref(false);
@@ -31,7 +32,7 @@ watch(() => route.fullPath, () => { menuOpen.value = false; });
 </script>
 
 <style>
-:root { font-family: var(--font-display); font-synthesis: none; text-rendering: optimizeLegibility; }
+:root { font-family: var(--font-body); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 0; }
 button, input, textarea { font: inherit; }
@@ -64,6 +65,9 @@ a { color: inherit; }
 .app-footer { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding: 40px 5%; color: #9a9eb4; background: #0a0b16; font-size: 11px; }
 .app-footer img { width: 135px; height: auto; display: block; }
 .app-footer span { font: 10px var(--font-mono); }
+/* Na Home, o rodapé fica sobre o céu do site, sem faixa de outra cor. */
+.immersive-shell .app-footer { position: relative; z-index: 2; background: linear-gradient(180deg, transparent, #070b1acc); border-top: 1px solid #ffffff12; font-size: 13px; color: #8fa9b8; }
+.immersive-shell .app-footer span { font: 600 12px var(--font-body); letter-spacing: .08em; }
 @media(max-width: 850px) {
   .navbar { height: 84px; gap: 16px; }
   .brand img { width: 125px; }

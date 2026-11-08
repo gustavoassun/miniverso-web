@@ -369,9 +369,25 @@ export function createMiniverso(rootEl, opts = {}) {
   let lastProgress = clamp(scrollY / introEnd());
   // Dois trechos: o óculos vem até o rosto e entra (~3,4 s, ágil mas sem pressa) e o planeta se forma (com calma, ~7 s).
   const SPLIT = 0.42, AUTO_IN = 3400, AUTO_PLANET = 6800;
+  // Primeira visita: a abertura completa (o primeiro impacto). Depois que a pessoa chega ao planeta uma vez, o
+  // navegador lembra: a abertura fica curta (~3,5 s em vez de ~10 s), os portais ficam mais rápidos e a capa
+  // ganha o atalho "Ir ao planeta".
+  const VISIT_KEY = 'miniverso-visitou';
+  let visited = false;
+  try { visited = localStorage.getItem(VISIT_KEY) === '1'; } catch {}
+  // Para apresentar: abrir o site com ?abertura no endereço mostra de novo a abertura completa de primeira visita.
+  if (new URLSearchParams(location.search).has('abertura')) { visited = false; try { localStorage.removeItem(VISIT_KEY); } catch {} }
+  const planetGo = $('.planet-go');
+  function markVisited() {
+    if (visited) return; visited = true;
+    try { localStorage.setItem(VISIT_KEY, '1'); } catch {}
+    if (planetGo) planetGo.hidden = false;
+  }
+  if (planetGo) planetGo.hidden = !visited;
   function startAuto() {
     const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
-    auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
+    const inMs = visited ? 1400 : AUTO_IN, planetMs = visited ? 2200 : AUTO_PLANET;
+    auto = { from: scrollY, split, to: end, start: performance.now(), d1: inMs * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: planetMs };
   }
   // Três lugares, cada um no seu canto, ligados por um portal:
   // - capa: a abertura (óculos e formação do planeta) só anda para a frente; rolar para cima não a desfaz;
@@ -386,7 +402,11 @@ export function createMiniverso(rootEl, opts = {}) {
   const SECTIONS = { sobre: 'O estúdio', portfolio: 'Projetos', contato: 'Contato' };
   let place = 'capa', maxY = 0, freeUntil = 0, travelling = false;
   const free = () => travelling || performance.now() < freeUntil;
+  let bpHint = 0;
   function setPlace(p) {
+    if (p !== 'capa') markVisited();
+    // Ao chegar no site, o botão do planeta mostra o nome por alguns segundos e depois vira só o planetinha.
+    if (backBtn && p === 'site' && place !== 'site') { backBtn.classList.add('bp-named'); clearTimeout(bpHint); bpHint = setTimeout(() => backBtn.classList.remove('bp-named'), 4200); }
     place = p; if (p === 'capa') maxY = scrollY;
     rootEl.classList.toggle('away', p === 'site');
     if (backBtn) { backBtn.classList.toggle('show', p === 'site'); backBtn.tabIndex = p === 'site' ? 0 : -1; }
@@ -402,19 +422,38 @@ export function createMiniverso(rootEl, opts = {}) {
     travel.style.setProperty('--ox', r ? `${(r.left + r.width / 2).toFixed(0)}px` : '50%');
     travel.style.setProperty('--oy', r ? `${(r.top + r.height / 2).toFixed(0)}px` : '50%');
     travelLabel.textContent = label; travel.classList.remove('out'); travel.classList.add('on');
-    const k = reduced ? 0.15 : 1;
+    const k = reduced ? 0.15 : visited ? 0.6 : 1;
+    // Indo para o site, o mini planeta do portal voa até o canto e vira o botão "Voltar ao planeta" (o portal se
+    // fecha nesse mesmo ponto), em vez de sumir no meio e o botão aparecer depois noutro lugar.
+    const toCorner = dest === 'site' && backBtn && !reduced;
     setTimeout(() => {
       const top = typeof y === 'function' ? y() : y;
       rootEl.classList.remove('away');
+      if (toCorner) backBtn.classList.add('arriving');
       scrollTo({ top, behavior: 'instant' }); eased = lastProgress = clamp(top / introEnd()); setPlace(dest);
       if (after) after(); else opts.cleanUrl?.();
+      if (toCorner) {
+        const o = travel.querySelector('.travel-orb')?.getBoundingClientRect(), t = backBtn.querySelector('.orb')?.getBoundingClientRect();
+        if (o && t) {
+          const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
+          travel.style.setProperty('--fx', `${(cx - (o.left + o.width / 2)).toFixed(0)}px`);
+          travel.style.setProperty('--fy', `${(cy - (o.top + o.height / 2)).toFixed(0)}px`);
+          travel.style.setProperty('--cx', `${cx.toFixed(0)}px`); travel.style.setProperty('--cy', `${cy.toFixed(0)}px`);
+          travel.classList.add('to-corner');
+        }
+      }
       travel.classList.add('out');
-      setTimeout(() => { travel.classList.remove('on', 'out'); travelling = false; freeUntil = performance.now() + 150; }, 900 * k);
+      setTimeout(() => {
+        travel.classList.remove('on', 'out', 'to-corner'); backBtn?.classList.remove('arriving');
+        travelling = false; freeUntil = performance.now() + 150;
+      }, 900 * k);
     }, 1200 * k);
   }
   on(exitBtn, 'click', () => travelTo(siteTop, 'Explorando o site', 'site', exitBtn));
   on(homeBtn, 'click', () => travelTo(0, 'Voltando ao início', 'capa', homeBtn));
   on(backBtn, 'click', () => travelTo(introEnd, 'Voltando ao planeta', 'planet', backBtn));
+  on(planetGo, 'click', () => travelTo(introEnd, 'Indo ao planeta', 'planet', planetGo));
+  offs.push(() => clearTimeout(bpHint));
   on(document, 'click', e => {
     const a = e.target.closest?.('a'); if (!a || !a.href) return;
     const url = new URL(a.href, location.href);
@@ -467,7 +506,8 @@ export function createMiniverso(rootEl, opts = {}) {
     return Math.abs(vb.x - va.x) / 2 * stage.clientWidth;
   }
 
-  const t0 = performance.now(); let last = t0, clock = 0, nextFrame = 0;
+  // Com opts.waitStart, a entrada do óculos espera a tela de carregamento sair (start() libera, com um atraso).
+  let t0 = opts.waitStart ? Infinity : performance.now(); let last = performance.now(), clock = 0, nextFrame = 0;
   // Até 60 quadros por segundo, mesmo em monitores mais rápidos: o mesmo movimento com bem menos trabalho.
   const FRAME = 1000 / 60;
   // Qualidade adaptativa: se o aparelho não sustenta ~45 quadros por segundo, a resolução baixa um degrau (até 75%);
@@ -500,7 +540,12 @@ export function createMiniverso(rootEl, opts = {}) {
       if (el >= auto.d1 + auto.d2) { auto = null; if (place === 'capa' && scrollY >= introEnd() - 2) setPlace('planet'); }
     }
     // Fora da tela (no site, aba escondida ou abertura rolada para fora) o planeta hiberna: nada é animado nem desenhado.
-    if (!visible || document.hidden || rootEl.classList.contains('away')) { music.setActive(false); return; }
+    // Antes de hibernar, ainda avisa o site que o planeta saiu de cena (o céu e o menu das seções dependem disso).
+    if (!visible || document.hidden || rootEl.classList.contains('away')) {
+      const gone = scrollY > introEnd() + innerHeight * 0.25;
+      if (gone !== sentPassed) { sentPassed = gone; opts.onFrame?.({ progress: clamp(scrollY / introEnd()), reduced, passed: gone }); }
+      music.setActive(false); return;
+    }
     if (frameMs < 250) adapt(frameMs);
     if (!reduced) clock += dt;
     rt.clock = clock;
@@ -802,6 +847,7 @@ export function createMiniverso(rootEl, opts = {}) {
   }, 900);
   offs.push(() => clearTimeout(warm));
   return {
+    start(delay = 0) { if (t0 === Infinity) t0 = performance.now() + delay; },
     dispose() {
       disposed = true; cancelAnimationFrame(raf); auto = null;
       offs.forEach(off => off()); io.disconnect();

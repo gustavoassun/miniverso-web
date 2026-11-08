@@ -27,12 +27,12 @@ onUnmounted(() => { resize?.disconnect(); cancelAnimationFrame(frame); window.re
 </template>
 <style scoped>
 .scroll-expand { margin: 0; padding-block: 26px; }
-.expand-frame { position: relative; height: clamp(380px,50vw,680px); margin-inline: var(--expand-inset); border-radius: var(--expand-radius); overflow: hidden; border: 1px solid #aa98cb36; }
+.expand-frame { position: relative; height: clamp(380px,50vw,680px); margin-inline: var(--expand-inset); border-radius: var(--expand-radius); overflow: hidden; border: 1px solid #ffffff1c; box-shadow: 0 40px 100px #0009; }
 .expand-frame img { display: block; width: 100%; height: 100%; object-fit: cover; transform: scale(var(--media-scale)); }
-.expand-scrim { position: absolute; inset: 0; background: linear-gradient(90deg,#080a18d9,#080a181a),linear-gradient(0deg,#080a1877,transparent); }
+.expand-scrim { position: absolute; inset: 0; background: linear-gradient(90deg,#070b1ae0,#070b1a1a),linear-gradient(0deg,#070b1a99,transparent); }
 figcaption { position: absolute; inset: auto 6% 10%; color: #f5f2fa; }
-figcaption > span { color: #b4e2eb; font: 9px/1.5 var(--font-mono); letter-spacing: .12em; }
+figcaption > span { color: #8ee1f2; font: 600 13px/1.5 var(--font-body); letter-spacing: .2em; text-transform: uppercase; }
 h2 { margin: 22px 0; font-family: var(--font-title); font-size: clamp(44px,7.3vw,110px); font-weight: 500; line-height: .95; letter-spacing: .005em; }
-p { font-size: 13px; line-height: 1.6; color: #d2c9e0; }
+p { font-size: 17px; line-height: 1.6; color: #c9dbe5; }
 @media(max-width:700px) { .expand-frame { height: 440px; } figcaption { bottom: 9%; } h2 { font-size: 56px; } }
 </style>
