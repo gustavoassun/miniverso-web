@@ -7,9 +7,13 @@ const BRAND = { indigo: '#1e1645', blue: '#1e4488', night: '#0c0407', cyan: '#00
 // Relevo, da água funda ao topo dos morros (o planeta escolhe a cor pela altura).
 const TERRAIN = {
   deepWater: '#163a5c', // fundo do mar visto pela água
+  shallow: '#2f7fa6',   // mar raso perto da costa (água mais clara)
   beach: '#f0dfaa',     // faixa de areia na beira
-  grass: '#5fd39a',     // campos
-  forest: '#36b07f',    // morros verdes
+  savanna: '#a9d26e',   // cerrado (campo seco, verde-amarelado)
+  grass: '#6fd598',     // campos
+  meadow: '#4fc98e',    // campos úmidos
+  drywood: '#6fb768',   // mata seca nos morros
+  forest: '#2f9e72',    // mata nos morros
   rock: '#8a9db3',      // pedra
   snow: '#eef5ff',      // topos
   dunes: '#f4ecd6'      // areia branca dos Lençóis

@@ -4,7 +4,13 @@
 //   boi   (Centro)   matraca e zabumba no ritmo do boi; ao chamar o boi, a percussão cresce e entra uma toada;
 //   porto (Porto)    ondas e, de vez em quando, a buzina de um navio;
 //   trem  (Ferrovia) o "ta-dum" das rodas nas juntas dos trilhos e o ronco da locomotiva;
-//   mangue (Ecologia) água correndo, passarinhos, uma kalimba tranquila, chocalho leve e, às vezes, um sapo.
+//   mangue (Ecologia) água correndo, passarinhos, uma kalimba tranquila, chocalho leve e, às vezes, um sapo;
+//   escola (Educação) caixinha de música e xilofone brincalhões, tique de bloco de madeira e, às vezes, o sino da escola;
+//   negocios (Negócios) piano elétrico suave com tremolo, batida lo-fi bem baixa e o zumbido distante da cidade;
+//   dunas (Lençóis) vento sobre a areia e, de vez em quando, gaivotas ao longe;
+//   cabine (cabine do trem) um reggae tranquilo (São Luís é a capital brasileira do reggae): baixo, acordes no
+//   contratempo, bateria "one drop" e o ta-dum dos trilhos bem de leve por baixo.
+// Tudo sutil: cada camada tem seu próprio volume (o Porto ficou mais baixo).
 // Efeitos da formação do planeta: um som que sobe junto com a barra de carregamento, um bipe a cada 5% e um acorde
 // de chegada com um grave quando o planeta fica pronto.
 // Efeitos dos minigames (sfx): bipes, acertos, erros, a largada, o motor do kart (que sobe com a velocidade) e uma
@@ -36,6 +42,11 @@ const PENTA = [69, 72, 74, 76, 79, 81, 84, 86, 88, 91];                         
 // Kalimba do mangue (lá menor pentatônica), frase de quatro compassos que respira.
 const KALIMBA = [69, 0, 72, 0, 76, 0, 0, 74, 72, 0, 0, 0, 69, 0, 67, 0, 64, 0, 67, 0, 69, 0, 0, 72, 74, 0, 72, 0, 0, 0, 0, 0,
   76, 0, 79, 0, 76, 0, 74, 0, 72, 0, 0, 74, 76, 0, 0, 0, 72, 0, 69, 0, 67, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+// Caixinha de música da Educação (frase de quatro compassos, notas do arpejo do acorde; null = pausa).
+const ESCOLA = [0, null, 2, null, 4, null, 3, 2, null, null, 1, null, 2, null, null, null, 4, null, 3, null, 2, null, 4, null, 3, null, 2, null, 1, null, null, null];
+// Nível de cada camada quando a área está aberta.
+const LEVEL = { boi: 1.3, porto: 0.62, trem: 1, mangue: 1.2, escola: 1, negocios: 0.9, dunas: 0.85, cabine: 1.15 };
+const LAYERS = Object.keys(LEVEL);
 const TOADA = [76, 0, 0, 74, 72, 0, 69, 0, 72, 0, 74, 0, 76, 0, 0, 0, 79, 0, 76, 0, 74, 0, 72, 0, 74, 0, 72, 69, 0, 0, 0, 0];
 
 export function createMusic() {
@@ -76,12 +87,18 @@ export function createMusic() {
     const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = 0.05; lfoG.gain.value = 350;
     lfo.connect(lfoG).connect(buses.padF.frequency); lfo.start();
     buses.padF.connect(bus(1, 0.6));
-    for (const k of ['boi', 'porto', 'trem']) { buses[k] = bus(0, 0.2); offAt[k] = -1e9; }
+    for (const k of ['boi', 'porto', 'trem', 'cabine']) { buses[k] = bus(0, 0.2); offAt[k] = -1e9; }
     buses.mangue = bus(0, 0.45, 0.25); offAt.mangue = -1e9;
+    buses.escola = bus(0, 0.5, 0.3); offAt.escola = -1e9;
+    buses.negocios = bus(0, 0.45, 0.2); offAt.negocios = -1e9;
+    buses.dunas = bus(0, 0.6); offAt.dunas = -1e9;
     // Fundo contínuo das áreas: ondas do Porto (sobem e descem) e ronco grave do trem.
-    loopNoise('lowpass', 520, 0.55, buses.porto, 0.11, 0.35);
+    loopNoise('lowpass', 480, 0.26, buses.porto, 0.11, 0.16);                                   // ondas (mais baixas)
     loopNoise('lowpass', 130, 0.5, buses.trem, 0.4, 0.15);
     loopNoise('bandpass', 1400, 0.12, buses.mangue, 0.23, 0.04);                                  // água correndo (cachoeira e rio)
+    loopNoise('lowpass', 260, 0.07, buses.negocios, 0.07, 0.02);                                 // zumbido distante da cidade
+    loopNoise('bandpass', 650, 0.16, buses.dunas, 0.09, 0.12);                                   // vento nas dunas
+    loopNoise('lowpass', 120, 0.12, buses.cabine, 0.4, 0.04);                                    // ronco do trem, bem baixo, por baixo do reggae
     timer = setInterval(schedule, 25);
     mixZone();
   }
@@ -118,7 +135,7 @@ export function createMusic() {
     for (const [f, d] of [[73.4, -6], [92.5, 6]]) {
       const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
       o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; lp.type = 'lowpass'; lp.frequency.value = 420;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.09, t + 0.35); g.gain.setValueAtTime(0.09, t + 2.1); g.gain.linearRampToValueAtTime(0, t + 3);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.045, t + 0.35); g.gain.setValueAtTime(0.045, t + 2.1); g.gain.linearRampToValueAtTime(0, t + 3);
       o.connect(lp).connect(g).connect(buses.porto); o.start(t); o.stop(t + 3.1);
     }
   }
@@ -188,6 +205,33 @@ export function createMusic() {
       if (i % 4 === 0 && Math.random() < 0.18) { const f = 2400 + Math.random() * 1600; for (let c = 0; c < 2 + (Math.random() * 3 | 0); c++) tone(t + c * 0.09, 'sine', f, 0.07, 0.025, buses.mangue, { freqEnd: f * 1.5, attack: 0.004 }); }   // passarinho
       if (i === 8 && bar % 4 === 3 && Math.random() < 0.6) for (let c = 0; c < 2; c++) tone(t + c * 0.16, 'square', 120, 0.1, 0.02, buses.mangue, { filter: 500, freqEnd: 90 });   // sapo
     }
+    if (playing('escola')) {
+      const e = ESCOLA[s % 32];
+      if (e != null) { tone(t, 'sine', mtof(ch.arp[e] + 12), 0.9, 0.035, buses.escola, { attack: 0.003 }); tone(t, 'triangle', mtof(ch.arp[e]), 0.4, 0.02, buses.escola, { attack: 0.003 }); }
+      if (i === 0 || i === 8) noise(t, 0.025, 'bandpass', 1900, 6, 0.05, buses.escola);                       // bloco de madeira
+      if (i === 4 && bar % 2 === 1) tone(t, 'triangle', mtof(ch.arp[(bar >> 1) % 5]), 0.25, 0.025, buses.escola);   // xilofone
+      if (i === 0 && bar % 16 === 15) [88, 84].forEach((m, k) => tone(t + k * 0.55, 'sine', mtof(m), 1.6, 0.03, buses.escola));   // sino da escola
+    }
+    if (playing('negocios')) {
+      if (i === 0 && bar % 2 === 0) for (const m of ch.pad) { tone(t, 'sine', mtof(m), STEP * 30, 0.022, buses.negocios, { attack: 0.02 }); tone(t, 'triangle', mtof(m), STEP * 20, 0.008, buses.negocios, { attack: 0.02, detune: 6 }); }
+      if (i === 8 && bar % 2 === 1) for (const m of ch.pad.slice(1)) tone(t, 'sine', mtof(m + 12), STEP * 6, 0.012, buses.negocios, { attack: 0.01 });
+      if (i === 0 || i === 10) tone(t, 'sine', 70, 0.22, 0.12, buses.negocios, { freqEnd: 42 });                    // bumbo lo-fi
+      if (i === 4 || i === 12) noise(t, 0.08, 'bandpass', 1500, 0.9, 0.035, buses.negocios);                         // caixa abafada
+      if (i % 2 === 0) noise(t, 0.02, 'highpass', 8000, 0.7, 0.008, buses.negocios);
+      if (i === 6 && Math.random() < 0.06) tone(t, 'sine', 1568, 0.18, 0.02, buses.negocios, { attack: 0.003 });    // notificação ao longe
+    }
+    if (playing('dunas') && i % 8 === 0 && Math.random() < 0.08) { const f = 1800 + Math.random() * 500; for (let c = 0; c < 2; c++) tone(t + c * 0.22, 'sine', f, 0.28, 0.014, buses.dunas, { freqEnd: f * 0.7, attack: 0.02 }); }   // gaivota
+    if (playing('cabine')) {
+      // Reggae: baixo (tônica e quinta), acorde curto no contratempo, bumbo e aro no 3º tempo (one drop), chimbal.
+      const bass = { 0: 0, 3: 0, 6: 7, 10: 0, 13: 5 }[i];
+      if (bass != null) tone(t, 'sine', mtof(ch.root - 12 + bass), STEP * 2.2, 0.16, buses.cabine, { attack: 0.01 });
+      if (i === 4 || i === 12) for (const m of ch.pad) tone(t, 'square', mtof(m), STEP * 0.8, 0.012, buses.cabine, { filter: 1800, attack: 0.004 });
+      if (i === 8) { tone(t, 'sine', 90, 0.2, 0.18, buses.cabine, { freqEnd: 48 }); noise(t, 0.04, 'bandpass', 2600, 4, 0.06, buses.cabine); }
+      if (i % 2 === 0) noise(t, 0.022, 'highpass', 7000, 0.7, i % 4 === 2 ? 0.02 : 0.01, buses.cabine);
+      if (i === 0 || i === 2) tone(t, 'sine', 78, 0.1, 0.05, buses.cabine, { freqEnd: 44 });                          // ta-dum dos trilhos
+      const lead = bar % 4 >= 2 && [0, null, null, 2, null, null, 3, null, 4, null, 3, null, 2, null, null, null][i];
+      if (lead != null && lead !== false) tone(t, 'triangle', mtof(ch.arp[lead]), STEP * 1.8, 0.03, buses.cabine, { attack: 0.01 });   // melodia
+    }
     if (playing('porto') && t >= nextHorn) { if (zone === 'porto') horn(t); nextHorn = t + 22 + Math.random() * 10; }
   }
 
@@ -209,8 +253,9 @@ export function createMusic() {
   function mixZone() {
     if (!ctx) return;
     const show = boost && zone === 'boi';
-    for (const z of ['boi', 'porto', 'trem', 'mangue']) ramp(buses[z].gain, z === zone ? (show ? 1.8 : 1.3) : 0, 0.7);
-    ramp(buses.base.gain, show ? 0.6 : zone ? 0.8 : 1, 1); ramp(buses.arp.gain, show ? 0.3 : zone ? 0.75 : 1, 1);
+    for (const z of LAYERS) ramp(buses[z].gain, z === zone ? (show ? 1.8 : LEVEL[z]) : 0, 0.7);
+    const quiet = show || zone === 'cabine';
+    ramp(buses.base.gain, quiet ? 0.55 : zone ? 0.8 : 1, 1); ramp(buses.arp.gain, quiet ? 0.25 : zone ? 0.75 : 1, 1);
   }
   // Efeitos dos jogos. at: atraso em segundos; arg: altura extra (o tijolo do fliperama, por exemplo).
   const SFX = {

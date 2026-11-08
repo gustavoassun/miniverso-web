@@ -7,8 +7,8 @@ import { C, OCEAN, VEHICLES } from './palette.js';
 import { railBasis, railDist, railPt, railTan } from './rail.js';
 import { animated, toyKick, toys, trains } from './runtime.js';
 import { worldScene } from './stage.js';
-import { DUNES, PLATEAU, PR, RAIL_R, TRAIN_SPEED, radiusAt, shadeOf, terrain } from './terrain.js';
-import { locoMesh, sailboat, vehMat, wagonGeo } from './vehicles.js';
+import { DUNES, PLATEAU, PR, RAIL_R, TRAIN_SPEED, moisture, radiusAt, shadeOf, terrain } from './terrain.js';
+import { locoMesh, paintGeo, sailboat, vehMat, wagonGeo } from './vehicles.js';
 import { ZONES } from './zones.js';
 import { buildCentro } from './zones/centro.js';
 import { buildEcology } from './zones/ecologia.js';
@@ -86,27 +86,76 @@ for (const [i, z] of ZONES.entries()) { BUILDERS[i](z.group = zoneGroup(z.dir, z
   }
 }
 
-// Árvores e turbinas espalhadas pelo terreno (fora das áreas construídas, da ferrovia e das dunas).
+await breathe();
+// Vegetação por bioma (fora das áreas construídas, da ferrovia e das dunas), tudo instanciado (poucas chamadas de
+// desenho): mata de copas redondas nos morros úmidos, pinheiros na mata seca, árvores de copa achatada no cerrado,
+// arbustos nos campos, ipês floridos aqui e ali, coqueiros na beira do mar, pedras nas encostas e uma faixa de
+// arbustos e árvores acompanhando a ferrovia (a paisagem que se vê da cabine do trem). Também turbinas e vilarejos.
 {
-  const spots = [];
   // z.clear: margem extra sem enfeites em volta de uma área (o mar de manobra do Porto, por exemplo).
   const free = d => ZONES.every(z => d.angleTo(z.dir) > (z.clear ?? (z.flat ? z.flat[0] : 0.3))) && railDist(d) > 0.07 && d.angleTo(DUNES) > 0.5;
-  for (let tries = 0; spots.length < (small ? 60 : 110) && tries < 5000; tries++) {
+  const up = new THREE.Vector3(0, 1, 0), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), qy = new THREE.Quaternion(), sc = new THREE.Vector3();
+  const kinds = { round: [], pine: [], flat: [], bush: [], ipe: [], palm: [], rock: [] };
+  const cap = small ? { round: 90, pine: 50, flat: 28, bush: 150, ipe: 14, palm: 26, rock: 30 } : { round: 170, pine: 95, flat: 55, bush: 300, ipe: 26, palm: 50, rock: 60 };
+  const room = k => kinds[k].length < cap[k];
+  for (let tries = 0; tries < (small ? 9000 : 16000); tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize(), h = terrain(d);
-    if (h > 0.03 && h < 0.13 && free(d)) spots.push([d, h]);
+    if (h < 0.022 || !free(d)) continue;
+    const m = moisture(d), r = R();
+    if (h < 0.034) { if (room('palm') && r < 0.5) kinds.palm.push([d, h]); continue; }
+    if (h < 0.075) {
+      if (m < 0.42) { if (r < 0.25 && room('flat')) kinds.flat.push([d, h]); else if (r < 0.55 && room('bush')) kinds.bush.push([d, h]); }
+      else if (r < 0.06 && room('ipe')) kinds.ipe.push([d, h]);
+      else if (r < 0.45 && room('bush')) kinds.bush.push([d, h]);
+      else if (m > 0.52 && r < 0.62 && room('round')) kinds.round.push([d, h]);
+      continue;
+    }
+    if (h < 0.13) { if (m < 0.44) { if (room('pine')) kinds.pine.push([d, h]); } else if (room('round')) kinds.round.push([d, h]); continue; }
+    if (h < 0.19 && room('rock') && r < 0.5) kinds.rock.push([d, h]);
   }
-  const crowns = new THREE.InstancedMesh(new THREE.ConeGeometry(0.03, 0.08, 6), mat('#ffffff'), spots.length);
-  const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.006, 0.008, 0.03, 5), mat(C.trunk), spots.length);
-  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), greens = ['#2f9b7a', '#3aa58c', '#4bbf8f', '#2c8f86', '#36b07f', '#5fd39a', '#ff7bb0', '#ffd23f', '#b07cff'].map(h => new THREE.Color(h));
-  spots.forEach(([d, h], i) => {
-    const s = 0.7 + R() * 0.7; q.setFromUnitVectors(up, d);
-    m4.compose(d.clone().multiplyScalar(radiusAt(h) + 0.055 * s), q, new THREE.Vector3(s, s, s)); crowns.setMatrixAt(i, m4); crowns.setColorAt(i, greens[i % 9]);
-    m4.compose(d.clone().multiplyScalar(radiusAt(h) + 0.012 * s), q, new THREE.Vector3(s, s, s)); trunks.setMatrixAt(i, m4);
-  });
-  planet.add(crowns, trunks);
+  // Faixa verde ao longo da ferrovia, dos dois lados (a vista da cabine).
+  const railSide = [];
+  for (let i = 0; i < (small ? 160 : 300); i++) {
+    const th = R() * TAU, side = R() < 0.5 ? -1 : 1, r = railPt(th), t = railTan(th), nrm = new THREE.Vector3().crossVectors(r, t);
+    const d = r.clone().addScaledVector(nrm, side * (0.075 + R() * 0.07)).normalize(), h = terrain(d);
+    if (h < 0.022 || h > 0.13 || d.angleTo(DUNES) < 0.5 || ZONES.some(z => d.angleTo(z.dir) < (z.clear ?? (z.flat ? z.flat[0] : 0.3)))) continue;
+    railSide.push([d, h, R() < 0.4]);
+  }
+  for (const [d, h, tall] of railSide) (tall ? kinds.round : kinds.bush).push([d, h]);
+  const place = (mesh, list, sz, lift, colors) => {
+    list.forEach(([d, h], i) => {
+      const s = sz[0] + R() * (sz[1] - sz[0]);
+      q.setFromUnitVectors(up, d).multiply(qy.setFromAxisAngle(up, R() * TAU));
+      m4.compose(d.clone().multiplyScalar(radiusAt(h) + lift * s), q, sc.set(s, s * (0.85 + R() * 0.3), s)); mesh.setMatrixAt(i, m4);
+      if (colors) mesh.setColorAt(i, colors[(i * 7 + Math.floor(R() * 3)) % colors.length]);
+    });
+    planet.add(mesh);
+  };
+  const col = hs => hs.map(h => new THREE.Color(h));
+  const inst = (geo, material, n) => new THREE.InstancedMesh(geo, material, Math.max(1, n));
+  // Mata: copas redondas (duas bolas) e tronco.
+  const roundG = mergeGeometries([new THREE.IcosahedronGeometry(0.03, 0).translate(0, 0.055, 0), new THREE.IcosahedronGeometry(0.022, 0).translate(0.014, 0.075, 0.006)]);
+  const trunkG = new THREE.CylinderGeometry(0.005, 0.007, 0.04, 5).translate(0, 0.02, 0);
+  const allRound = [...kinds.round, ...kinds.ipe, ...kinds.flat];
+  place(inst(roundG, mat('#ffffff'), kinds.round.length), kinds.round, [0.75, 1.3], -0.004, col(['#2f9e72', '#3aa58c', '#2c8f6a', '#3fae6f', '#4bbf8f']));
+  place(inst(trunkG, mat(C.trunk), allRound.length + kinds.pine.length), [...allRound, ...kinds.pine], [0.8, 1.2], -0.004);
+  // Ipês floridos (rosa, amarelo, roxo, branco).
+  place(inst(roundG, mat('#ffffff'), kinds.ipe.length), kinds.ipe, [0.8, 1.1], -0.004, col(['#ff7bb0', '#ffd23f', '#b07cff', '#ffffff']));
+  // Cerrado: copa achatada.
+  place(inst(new THREE.SphereGeometry(0.034, 7, 4).scale(1, 0.38, 1).translate(0, 0.05, 0), mat('#ffffff'), kinds.flat.length), kinds.flat, [0.7, 1.1], -0.004, col(['#7fae4f', '#8fbf5a', '#6f9e46']));
+  // Mata seca: pinheiros em dois andares.
+  place(inst(mergeGeometries([new THREE.ConeGeometry(0.026, 0.05, 6).translate(0, 0.05, 0), new THREE.ConeGeometry(0.019, 0.04, 6).translate(0, 0.08, 0)]), mat('#ffffff'), kinds.pine.length), kinds.pine, [0.8, 1.3], -0.004, col(['#2c7f5e', '#36906a', '#2a7350']));
+  // Arbustos.
+  place(inst(new THREE.IcosahedronGeometry(0.016, 0).scale(1, 0.7, 1).translate(0, 0.008, 0), mat('#ffffff'), kinds.bush.length), kinds.bush, [0.7, 1.4], -0.002, col(['#4bbf8f', '#5fd39a', '#3aa58c', '#8fbf5a']));
+  // Coqueiros: tronco curvo e folhas (uma geometria pintada nos vértices, uma chamada).
+  const leaves = []; for (let k = 0; k < 7; k++) leaves.push([new THREE.BoxGeometry(0.05, 0.003, 0.012).translate(0.025, 0, 0).rotateZ(-0.45).rotateY(k / 7 * TAU).translate(0.006, 0.092, 0), '#3aa58c']);
+  const palmG = paintGeo([[new THREE.CylinderGeometry(0.003, 0.0055, 0.09, 5).translate(0, 0.045, 0).rotateZ(-0.08), C.trunk], ...leaves, [new THREE.IcosahedronGeometry(0.006, 0).translate(0.006, 0.088, 0), '#7a5b45']]);
+  place(inst(palmG, vehMat(), kinds.palm.length), kinds.palm, [0.75, 1.15], -0.004);
+  // Pedras nas encostas.
+  place(inst(new THREE.DodecahedronGeometry(0.018, 0).scale(1, 0.65, 1), mat('#8a9db3'), kinds.rock.length), kinds.rock, [0.6, 1.5], 0.002, col(['#8a9db3', '#9aa8b8', '#7f8fa3']));
 
   let made = 0;
-  for (let tries = 0; made < 3 && tries < 3000; tries++) {
+  for (let tries = 0; made < (small ? 3 : 5) && tries < 3000; tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize(), h = terrain(d);
     if (h < 0.08 || !free(d)) continue;
     const t = new THREE.Group(); t.position.copy(d).multiplyScalar(radiusAt(h)); t.quaternion.setFromUnitVectors(up, d); planet.add(t);

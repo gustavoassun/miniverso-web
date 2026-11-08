@@ -7,7 +7,7 @@ import { C } from '../palette.js';
 import { crowd, walkers } from '../people.js';
 import { confetti, lamp, lampiao, palm, tree, waveFlag, zebra } from '../props.js';
 import { animated, fxT, zoneFx } from '../runtime.js';
-import { boiPanelTex, bordadoTex, facadeMat, holoMat, maranhaoTex, saiaTex, stoneTex } from '../textures.js';
+import { boiPanelTex, bordadoTex, canvasTex, facadeMat, holoMat, maranhaoTex, saiaTex, stoneTex } from '../textures.js';
 import { sailboat, trafficLoop } from '../vehicles.js';
 import { ZONES } from '../zones.js';
 import { planet } from '../planet.js';
@@ -36,18 +36,28 @@ function buildCentro(g, zi) {
   };
   // Teto de bandeirolas de São João: fios atravessando a rua, cada bandeirinha uma instância (uma só chamada de desenho).
   const flagCols = ['#e2207a', '#2fd0e0', '#ff8a2a', '#ffd23f', '#ffffff', '#9b5de5', '#3ee07a'].map(h => new THREE.Color(h));
-  const canopy = (x0, x1, z0, z1, yAt, step = 0.012) => {
+  // alongZ: fios correndo ao longo de z (para ruas no sentido x). Balançam com o vento quando a área está aberta.
+  const canopy = (x0, x1, z0, z1, yAt, step = 0.012, alongZ = false) => {
     const spots = [];
-    for (let z = z0; z <= z1 + 1e-9; z += step) for (let x = x0; x <= x1 + 1e-9; x += 0.0055) spots.push([x, z, (x - x0) / (x1 - x0)]);
+    if (alongZ) { for (let x = x0; x <= x1 + 1e-9; x += step) for (let z = z0; z <= z1 + 1e-9; z += 0.0055) spots.push([x, z, (z - z0) / (z1 - z0), (x - x0) / step]); }
+    else for (let z = z0; z <= z1 + 1e-9; z += step) for (let x = x0; x <= x1 + 1e-9; x += 0.0055) spots.push([x, z, (x - x0) / (x1 - x0), (z - z0) / step]);
     const geo = new THREE.PlaneGeometry(0.0048, 0.006); geo.translate(0, -0.003, 0);
     const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.8 }), spots.length), o = new THREE.Object3D();
-    spots.forEach(([x, z, u], i) => {
-      o.position.set(x + (R() - 0.5) * 0.002, yAt(x, z) - Math.sin(u * Math.PI) * 0.006, z + (R() - 0.5) * 0.002);
-      o.rotation.set((R() - 0.5) * 0.6, (R() - 0.5) * 0.7, (R() - 0.5) * 0.3); o.updateMatrix(); m.setMatrixAt(i, o.matrix);
-      m.setColorAt(i, flagCols[Math.floor(u * 3 + (z - z0) / (step * 2)) % flagCols.length]);
+    const base = spots.map(([x, z, u, row], i) => {
+      const b = { x: x + (R() - 0.5) * 0.002, y: yAt(x, z) - Math.sin(u * Math.PI) * 0.006, z: z + (R() - 0.5) * 0.002, rx: (R() - 0.5) * 0.5, ry: (alongZ ? Math.PI / 2 : 0) + (R() - 0.5) * 0.6, rz: (R() - 0.5) * 0.3, ph: row * 0.9 + u * 3 };
+      o.position.set(b.x, b.y, b.z); o.rotation.set(b.rx, b.ry, b.rz); o.updateMatrix(); m.setMatrixAt(i, o.matrix);
+      m.setColorAt(i, flagCols[Math.floor(u * 3 + row / 2) % flagCols.length]);
+      return b;
     });
-    g.add(m); return m;
+    m.userData.detail = true;
+    m.userData.anim = t => {
+      for (let i = 0; i < base.length; i++) { const b = base[i]; o.position.set(b.x, b.y, b.z); o.rotation.set(b.rx + Math.sin(t * 2.3 + b.ph) * 0.38, b.ry, b.rz + Math.sin(t * 1.7 + b.ph) * 0.12); o.updateMatrix(); m.setMatrixAt(i, o.matrix); }
+      m.instanceMatrix.needsUpdate = true;
+    };
+    animated.push(m); g.add(m); return m;
   };
+  // Ruas de paralelepípedo (pedra) e calçadas de pedra clara, com a textura repetida no tamanho certo.
+  const cobble = (m, w, d, light = false) => { m.material = new THREE.MeshStandardMaterial({ map: light ? stoneTex('#d8cfbe', '#e6ddcc', '#c6bba8', w / 0.04, d / 0.04) : stoneTex('#8a8276', '#a0978a', '#746c62', w / 0.026, d / 0.026), roughness: 0.95 }); return m; };
   // Peça ao longo de z com base e topo variando (ladeira, muro de arrimo, gramado e corrimão).
   const ramp = (x, w, z0, z1, bot, topF, material) => {
     const geo = new THREE.BoxGeometry(w, 1, z1 - z0, 1, 1, Math.max(2, Math.round((z1 - z0) / 0.01))), p = geo.attributes.position, cz = (z0 + z1) / 2;
@@ -79,8 +89,9 @@ function buildCentro(g, zi) {
   };
   hill(-0.44, -0.08, -0.44, 0.3); hill(-0.44, -0.08, -0.62, -0.44); hill(-0.62, -0.44, -0.44, 0.24);
   // Rua Portugal (ao longo de z, larga o bastante para os lampiões não encostarem nos casarões) e rua transversal.
-  draped(0.06, 0.002, 0.72, '#8f877c', -0.27, -0.07, g, T);
-  draped(0.39, 0.002, 0.03, '#8f877c', -0.285, -0.14, g, T);
+  cobble(draped(0.06, 0.002, 0.72, '#8f877c', -0.27, -0.07, g, T), 0.06, 0.72);
+  cobble(draped(0.39, 0.002, 0.03, '#8f877c', -0.285, -0.14, g, T), 0.39, 0.03);
+  canopy(-0.42, -0.31, -0.152, -0.128, (x, z) => top(x, z) + 0.066, 0.016, true);                     // bandeirolas na rua transversal
   [-0.33, -0.27, -0.21, -0.09, -0.03, 0.03, 0.09, 0.15, 0.21, 0.27].forEach((z, i) => casarao(-0.345, z, 0.07, 0.056, 0.07 + (i % 3) * 0.015, i, top));
   [-0.09, -0.03, 0.03, 0.09].forEach((z, i) => casarao(-0.195, z, 0.07, 0.056, 0.075 + (i % 2) * 0.015, i + 3, top));
   for (const z of [-0.32, -0.22, -0.03, 0.08, 0.19]) tree(g, -0.41, z, 0.8, undefined, top(-0.41, z));
@@ -91,8 +102,26 @@ function buildCentro(g, zi) {
   const sz0 = -0.41, sy0 = top(-0.27, sz0);
   box(0.1, 0.075, 0.045, C.white, -0.27, sy0, sz0, g);
   for (const x of [-0.305, -0.235]) { box(0.025, 0.12, 0.025, C.white, x, sy0, sz0 + 0.012, g); const sp = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.035, 4), mat(C.terracotta)); sp.rotation.y = Math.PI / 4; sp.position.set(x, sy0 + 0.137, sz0 + 0.012); g.add(sp); }
-  const gable = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.005, 3), mat(C.white)); gable.rotation.x = -Math.PI / 2; gable.position.set(-0.27, sy0 + 0.093, sz0 + 0.02); g.add(gable);
+  const gable = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.005, 3), mat('#f3ecdc', { emissive: '#f3ecdc', emissiveIntensity: 0.18 })); gable.rotation.x = -Math.PI / 2; gable.position.set(-0.27, sy0 + 0.093, sz0 + 0.02); g.add(gable);
   box(0.02, 0.035, 0.003, '#5a3a2a', -0.27, sy0, sz0 + 0.023, g);
+  // Fachada da Sé com detalhe (cornijas, janelas em arco, rosácea, portas e relógio), levemente iluminada.
+  const seTex = canvasTex(200, 150, (x, w, h) => {
+    x.fillStyle = '#f3ecdc'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#e2d6bd'; for (const y of [46, 96]) x.fillRect(0, y, w, 6); x.fillRect(0, 0, w, 5);
+    for (const px of [18, 182]) { x.fillRect(px - 6, 0, 12, h); }
+    const arch = (cx, y, ww, hh, c) => { x.fillStyle = c; x.beginPath(); x.moveTo(cx - ww / 2, y + hh); x.lineTo(cx - ww / 2, y + ww / 2); x.arc(cx, y + ww / 2, ww / 2, Math.PI, 0); x.lineTo(cx + ww / 2, y + hh); x.fill(); };
+    for (const cx of [55, 145]) { arch(cx, 58, 18, 32, '#3d5a7a'); arch(cx, 108, 16, 40, '#6a3b28'); }
+    arch(100, 100, 30, 50, '#6a3b28');
+    x.fillStyle = '#3d5a7a'; x.beginPath(); x.arc(100, 72, 14, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#f3ecdc'; x.lineWidth = 2; for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2; x.beginPath(); x.moveTo(100, 72); x.lineTo(100 + Math.cos(a) * 14, 72 + Math.sin(a) * 14); x.stroke(); }
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(100, 24, 10, 0, Math.PI * 2); x.fill(); x.strokeStyle = '#2a2a2a'; x.lineWidth = 1.5; x.stroke();
+    x.beginPath(); x.moveTo(100, 24); x.lineTo(100, 17); x.moveTo(100, 24); x.lineTo(105, 24); x.stroke();
+  });
+  const seM = new THREE.MeshStandardMaterial({ map: seTex, emissiveMap: seTex, emissive: '#ffffff', emissiveIntensity: 0.22, roughness: 0.85 });
+  const seFront = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.075), seM); seFront.position.set(-0.27, sy0 + 0.0375, sz0 + 0.0228); g.add(seFront);
+  const towerTex = canvasTex(40, 120, (x, w, h) => { x.fillStyle = '#f3ecdc'; x.fillRect(0, 0, w, h); x.fillStyle = '#e2d6bd'; for (const y of [38, 78]) x.fillRect(0, y, w, 4); x.fillStyle = '#3d5a7a'; for (const y of [10, 50, 90]) { x.beginPath(); x.moveTo(13, y + 22); x.lineTo(13, y + 7); x.arc(20, y + 7, 7, Math.PI, 0); x.lineTo(27, y + 22); x.fill(); } });
+  const towerM = new THREE.MeshStandardMaterial({ map: towerTex, emissiveMap: towerTex, emissive: '#ffffff', emissiveIntensity: 0.22, roughness: 0.85 });
+  for (const tx of [-0.305, -0.235]) { const tf = new THREE.Mesh(new THREE.PlaneGeometry(0.025, 0.12), towerM); tf.position.set(tx, sy0 + 0.06, sz0 + 0.0246); g.add(tf); }
   // Praça Benedito Leite, atrás da Sé: pedra portuguesa, chafariz de água verde com estátua dourada e jatos,
   // gramado em volta, palmeiras, árvores copadas, lampiões, bancos, casarões e carros estacionados.
   const BX = -0.255, BZ = -0.535, bTop = (x, z) => sag(x, z) + T + 0.0025;
@@ -122,11 +151,11 @@ function buildCentro(g, zi) {
   for (const sx of [-1, 1]) for (const sz of [-1, 1]) { palm(g, BX + sx * 0.072, BZ + sz * 0.032, 0.09, bTop(BX + sx * 0.072, BZ + sz * 0.032)); lampiao(g, BX + sx * 0.105, BZ + sz * 0.06, bTop(BX + sx * 0.105, BZ + sz * 0.06)); lampiao(g, BX + sx * 0.04, BZ + sz * 0.062, bTop(BX + sx * 0.04, BZ + sz * 0.062)); }
   for (const s of [-1, 1]) roundTree(BX + s * 0.103, BZ, 1, bTop(BX + s * 0.103, BZ));
   [-0.585, -0.525, -0.47].forEach((z, i) => casarao(-0.41, z, 0.05, 0.054, 0.07 + (i % 2) * 0.014, i + 2, top));
-  draped(0.03, 0.002, 0.17, '#8f877c', -0.11, -0.53, g, T);
+  cobble(draped(0.03, 0.002, 0.17, '#8f877c', -0.11, -0.53, g, T), 0.03, 0.17);
   ['#e8452f', C.white, '#2a3446', C.amber, C.tile].forEach((c, i) => { const z = -0.592 + i * 0.03; parked(-0.112, z, c, top(-0.112, z) + 0.002); });
   // Rua da Estrela (oeste): casarões de azulejo, lampiões e mais bandeirolas.
   const EX = -0.5;
-  draped(0.04, 0.002, 0.66, '#8f877c', EX, -0.1, g, T);
+  cobble(draped(0.04, 0.002, 0.66, '#8f877c', EX, -0.1, g, T), 0.04, 0.66);
   for (let i = 0; i < 11; i++) casarao(-0.565, -0.39 + i * 0.057, 0.05, 0.054, 0.065 + (i % 3) * 0.012, i, top, azulejos);
   for (let z = -0.38; z <= 0.2; z += 0.1) lampiao(g, -0.474, z, top(-0.474, z));
   canopy(EX - 0.017, EX + 0.017, -0.36, 0.2, (x, z) => top(x, z) + 0.07, 0.014);
@@ -161,7 +190,7 @@ function buildCentro(g, zi) {
   tree(g, -0.115, 0.42, 0.75, '#2f9b7a', onLad(-0.115, 0.42) + 0.006);
   [0.335, 0.395, 0.455].forEach((z, i) => casarao(-0.26, z, 0.06, 0.056, 0.085, i + 1, low));
   canopy(LX - 0.025, LX + 0.025, LZ0 + 0.006, LZ1 - 0.004, (x, z) => onLad(x, z) + 0.055, 0.011);
-  draped(0.31, 0.002, 0.04, '#a9a297', -0.165, 0.535, g, FL + 0.0004);
+  cobble(draped(0.31, 0.002, 0.04, '#a9a297', -0.165, 0.535, g, FL + 0.0004), 0.31, 0.04);
   [-0.28, -0.22, -0.16, -0.1].forEach((x, i) => casarao(x, 0.585, 0.055, 0.05, 0.06 + (i % 2) * 0.014, i + 2, low));
 
   // ── Cidade baixa: circuito de mão dupla em volta das quadras (Av. Beira-Mar a leste).
@@ -173,9 +202,10 @@ function buildCentro(g, zi) {
   trafficLoop(g, loop, [{ off: 0.0065, dir: 1, n: 7, speed: 0.05 }, { off: 0.0065, dir: -1, n: 6, speed: 0.045 }], FL + 0.003);
   // Quadra da Praia Grande: duas fileiras de casarões com um beco de pedestres no meio.
   for (let i = 0; i < 6; i++) { const z = -0.36 + i * 0.06; casarao(0.035, z, 0.05, 0.054, 0.06 + (i % 2) * 0.016, i + 1, sag); casarao(0.135, z, 0.05, 0.054, 0.066 + ((i + 1) % 2) * 0.014, i + 4, sag); }
-  draped(0.04, 0.002, 0.36, '#a9a297', 0.085, -0.21, g, FL + 0.0006);
+  cobble(draped(0.04, 0.002, 0.36, '#a9a297', 0.085, -0.21, g, FL + 0.0006), 0.04, 0.36);
+  canopy(0.066, 0.104, -0.38, -0.05, (x, z) => low(x, z) + 0.05, 0.015);                                // bandeirolas na ruela da Praia Grande
   // Largo ao norte: igreja de torre única entre dois casarões.
-  draped(0.2, 0.002, 0.17, '#e3dbcc', 0.085, -0.53, g, FL);
+  cobble(draped(0.2, 0.002, 0.17, '#e3dbcc', 0.085, -0.53, g, FL), 0.2, 0.17, true);
   { const cx = 0.085, cz = -0.535, cy = low(cx, cz), ty = low(cx, -0.48);
     box(0.055, 0.05, 0.085, C.white, cx, cy, cz, g);
     const roof = hipRoof(0.061, 0.091, 0.022, C.terracotta); roof.position.set(cx, cy + 0.061, cz); g.add(roof);
@@ -185,7 +215,7 @@ function buildCentro(g, zi) {
   casarao(0.02, -0.53, 0.045, 0.07, 0.06, 4, low); casarao(0.15, -0.53, 0.045, 0.07, 0.065, 5, low);
   for (const x of [0.04, 0.13]) lampiao(g, x, -0.46, low(x, -0.46));
   // Feira da Praia Grande ao sul: barracas coloridas com mercadorias, o casarão do mercado e bandeirolas.
-  draped(0.2, 0.002, 0.17, '#e3dbcc', 0.09, 0.505, g, FL);
+  cobble(draped(0.2, 0.002, 0.17, '#e3dbcc', 0.09, 0.505, g, FL), 0.2, 0.17, true);
   casarao(0.09, 0.575, 0.19, 0.03, 0.05, 2, low);
   const tents = [C.coral, C.amber, C.teal, C.violet, '#e2207a', '#2fd0e0', '#3ee07a', '#ff8a2a'], goods = ['#e8452f', '#ffd23f', '#3ee07a', '#ff8a2a', '#9b5de5', '#f4f4f4'];
   [0.448, 0.508].forEach((z, row) => { for (let c = 0; c < 4; c++) {

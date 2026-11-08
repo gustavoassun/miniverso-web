@@ -676,7 +676,7 @@ export function createMiniverso(rootEl, opts = {}) {
     formPts.visible = form > 0.001 && scatter < 0.999;
     showDetails(focusT > 0.05 ? lastFocus : -1);
     for (const a of animated) if (a.visible || !a.userData.detail) a.userData.anim(clock);
-    const wd = mix(portrait ? 7 : 4.1, portrait ? 14.5 : 7.6, arrive);                // planeta inteiro com folga, anéis e órbita à vista
+    const wd = mix(portrait ? 7 : 4.1, portrait ? 16.5 : 9.6, arrive);                // planeta inteiro com folga (um pouco mais afastado), anéis e órbita à vista
     camPos.set(mx * 0.25 * arrive, 0.25 - my * 0.15 * arrive, wd); camLook.set(0, portrait ? -0.25 : -0.1, 0);
     fup.set(0, 1, 0);
     if (focusT > 0.001) {
@@ -800,7 +800,7 @@ export function createMiniverso(rootEl, opts = {}) {
     css('--hint', 1 - smooth(0.01, 0.05, p));
     css('--world', worldUi * (1 - focusT)); css('--p', pRaw);
     const exitLive = worldLive && focusT < 0.5, soundLive = worldLive && place === 'planet';
-    music.setActive(soundLive || (place === 'capa' && p > 0.6)); music.setZone(focusZone >= 0 ? ZONES[focusZone].music : null);
+    music.setActive(soundLive || (place === 'capa' && p > 0.6)); music.setZone(cab && cabT > 0.5 ? 'cabine' : focusZone >= 0 ? ZONES[focusZone].music : null);   // na cabine do trem toca o reggae
     const fz = focusZone >= 0 ? ZONES[focusZone] : null;
     music.setBoost(!!fz?.show && zoneFx[focusZone] >= 0 && clock - zoneFx[focusZone] < fz.show.dur);
     if (soundBtn.classList.contains('live') !== soundLive) { soundBtn.classList.toggle('live', soundLive); soundBtn.tabIndex = soundLive ? 0 : -1; }
