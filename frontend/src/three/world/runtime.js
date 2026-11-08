@@ -6,6 +6,8 @@ const rt = { clock: 0, gameTick: () => {} };
 const zoneFx = ZONES.map(() => -1);
 const fxT = i => (zoneFx[i] < 0 ? -1 : rt.clock - zoneFx[i]);
 const zoneFx2 = ZONES.map(() => -1), fxT2 = i => (zoneFx2[i] < 0 ? -1 : rt.clock - zoneFx2[i]);
+const zoneFx3 = ZONES.map(() => -1), fxT3 = i => (zoneFx3[i] < 0 ? -1 : rt.clock - zoneFx3[i]);
+const zoneFx4 = ZONES.map(() => -1), fxT4 = i => (zoneFx4[i] < 0 ? -1 : rt.clock - zoneFx4[i]);
 const animated = [];
 // Coisas que respondem ao clique em qualquer lugar do planeta (balões, blocos voadores, controle gigante).
 const toys = [];
@@ -13,4 +15,4 @@ const toyKick = (o, t) => { const k = o.userData.kick ?? -9, age = t - k; return
 
 const trains = [];
 
-export { animated, fxT, fxT2, rt, toyKick, toys, trains, zoneFx, zoneFx2 };
+export { animated, fxT, fxT2, fxT3, fxT4, rt, toyKick, toys, trains, zoneFx, zoneFx2, zoneFx3, zoneFx4 };

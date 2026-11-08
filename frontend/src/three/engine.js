@@ -6,7 +6,7 @@ import { DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, d
 import { atmoUniforms, atmosphere, balloons, cloudM, clouds, formPts, formUniforms, islands, orbit, planet, tilt, worldStencil, zoneMarks } from './world/planet.js';
 import { cabin, updateCabin } from './world/cabin.js';
 import { railPt, railTan } from './world/rail.js';
-import { animated, rt, toys, trains, zoneFx, zoneFx2 } from './world/runtime.js';
+import { animated, rt, toys, trains, zoneFx, zoneFx2, zoneFx3, zoneFx4 } from './world/runtime.js';
 import { skyUniforms, worldCamera, worldScene } from './world/stage.js';
 import { PR, RAIL_R, TRAIN_SPEED } from './world/terrain.js';
 import { ZONES } from './world/zones.js';
@@ -184,16 +184,18 @@ export function createMiniverso(rootEl, opts = {}) {
     const kind = ZONES[i].kind2;
     if (kind === 'cab') { if (cab) exitCab(); else enterCab(0); }
     else if (kind === 'whack') startWhack();
+    else if (kind === 'clean') startClean();
     else { zoneFx2[i] = clock; zoneStatus.textContent = ZONES[i].done2; }
   });
-  on(zoneAct3, 'click', () => { if (focusZone === game.zi) startRace(); });
-  on(zoneAct4, 'click', () => { if (focusZone === game.zi) startArcade(); });
+  // Terceira ação: nos Jogos é a corrida; nas outras áreas, uma interação simples (zoneFx3, texto done3).
+  on(zoneAct3, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startRace(); else { zoneFx3[i] = clock; zoneStatus.textContent = ZONES[i].done3 || ''; } });
+  on(zoneAct4, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startArcade(); else { zoneFx4[i] = clock; zoneStatus.textContent = ZONES[i].done4 || ''; } });
   on(zoneClose, 'click', closeZone);
   // Pequena interação de cada área.
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
     zoneFx[i] = clock; show = !!ZONES[i].show;
-    if (i === game.zi) startRecycle(); else zoneStatus.textContent = ZONES[i].done;
+    if (i === game.zi) startRecycle(); else if (ZONES[i].kind === 'ecotour') startEcoTour(); else zoneStatus.textContent = ZONES[i].done;
   });
   // Cabine de qualquer um dos trens (pelo botão da Ferrovia ou clicando no trem).
   function enterCab(k) {
@@ -212,7 +214,7 @@ export function createMiniverso(rootEl, opts = {}) {
     return trains.findIndex(t => { for (let o = hit.object; o; o = o.parent) if (o === t.group) return true; return false; });
   }
   // Minigames: placar grande no topo da tela, com dica de como jogar (ver games.js).
-  const { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy } = createGames({
+  const { stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy } = createGames({
     $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }), compact: v => cardCompact(v), view: p => { tourStop(); aim(p); }, sound: music });
   labels.forEach((el, i) => on(el, 'click', () => openZone(i)));
   on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0 && !cab && cabT === 0) closeZone(); });

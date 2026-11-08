@@ -5,6 +5,7 @@ import { worldCamera } from './world/stage.js';
 import { rt, toys } from './world/runtime.js';
 import { createArcade } from './arcade.js';
 import { arcade, BINS, game, race, recy, slopeAt, track, trackAt, whack } from './world/zones/jogos.js';
+import { eco } from './world/zones/ecologia.js';
 
 // Minigames da área Jogos (Reciclaverso, blocos, corrida de kart e fliperama) e os cliques nos brinquedos do planeta.
 // st() devolve o estado atual do motor (movimento reduzido, área aberta, mundo ativo, cabine).
@@ -33,6 +34,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     race: { icon: '🏁', title: 'Corrida de kart', steps: touch
       ? [['◀ ▶', 'Segure os botões para virar'], ['❓', 'Pegue as caixas e toque em Item'], ['✨', 'Segure a curva: faíscas viram turbo'], ['🏆', '3 voltas: chegue em 1º']]
       : [[kb('←', '→'), 'Virar · ' + kb('↓') + ' freia'], [kb('Espaço'), 'Usa o item das caixas ❓'], ['✨', 'Segure a curva: faíscas viram turbo'], ['🏆', '3 voltas: chegue em 1º']] },
+    clean: { icon: '🌿', title: 'Limpe o mangue', steps: [['🧴🥫🛍️', 'Lixo boiando nos canais e no mar'], ['👆', touch ? 'Toque no lixo para recolher' : 'Clique no lixo para recolher'], ['⏱️', '35 segundos'], ['⭐', 'Quanto mais limpo, mais estrelas']] },
     arcade: { icon: '🕹️', title: 'Quebra-pixel', steps: touch
       ? [['👆', 'Arraste para mover a raquete'], ['👆', 'Toque para lançar a bola'], [sq('#ffd23f'), 'Bloco dourado alarga a raquete'], ['❤️', '3 vidas']]
       : [[`${kb('←', '→')} 🖱️`, 'Mova a raquete'], [kb('Espaço'), 'Lance a bola'], [sq('#ffd23f'), 'Bloco dourado alarga a raquete'], ['❤️', '3 vidas']] }
@@ -52,13 +54,62 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   on(how.querySelector('.how-x'), 'click', () => stopGame());
   on(window, 'keydown', e => { if (how.hidden) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); howGo.click(); } });
   // Cada jogo leva a câmera até onde ele acontece.
-  const VIEWS = { recy: { at: [0, 0.07, -0.19], yaw: 0, pitch: 0.55, d: 0.56 }, whack: { at: [0.19, 0.03, 0.05], yaw: 0, pitch: 0.95, d: 0.62 } };
+  const VIEWS = { clean: { at: [-0.04, 0.02, -0.06], yaw: 2.75, pitch: 1.32, d: 2.1 }, recy: { at: [0, 0.07, -0.19], yaw: 0, pitch: 0.55, d: 0.56 }, whack: { at: [0.19, 0.03, 0.05], yaw: 0, pitch: 0.95, d: 0.62 } };
   function stopGame() {
-    closeHow(); stopRecycle(); stopWhack();
+    closeHow(); stopRecycle(); stopWhack(); stopEcoTour(); stopClean();
     if (arc.on) arc.close(true);
     compact(false); zoneStatus.textContent = '';
     if (race.state !== 'off') endRace();
     hud.hidden = true;
+  }
+
+  // Ecologia, Expedição em VR: visita guiada em primeira pessoa pela passarela da reserva. A câmera caminha pelo
+  // caminho e, em cada estação, olha para ela enquanto o cartão mostra o nome e uma curiosidade.
+  const ECO_SPEED = 0.045, ecoT = { on: false, t0: 0, idx: -1 };
+  function startEcoTour() {
+    stopGame(); Object.assign(ecoT, { on: true, t0: nowS(), idx: -1 }); compact(true);
+    showHud('Expedição em VR', 'Uma caminhada pela reserva, estação por estação.'); hud.classList.add('corner'); sfx('go');
+    zoneStatus.textContent = 'Expedição em VR: aproveite a vista!';
+  }
+  function stopEcoTour() { if (!ecoT.on) return; ecoT.on = false; hud.hidden = true; compact(false); }
+  function ecoLoop(n) {
+    if (!ecoT.on) return;
+    const s = (n - ecoT.t0) * ECO_SPEED;
+    if (s > eco.L + 0.02) { stopEcoTour(); zoneStatus.textContent = 'Fim da expedição! Toque em Expedição em VR para fazer de novo.'; sfx('win'); return; }
+    const idx = eco.stations.findIndex(st => Math.abs(s - st.s) < 0.05);
+    if (idx >= 0 && idx !== ecoT.idx) { ecoT.idx = idx; const st = eco.stations[idx]; hudTitle.textContent = `${idx + 1} · ${st.name}`; hudScore.textContent = `${idx + 1}/${eco.stations.length} · ${st.name}`; hudHint.textContent = st.fact; sfx('good'); buzz(12); }
+  }
+  // Ecologia, Limpe o mangue: 35 s para recolher o lixo boiando nos canais e no mar (clique ou toque em cada um).
+  const CLEAN_TIME = 35, cl = { on: false, end: 0, score: 0 };
+  function startClean() { stopGame(); view(VIEWS.clean); intro('clean', beginClean); }
+  function beginClean() {
+    Object.assign(cl, { on: true, end: nowS() + CLEAN_TIME, score: 0 }); eco.cleanOn = true; eco.spawnAll();
+    showHud('Limpe o mangue', 'Recolha o lixo antes que a maré leve!'); hud.classList.add('corner'); hudBar.hidden = false; sfx('go'); flash('🌿 Valendo!', 'go', 1);
+  }
+  function stopClean() { if (!cl.on && !eco.cleanOn) return; cl.on = false; eco.cleanOn = false; eco.hide(); hudBar.hidden = true; }
+  function cleanLoop(n) {
+    if (!cl.on) return;
+    const left = Math.max(0, cl.end - n);
+    hudScore.textContent = `${cl.score} recolhidos · ${Math.ceil(left)} s`;
+    hudFill.style.transform = `scaleX(${(left / CLEAN_TIME).toFixed(3)})`; hudFill.style.background = left > 10 ? '#3dff8f' : left > 5 ? '#ffd23f' : '#ff3b3b';
+    if (left <= 0) {
+      const stars = cl.score >= 22 ? 3 : cl.score >= 15 ? 2 : cl.score >= 8 ? 1 : 0, txt = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+      stopClean(); compact(false); flash(txt, stars === 3 ? 'win' : 'end', 3);
+      hudScore.textContent = `${txt} ${cl.score} recolhidos`; hudHint.textContent = stars >= 2 ? 'O mangue agradece! Os bichos voltaram a respirar.' : 'Ainda ficou lixo na água. Tente de novo!';
+      zoneStatus.textContent = 'Toque em Limpe o mangue para jogar de novo.'; sfx(stars >= 2 ? 'win' : 'lose');
+    }
+  }
+  function hitTrash() {
+    if (!cl.on || st().focusZone !== eco.zi) return null;
+    ray.setFromCamera(pointer, worldCamera);
+    const hit = ray.intersectObjects(eco.trash.filter(m => m.visible), true)[0];
+    if (!hit) return null;
+    const o = hit.object; return eco.trash.includes(o) ? o : o.userData.trash;
+  }
+  function pickTrash(m) {
+    if (!eco.collect(m, rt.clock)) return;
+    cl.score++; sfx('good', cl.score % 5); buzz(12);
+    if (cl.score % 5 === 0) { flash(`🌿 ${cl.score} recolhidos!`, 'boost', 0.9); sfx('bonus'); }
   }
 
   // 1) Reciclaverso, o show: a cada rodada um item sobe no pedestal, grande e girando, e você escolhe a lixeira certa
@@ -217,12 +268,14 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     }
   }
   function hitWhack() {
+    if (cl.on) return hitTrash();
     if (st().focusZone !== game.zi || !whack.on) return null;
     ray.setFromCamera(pointer, worldCamera);
     const hit = ray.intersectObjects(whack.pads.filter(c => c.userData.up >= 0), true)[0];
     return hit ? hit.object.userData.whack || hit.object : null;
   }
   function smack(c) {
+    if (eco.trash.includes(c)) return pickTrash(c);
     const kind = c.userData.kind, d = kind === 'gold' ? 3 : kind === 'red' ? -2 : 1, i = whack.pads.indexOf(c);
     c.userData.up = -1; c.visible = false; whack.score = Math.max(0, whack.score + d);
     if (kind === 'time') whack.end += 3;
@@ -324,6 +377,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     return best;
   }
   const wrapA = a => Math.atan2(Math.sin(a), Math.cos(a));
+  const smooth01 = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
   // Suspensão: o kart inclina com a rampa um pouquinho atrasado, como mola (empina na subida, assenta e balança de
   // leve no topo e no fim da descida). Devolve [inclinação, quanto o chassi sobe na mola].
   function susp(a, target, dt) {
@@ -548,10 +602,23 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   const kartCam = () => kartOn;
   const camFov = () => fovNow;
   function raceCam(outCam, outLook, outUp, dt) {
-    const kart = me && (racing() || race.state === 'grid' || (race.state === 'done' && nowS() - race.doneAt < 3.5)), want = kart || rc.eye;
+    const kart = me && (racing() || race.state === 'grid' || (race.state === 'done' && nowS() - race.doneAt < 3.5)), want = kart || rc.eye || ecoT.on;
     kartOn = !!kart;
     camW += ((want ? 1 : 0) - camW) * (1 - Math.exp(-dt * (st().reduced ? 20 : 2.2)));
     if (camW < 0.001) { camOn = false; fovNow = 52; return 0; }
+    if (!kart && ecoT.on) {
+      // Expedição: olhos de quem caminha (um leve balanço), olhando o caminho à frente; perto de cada estação, vira
+      // para ela.
+      const n = nowS(), s = Math.min(eco.L, (n - ecoT.t0) * ECO_SPEED), k = camOn ? 1 - Math.exp(-dt * 5) : 1;
+      eco.at(s, tmp); const bob = Math.sin(n * 7) * 0.0012;
+      camP.lerp(orb.set(tmp.x, tmp.y + 0.022 + bob, tmp.z), k);
+      eco.at(s + 0.07, orbL); orbL.y += 0.016;
+      let w = 0, near = null; for (const st of eco.stations) { const d = Math.abs(s - st.s); const ww = 1 - smooth01(0.02, 0.09, d); if (ww > w) { w = ww; near = st; } }
+      if (near) orbL.lerp(near.look, w * 0.85);
+      camL.lerp(orbL, k); camU.lerp(orb.set(0, 1, 0), k); camOn = true; fovNow = 64;
+      outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
+      return camW;
+    }
     if (!kart) {
       fovNow = 52;
       if (rc.eye) {
@@ -605,9 +672,9 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   // Enquanto um jogo roda, a câmera fica fixa: as setas e a roda do mouse não mexem na vista.
   const busyKeys = () => playing();
   const whacking = () => whack.on;
-  const playing = () => rc.on || whack.on || arc.on || race.state !== 'off' || !how.hidden;
+  const playing = () => rc.on || whack.on || arc.on || race.state !== 'off' || !how.hidden || ecoT.on || cl.on;
   // Um passo por quadro: os jogos andam e a música abaixa enquanto algum está rolando.
-  function whackTick() { const n = nowS(); recyLoop(n); whackLoop(n); raceLoop(n); sound?.setDuck(playing()); }
+  function whackTick() { const n = nowS(); recyLoop(n); whackLoop(n); raceLoop(n); ecoLoop(n); cleanLoop(n); sound?.setDuck(playing()); }
   // Brinquedos pelo planeta: um clique faz pular e girar.
   function hitToy() {
     if (!st().worldLive || st().cab) return null;
@@ -617,5 +684,5 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     for (let o = hit.object; o; o = o.parent) if (toys.includes(o)) return o;
     return null;
   }
-  return { stopGame, startRecycle, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy };
+  return { stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy };
 }

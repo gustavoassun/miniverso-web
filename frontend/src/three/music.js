@@ -3,7 +3,8 @@
 // com suavidade quando a área abre ou fecha:
 //   boi   (Centro)   matraca e zabumba no ritmo do boi; ao chamar o boi, a percussão cresce e entra uma toada;
 //   porto (Porto)    ondas e, de vez em quando, a buzina de um navio;
-//   trem  (Ferrovia) o "ta-dum" das rodas nas juntas dos trilhos e o ronco da locomotiva.
+//   trem  (Ferrovia) o "ta-dum" das rodas nas juntas dos trilhos e o ronco da locomotiva;
+//   mangue (Ecologia) água correndo, passarinhos, uma kalimba tranquila, chocalho leve e, às vezes, um sapo.
 // Efeitos da formação do planeta: um som que sobe junto com a barra de carregamento, um bipe a cada 5% e um acorde
 // de chegada com um grave quando o planeta fica pronto.
 // Efeitos dos minigames (sfx): bipes, acertos, erros, a largada, o motor do kart (que sobe com a velocidade) e uma
@@ -32,6 +33,9 @@ const ARPS = [
 const MATRACA = [1, .45, 0, .8, 1, .45, 0, .8, 1, .45, 0, .8, 1, .45, .8, .55];
 // Toada do boi (lá menor pentatônica, cabe em todos os acordes): frase de dois compassos.
 const PENTA = [69, 72, 74, 76, 79, 81, 84, 86, 88, 91];                                       // bipes do carregamento, subindo
+// Kalimba do mangue (lá menor pentatônica), frase de quatro compassos que respira.
+const KALIMBA = [69, 0, 72, 0, 76, 0, 0, 74, 72, 0, 0, 0, 69, 0, 67, 0, 64, 0, 67, 0, 69, 0, 0, 72, 74, 0, 72, 0, 0, 0, 0, 0,
+  76, 0, 79, 0, 76, 0, 74, 0, 72, 0, 0, 74, 76, 0, 0, 0, 72, 0, 69, 0, 67, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 const TOADA = [76, 0, 0, 74, 72, 0, 69, 0, 72, 0, 74, 0, 76, 0, 0, 0, 79, 0, 76, 0, 74, 0, 72, 0, 74, 0, 72, 69, 0, 0, 0, 0];
 
 export function createMusic() {
@@ -73,9 +77,11 @@ export function createMusic() {
     lfo.connect(lfoG).connect(buses.padF.frequency); lfo.start();
     buses.padF.connect(bus(1, 0.6));
     for (const k of ['boi', 'porto', 'trem']) { buses[k] = bus(0, 0.2); offAt[k] = -1e9; }
+    buses.mangue = bus(0, 0.45, 0.25); offAt.mangue = -1e9;
     // Fundo contínuo das áreas: ondas do Porto (sobem e descem) e ronco grave do trem.
     loopNoise('lowpass', 520, 0.55, buses.porto, 0.11, 0.35);
     loopNoise('lowpass', 130, 0.5, buses.trem, 0.4, 0.15);
+    loopNoise('bandpass', 1400, 0.12, buses.mangue, 0.23, 0.04);                                  // água correndo (cachoeira e rio)
     timer = setInterval(schedule, 25);
     mixZone();
   }
@@ -175,6 +181,13 @@ export function createMusic() {
       if (i === 0 || i === 2 || i === 8 || i === 10) { tone(t, 'sine', 78, 0.14, 0.26, buses.trem, { freqEnd: 44 }); noise(t, 0.05, 'lowpass', 500, 0.7, 0.1, buses.trem); }
       if (i % 4 === 2) noise(t, 0.06, 'highpass', 3200, 0.7, 0.03, buses.trem);
     }
+    if (playing('mangue')) {
+      const k = KALIMBA[s % 64];
+      if (k) { tone(t, 'triangle', mtof(k), 1.1, 0.05, buses.mangue, { attack: 0.004 }); tone(t, 'sine', mtof(k + 12), 0.5, 0.02, buses.mangue, { attack: 0.003 }); }
+      if (i % 2 === 1) noise(t, 0.04, 'highpass', 6500, 0.8, i % 4 === 3 ? 0.03 : 0.016, buses.mangue);              // chocalho
+      if (i % 4 === 0 && Math.random() < 0.18) { const f = 2400 + Math.random() * 1600; for (let c = 0; c < 2 + (Math.random() * 3 | 0); c++) tone(t + c * 0.09, 'sine', f, 0.07, 0.025, buses.mangue, { freqEnd: f * 1.5, attack: 0.004 }); }   // passarinho
+      if (i === 8 && bar % 4 === 3 && Math.random() < 0.6) for (let c = 0; c < 2; c++) tone(t + c * 0.16, 'square', 120, 0.1, 0.02, buses.mangue, { filter: 500, freqEnd: 90 });   // sapo
+    }
     if (playing('porto') && t >= nextHorn) { if (zone === 'porto') horn(t); nextHorn = t + 22 + Math.random() * 10; }
   }
 
@@ -196,7 +209,7 @@ export function createMusic() {
   function mixZone() {
     if (!ctx) return;
     const show = boost && zone === 'boi';
-    for (const z of ['boi', 'porto', 'trem']) ramp(buses[z].gain, z === zone ? (show ? 1.8 : 1.3) : 0, 0.7);
+    for (const z of ['boi', 'porto', 'trem', 'mangue']) ramp(buses[z].gain, z === zone ? (show ? 1.8 : 1.3) : 0, 0.7);
     ramp(buses.base.gain, show ? 0.6 : zone ? 0.8 : 1, 1); ramp(buses.arp.gain, show ? 0.3 : zone ? 0.75 : 1, 1);
   }
   // Efeitos dos jogos. at: atraso em segundos; arg: altura extra (o tijolo do fliperama, por exemplo).
