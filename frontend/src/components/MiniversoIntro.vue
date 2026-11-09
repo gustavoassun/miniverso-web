@@ -70,8 +70,10 @@
         <span class="how-icon" aria-hidden="true"></span>
         <b class="how-title"></b>
         <ol class="how-steps"></ol>
+        <div class="how-colors" role="group" aria-label="Cor do seu kart" hidden></div>
         <button type="button" class="how-go">Jogar ▶</button>
       </div>
+      <button type="button" class="game-exit" hidden>Sair do jogo <span aria-hidden="true">×</span></button>
       <div class="arcade" role="dialog" aria-label="Fliperama: Quebra-pixel" hidden>
         <div class="ac-top"><b class="ac-title">Quebra-pixel</b><span class="ac-score"></span><button type="button" class="ac-close" aria-label="Sair do fliperama">×</button></div>
         <div class="ac-screen"><canvas width="320" height="240"></canvas></div>
@@ -600,6 +602,19 @@ onUnmounted(() => {
   border-radius: 22px; background: rgba(20, 12, 42, .86); border: 1px solid rgba(255, 79, 216, .6); box-shadow: 0 0 40px rgba(255, 79, 216, .3), 0 20px 60px rgba(0, 0, 0, .45);
   -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: how-in .35s cubic-bezier(.2, .8, .2, 1); }
 .how[hidden] { display: none; }
+/* Cores do kart (antes da corrida). */
+/* Na escolha da cor do kart a janela vai para a esquerda (no celular, para baixo) e o kart aparece na vitrine. */
+.how.side { left: max(24px, calc(50% - 470px)); translate: 0 -50%; }
+@media (max-width: 760px), (orientation: portrait) { .how.side { left: 50%; top: auto; bottom: 16px; translate: -50% 0; gap: 6px; padding: 14px 16px 12px; } .how.side .how-steps { display: none; } }
+.how-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.how-colors[hidden] { display: none; }
+.how-colors :deep(.how-color) { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); background: var(--k); cursor: pointer; padding: 0; transition: transform .15s, border-color .15s; }
+.how-colors :deep(.how-color:hover) { transform: scale(1.1); }
+.how-colors :deep(.how-color.on) { border-color: #fff; box-shadow: 0 0 0 3px rgba(127, 233, 255, .55); transform: scale(1.12); }
+/* Sair do jogo. */
+.stage > .game-exit { position: absolute; top: 18px; left: 50%; translate: -50% 0; z-index: 6; pointer-events: auto; display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .28); background: rgba(12, 10, 30, .72); backdrop-filter: blur(8px); color: #fff; font: 600 13px var(--font-display); letter-spacing: .03em; cursor: pointer; }
+.game-exit:hover { border-color: #7fe9ff; }
+.game-exit[hidden] { display: none; }
 .stage > .how { pointer-events: auto; }
 @keyframes how-in { from { opacity: 0; translate: -50% -44%; scale: .96; } }
 .how-icon { font-size: 40px; line-height: 1; filter: drop-shadow(0 0 14px rgba(255, 255, 255, .25)); }

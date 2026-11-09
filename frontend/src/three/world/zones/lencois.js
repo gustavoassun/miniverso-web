@@ -21,23 +21,24 @@ function buildDunes(g, zi) {
     [0.22, 0.12, 0.05, 0.1, 0.045, 0.2], [-0.03, -0.04, 0.05, 0.09, 0.04, 0.6], [0.09, 0.26, 0.05, 0.09, 0.035, -0.2], [-0.13, 0.25, 0.045, 0.09, 0.035, 0.4],
     [-0.36, -0.18, 0.06, 0.11, 0.05, 0.2], [0.36, -0.2, 0.055, 0.1, 0.045, 0.6], [-0.38, 0.14, 0.05, 0.1, 0.045, -0.5], [0.35, 0.22, 0.05, 0.09, 0.04, 0.1],
     [0.0, -0.4, 0.06, 0.12, 0.05, 0.4], [-0.2, -0.36, 0.05, 0.1, 0.045, 0.7], [0.22, -0.36, 0.05, 0.1, 0.04, 0.2], [0.02, 0.4, 0.05, 0.1, 0.035, -0.3]];
+  // Relevo como nos Lençóis de verdade: cristas longas e onduladas, perpendiculares ao vento (que vem do mar), com o
+  // lado do vento suave e o lado de trás íngreme, quebradas em meias-luas; as lagoas ficam nos vales entre elas.
+  const WIND = 0.35, cw = Math.cos(WIND), sw = Math.sin(WIND);
   const dh = (x, z) => {
-    let h = 0;
-    for (const [bx, bz, sa, sl, hh, r] of bumps) {
-      const dx = x - bx, dz = z - bz, c = Math.cos(r), s = Math.sin(r);
-      let u = dx * c - dz * s; const v = dx * s + dz * c;
-      u = u < 0 ? u / sa : u / (sa * 0.5);
-      const bend = v * v / (sl * sl);
-      h = Math.max(h, hh * Math.exp(-(u * u * 2.2 + bend * 2.2)) * (1 + 0.15 * Math.sin(v * 40)));
-    }
+    const u = x * cw + z * sw, v = -x * sw + z * cw;
+    const ph = u / 0.14 + 0.32 * Math.sin(v * 8.5 + 1.2) + 0.14 * Math.sin(v * 19 + u * 6), f = ph - Math.floor(ph);
+    const prof = f < 0.7 ? Math.sin(f / 0.7 * Math.PI / 2) ** 1.3 : Math.pow(1 - (f - 0.7) / 0.3, 1.6);
+    const crest = 0.5 + 0.5 * Math.sin(v * 10.5 + Math.floor(ph) * 2.3);                          // quebra em meias-luas
+    let h = 0.05 * prof * (0.35 + 0.65 * smooth(0.15, 0.6, crest)) * (0.8 + 0.2 * Math.sin(v * 4 + u * 3));
     // Vales onde ficam as lagoas (a água nunca fica embaixo de uma duna).
-    for (const [lx, lz, , s0] of LAG) h *= smooth(0.05 * s0, 0.095 * s0, Math.hypot((x - lx) / 1.25, (z - lz) / 0.95));
+    for (const [lx, lz, , s0] of LAG) h *= smooth(0.065 * s0, 0.12 * s0, Math.hypot((x - lx) / 1.25, (z - lz) / 0.95));
+    h *= smooth(0.08, 0.16, Math.hypot(x - 0.38, z - 0.3));                                          // vila de pescadores no plano
     return h * smooth(LR, LR - 0.1, Math.hypot(x, z));
   };
   // O relevo do planeta fica ~4 mm acima da base da área: a areia vai por cima dele.
   const BASE = 0.0046, sandY = (x, z) => sag(x, z) + dh(x, z) + BASE;
   const geo = new THREE.RingGeometry(0.0005, LR, 128, 64); geo.rotateX(-Math.PI / 2);
-  const p = geo.attributes.position, col = new Float32Array(p.count * 3), cA = new THREE.Color('#fbf6e8'), cB = new THREE.Color('#e6dbc0'), cR = new THREE.Color('#d8caa4'), c = new THREE.Color();
+  const p = geo.attributes.position, col = new Float32Array(p.count * 3), cA = new THREE.Color('#ffffff'), cB = new THREE.Color('#ece6d8'), cR = new THREE.Color('#ddd2b8'), c = new THREE.Color();
   for (let i = 0; i < p.count; i++) {
     const x = p.getX(i), z = p.getZ(i), h = dh(x, z), r = Math.hypot(x, z);
     p.setY(i, sag(x, z) + h + BASE - smooth(LR - 0.06, LR, r) * 0.008);
@@ -48,11 +49,11 @@ function buildDunes(g, zi) {
 
   // Lagoas de chuva: degradê do azul fundo ao verde-água na beira (duas paletas, azul e esmeralda).
   const lagoonTex = (deep, mid, edge) => canvasTex(128, 128, (x, w, h) => { const gr = x.createRadialGradient(64, 64, 4, 64, 64, 64); gr.addColorStop(0, deep); gr.addColorStop(0.55, mid); gr.addColorStop(0.85, edge); gr.addColorStop(1, 'rgba(95,224,208,0)'); x.fillStyle = gr; x.fillRect(0, 0, w, h); });
-  const blueM = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.08, metalness: 0.1, emissive: '#0a4a6a', emissiveIntensity: 0.35, depthWrite: false, map: lagoonTex('#1478c8', '#24a8d8', '#5fe0d0') });
+  const blueM = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.08, metalness: 0.1, emissive: '#0a4a6a', emissiveIntensity: 0.35, depthWrite: false, map: lagoonTex('#0f6fc4', '#1fa6e0', '#62e6d8') });
   const greenM = new THREE.MeshStandardMaterial({ transparent: true, roughness: 0.08, metalness: 0.1, emissive: '#0a5a4a', emissiveIntensity: 0.35, depthWrite: false, map: lagoonTex('#0f8f8a', '#22c2a8', '#8ff0c8') });
   const lagoons = LAG.map(([x, z, r, s0, kind]) => { const m0 = kind ? greenM : blueM;
     // A lagoa acompanha a curva do planeta (um disco reto ficava meio enterrado na areia longe do centro).
-    const y = sag(x, z) + BASE + 0.0012, lg = new THREE.CircleGeometry(0.05 * s0, 32, 0, TAU); lg.rotateX(-Math.PI / 2); lg.scale(1.25, 1, 0.8); lg.rotateY(r);
+    const y = sag(x, z) + BASE + 0.0012, lg = new THREE.CircleGeometry(0.064 * s0, 40, 0, TAU); lg.rotateX(-Math.PI / 2); lg.scale(1.25, 1, 0.8); lg.rotateY(r);
     const lp = lg.attributes.position; for (let i = 0; i < lp.count; i++) lp.setY(i, sag(lp.getX(i) + x, lp.getZ(i) + z) + BASE + 0.0012);
     lg.computeVertexNormals();
     const m = new THREE.Mesh(lg, m0); m.position.set(x, 0, z); m.renderOrder = 2; g.add(m);

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { R, TAU } from '../../core/math.js';
-import { sag } from '../build.js';
+import { mat, sag } from '../build.js';
 import { crowd, figures } from '../people.js';
 import { confetti } from '../props.js';
 import { animated, rt, toyKick, toys } from '../runtime.js';
@@ -166,12 +166,13 @@ function buildGames(g, zi) {
   {
     const FR = 0.74, SZ = 1024, px = u => (u / FR + 1) / 2 * SZ, sc = SZ / (2 * FR);
     const tex = canvasTex(SZ, SZ, (x, w, h) => {
-      for (let i = -w; i < w * 2; i += 48) { x.fillStyle = (i / 48) % 2 ? '#55c084' : '#4cb67b'; x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 48, 0); x.lineTo(i + 48 - h * 0.4, h); x.lineTo(i - h * 0.4, h); x.fill(); }
+      for (let i = -w; i < w * 2; i += 48) { x.fillStyle = (i / 48) % 2 ? '#2f8a6a' : '#2a7f61'; x.beginPath(); x.moveTo(i, 0); x.lineTo(i + 48, 0); x.lineTo(i + 48 - h * 0.4, h); x.lineTo(i - h * 0.4, h); x.fill(); }
       const loop = () => { x.beginPath(); for (let i = 0; i < N; i++) x[i ? 'lineTo' : 'moveTo'](px(X[i]), px(Z[i])); x.closePath(); };
       x.save(); loop(); x.clip();
-      // Lago com marolas claras.
-      x.fillStyle = '#3cb4d8'; x.fillRect(0, 0, w, h);
-      x.strokeStyle = 'rgba(255,255,255,.28)'; x.lineWidth = 2.5; x.lineCap = 'round';
+      // Lago escuro de fim de tarde, com o reflexo do neon (manchas rosa e ciano esticadas) e marolas finas.
+      x.fillStyle = '#141c48'; x.fillRect(0, 0, w, h);
+      for (let i = 0; i < 70; i++) { const cx = R() * w, cy = R() * h, gr = x.createRadialGradient(cx, cy, 2, cx, cy, 40); gr.addColorStop(0, i % 2 ? 'rgba(255,79,216,.22)' : 'rgba(127,233,255,.2)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.save(); x.translate(cx, cy); x.scale(2.2, 0.6); x.translate(-cx, -cy); x.fillRect(cx - 40, cy - 40, 80, 80); x.restore(); }
+      x.strokeStyle = 'rgba(190,200,255,.16)'; x.lineWidth = 2; x.lineCap = 'round';
       for (let i = 0; i < 170; i++) { const cx = R() * w, cy = R() * h; x.beginPath(); x.arc(cx, cy, 7, Math.PI * 1.15, Math.PI * 1.85); x.arc(cx + 13, cy, 7, Math.PI * 1.15, Math.PI * 1.85); x.stroke(); }
       // Ilhas: sombra na água, raso claro, espuma, areia e a borda na cor de cada fase.
       const shape = (isl, grow, dx = 0, dy = 0) => {
@@ -179,27 +180,24 @@ function buildGames(g, zi) {
         if (isl.r) x.arc(px(isl.x) + dx, px(isl.z) + dy, isl.r * sc + grow, 0, TAU);
         else x.roundRect(px(isl.x - isl.w / 2) - grow + dx, px(isl.z - isl.d / 2) - grow + dy, isl.w * sc + grow * 2, isl.d * sc + grow * 2, 0.03 * sc + grow);
       };
-      for (const isl of ISLANDS) { shape(isl, 2, 7, 10); x.fillStyle = '#2a8db2'; x.fill(); }
-      for (const isl of ISLANDS) { shape(isl, 16); x.fillStyle = '#86dbee'; x.fill(); }
-      for (const isl of ISLANDS) { shape(isl, 6); x.fillStyle = '#effcff'; x.fill(); }
+      // Ilhas: plataformas escuras com piso quadriculado, halo de neon na água na cor da fase e borda acesa.
+      for (const isl of ISLANDS) { shape(isl, 2, 7, 10); x.fillStyle = '#0b1030'; x.fill(); }
+      for (const isl of ISLANDS) { x.save(); x.shadowColor = isl.c; x.shadowBlur = 26; shape(isl, 8); x.strokeStyle = isl.c; x.globalAlpha = 0.55; x.lineWidth = 5; x.stroke(); x.restore(); }
       for (const isl of ISLANDS) {
-        shape(isl, 0); x.fillStyle = '#f4eedc'; x.fill();
-        x.save(); x.clip(); x.fillStyle = '#ebe3cb'; for (let r = 0; r < h; r += 24) for (let k = (r / 24) % 2 ? 0 : 24; k < w; k += 48) x.fillRect(k, r, 24, 24); x.restore();
-        shape(isl, -5); x.strokeStyle = isl.c; x.lineWidth = 7; x.stroke();
+        shape(isl, 0); x.fillStyle = '#3a2f66'; x.fill();
+        x.save(); x.clip(); x.fillStyle = '#433878'; for (let r = 0; r < h; r += 24) for (let k = (r / 24) % 2 ? 0 : 24; k < w; k += 48) x.fillRect(k, r, 24, 24);
+        x.strokeStyle = 'rgba(127,233,255,.12)'; x.lineWidth = 1; for (let r = 0; r < h; r += 24) { x.beginPath(); x.moveTo(0, r); x.lineTo(w, r); x.stroke(); } x.restore();
+        x.save(); x.shadowColor = isl.c; x.shadowBlur = 14; shape(isl, -4); x.strokeStyle = isl.c; x.lineWidth = 6; x.stroke(); x.restore();
+        shape(isl, -4); x.strokeStyle = 'rgba(255,255,255,.7)'; x.lineWidth = 1.5; x.stroke();
       }
-      // Trilha de pedrinhas ligando as fases, com uma curvinha em cada trecho.
-      const stones = [];
-      for (const [a, b, bend] of TRAIL) {
-        const [ax, az] = a, [bx, bz] = b, mx = (ax + bx) / 2 - (bz - az) * bend, mz = (az + bz) / 2 + (bx - ax) * bend;
-        let lx = px(ax), lz = px(az), acc = 0;
-        for (let t = 0; t <= 1; t += 0.004) {
-          const u = 1 - t, qx = px(u * u * ax + 2 * u * t * mx + t * t * bx), qz = px(u * u * az + 2 * u * t * mz + t * t * bz);
-          acc += Math.hypot(qx - lx, qz - lz); lx = qx; lz = qz;
-          if (acc >= 17) { acc = 0; stones.push([qx, qz]); }
-        }
-      }
-      for (const [sx, sz] of stones) { x.fillStyle = 'rgba(20,60,90,.3)'; x.beginPath(); x.arc(sx + 2, sz + 3, 6.5, 0, TAU); x.fill(); }
-      for (const [sx, sz] of stones) { x.fillStyle = '#fff7e0'; x.strokeStyle = '#d9b75a'; x.lineWidth = 2; x.beginPath(); x.arc(sx, sz, 6, 0, TAU); x.fill(); x.stroke(); }
+      // Passarelas ligando as fases: deque escuro com as duas bordas em neon ciano e uma faixa tracejada no meio (os LEDs
+      // que acendem em sequência são peças 3D, em buildNeon).
+      const bez = (a, b, bend) => { const [ax, az] = a, [bx, bz] = b, mx = (ax + bx) / 2 - (bz - az) * bend, mz = (az + bz) / 2 + (bx - ax) * bend; x.beginPath(); for (let t = 0; t <= 1.0001; t += 0.02) { const u = 1 - t; x.lineTo(px(u * u * ax + 2 * u * t * mx + t * t * bx), px(u * u * az + 2 * u * t * mz + t * t * bz)); } };
+      x.lineCap = 'round'; x.lineJoin = 'round';
+      for (const [a, b, bend] of TRAIL) { bez(a, b, bend); x.strokeStyle = 'rgba(8,10,30,.45)'; x.lineWidth = 36; x.stroke(); }
+      for (const [a, b, bend] of TRAIL) { bez(a, b, bend); x.save(); x.shadowColor = '#7fe9ff'; x.shadowBlur = 18; x.strokeStyle = '#7fe9ff'; x.lineWidth = 30; x.stroke(); x.restore(); }
+      for (const [a, b, bend] of TRAIL) { bez(a, b, bend); x.strokeStyle = '#3a2f66'; x.lineWidth = 24; x.stroke(); }
+      for (const [a, b, bend] of TRAIL) { bez(a, b, bend); x.setLineDash([7, 9]); x.strokeStyle = 'rgba(255,216,255,.45)'; x.lineWidth = 2; x.stroke(); x.setLineDash([]); }
       x.restore();
       // O gramado some aos poucos só na beira de tudo (r 0,67 → 0,74): o laço da pista vai até ~0,65 e, com o sumiço
       // começando antes (0,53), o laguinho e a área do laço ficavam transparentes e o gramado do planeta aparecia ali.
@@ -209,11 +207,11 @@ function buildGames(g, zi) {
       for (let i = 0; i < N; i += 6) {
         let k = 0; for (let j = -5; j <= 5; j++) k += K[(i + j + N) % N]; k /= 11; if (Math.abs(k) < 4.5) continue;
         const side = k > 0 ? -1 : 1, bx = X[i] - TZ[i] * (W + 0.045) * side, bz = Z[i] + TX[i] * (W + 0.045) * side;
-        x.fillStyle = '#e6d6ad'; x.beginPath(); x.arc(px(bx), px(bz), 0.035 / (2 * FR) * SZ, 0, TAU); x.fill();
-        x.fillStyle = '#cdbb8f'; for (let d = 0; d < 14; d++) x.fillRect(px(bx) + (R() - 0.5) * 22, px(bz) + (R() - 0.5) * 22, 2, 2);
+        x.fillStyle = '#5c5378'; x.beginPath(); x.arc(px(bx), px(bz), 0.035 / (2 * FR) * SZ, 0, TAU); x.fill();
+        x.fillStyle = '#7a7099'; for (let d = 0; d < 14; d++) x.fillRect(px(bx) + (R() - 0.5) * 22, px(bz) + (R() - 0.5) * 22, 2, 2);
       }
-      loop(); x.lineJoin = 'round'; x.lineWidth = (2 * W + 0.05) / (2 * FR) * SZ; x.strokeStyle = '#ddd2bc'; x.stroke();
-      x.lineWidth = (2 * W + 0.016) / (2 * FR) * SZ; x.strokeStyle = '#f4f1ea'; x.stroke();
+      loop(); x.lineJoin = 'round'; x.lineWidth = (2 * W + 0.05) / (2 * FR) * SZ; x.strokeStyle = '#4a4170'; x.stroke();
+      x.lineWidth = (2 * W + 0.016) / (2 * FR) * SZ; x.strokeStyle = '#6d6496'; x.stroke();
     });
     tex.anisotropy = 16;
     const geo = new THREE.RingGeometry(0.0005, FR, 112, 20); geo.rotateX(-Math.PI / 2);
@@ -691,7 +689,7 @@ function buildGames(g, zi) {
     const MX = [-0.27, -0.24, -0.17, -0.14], mz = 0.165 + 0.085 / 2 + 0.018;
     const spots = [
       ...MX.map(x => ({ x, z: mz + 0.024, rot: Math.PI, player: true })),
-      ...[[-0.285, 0.29], [-0.255, 0.288], [-0.225, 0.292], [-0.19, 0.287], [-0.155, 0.291], [-0.125, 0.286]].map(([x, z]) => ({ x, z, rot: Math.PI, player: false }))
+      ...[[-0.255, 0.268], [-0.228, 0.27], [-0.205, 0.266], [-0.182, 0.27], [-0.157, 0.267]].map(([x, z]) => ({ x, z, rot: Math.PI, player: false }))
     ];
     spots.forEach((p, k) => { p.y = sag(p.x, p.z) + FLOOR; p.ph = k * 1.9 + R() * 2; p.next = 3 + R() * 8; p.win = -99; });
     const f = figures(g, spots.length, spots.map((_, k) => ppl[(k * 3 + 1) % ppl.length]));
@@ -699,12 +697,12 @@ function buildGames(g, zi) {
       const hit = Math.max(0, 1 - (t - (arcade.hitAt ?? -99)) / 0.6), hype = Math.max(0, 1 - (t - (arcade.hypeAt ?? -99)) / 2.5), sad = Math.max(0, 1 - (t - (arcade.sadAt ?? -99)) / 1.6);
       spots.forEach((p, k) => {
         if (t > p.next) { p.win = t; p.next = t + 6 + R() * 9; }                                   // comemoração por conta própria
-        const own = Math.max(0, 1 - (t - p.win) / 1.8), party = Math.max(own, hype, p.player ? 0 : hit * 0.6);
-        const hop = Math.max(0, Math.sin(t * 7 + p.ph)) * 0.0022 * party;
+        const own = Math.max(0, 1 - (t - p.win) / 1.8), party = Math.max(own, hype, p.player ? 0 : hit * 0.35);
+        const hop = Math.max(0, Math.sin(t * 5 + p.ph)) * 0.0016 * party;
         if (p.player) {
           // Jogando: corpo para os lados com o jogo, braços à frente batendo nos botões; na festa, braços para o alto.
-          const mash = Math.sin(t * 13 + p.ph) * (1 - party), lean = Math.sin(t * 1.7 + p.ph) * 0.18;
-          f.place(k, p.x, p.y + hop, p.z, p.rot + lean, 0.35 + mash * 0.25, party > 0.05 ? party : 0.22 + 0.06 * mash, lean * 0.15);
+          const mash = Math.sin(t * 5 + p.ph) * (1 - party), lean = Math.sin(t * 0.9 + p.ph) * 0.12;
+          f.place(k, p.x, p.y + hop, p.z, p.rot + lean, 0.35 + mash * 0.12, party > 0.05 ? party : 0.22 + 0.03 * mash, lean * 0.1);
         } else {
           // Assistindo: dançam de leve, torcem nas jogadas e põem as mãos na cabeça quando a bola cai.
           const sway = Math.sin(t * 2.4 + p.ph), look = Math.sin(t * 0.5 + p.ph) * 0.35;
@@ -718,7 +716,7 @@ function buildGames(g, zi) {
   }
 
   // Fora da corrida, os karts dão voltas sozinhos pela pista.
-  const wheelsGeo = kartWheels();
+  const wheelsGeo = kartWheels(), kUp = new THREE.Vector3(0, 1, 0), kNrm = new THREE.Vector3(), kQ = new THREE.Quaternion(), kQ2 = new THREE.Quaternion(), kE = new THREE.Euler();
   // Karts: o seu (amarelo) e cinco rivais (Rosa, Azul, Verde, Roxo e Laranja).
   [['#ffc56b', 'Você', 0.17, -0.012], ['#ff4fd8', 'Rosa', 0.19, 0.012], ['#00b7e3', 'Azul', 0.18, -0.01], ['#3ee0b5', 'Verde', 0.2, 0.011], ['#b07cff', 'Roxo', 0.185, -0.011], ['#ff8a3c', 'Laranja', 0.195, 0.012]].forEach(([color, name, speed, lane], k) => {
     const kart = new THREE.Mesh(kartGeo(color), vcMat); g.add(kart);
@@ -728,7 +726,15 @@ function buildGames(g, zi) {
     // roll: o kart deita um pouco para fora nas curvas; pitch: empina na rampa do viaduto; steer: rodas da frente.
     kart.rotation.order = 'YXZ';
     // A inclinação nas curvas gira o kart pela base: ele sobe um pouco para o lado de dentro não entrar no chão.
-    info.place = (x, z, h, roll = 0, y = 0, pitch = 0, steer = 0) => { info.y = y; kart.position.set(x, sag(x, z) + LIFT + y + Math.abs(roll) * 0.0095 * KART_S, z); kart.rotation.set(roll, -h, pitch); front.rotation.y = -steer * 0.45; };
+    // O kart assenta no chão de onde está: primeiro inclina com a curva do planeta (normal da esfera), depois aplica
+    // a direção, a rampa (pitch) e a inclinação nas curvas (roll). Antes ficava reto em relação ao centro da área e,
+    // longe dele, parecia flutuar de um lado e afundar do outro.
+    info.place = (x, z, h, roll = 0, y = 0, pitch = 0, steer = 0) => {
+      info.y = y; kart.position.set(x, sag(x, z) + LIFT + y + Math.abs(roll) * 0.0095 * KART_S, z);
+      kNrm.set(x, Math.sqrt(2.56 - x * x - z * z), z).normalize(); kQ.setFromUnitVectors(kUp, kNrm);
+      kart.quaternion.copy(kQ).multiply(kQ2.setFromEuler(kE.set(roll, -h, pitch, 'YXZ'))); front.rotation.y = -steer * 0.45;
+    };
+    info.recolor = c => { if (c === info.color) return; kart.geometry.dispose(); kart.geometry = kartGeo(c); info.color = c; };
     kart.userData.anim = t => {
       const dt = info.last < 0 ? 0 : Math.min(0.1, t - info.last); info.last = t;
       if (race.state !== 'off') return;
@@ -742,6 +748,7 @@ function buildGames(g, zi) {
   buildRecycle(g, S, G);
   buildTrackside(S, G, g);
   buildGameDecor(g, S, G, zi);
+  buildNeon(g, S, G, zi);
   game.party = confetti(g, 0, sag(0, 0) + 0.12, 0);
 
   g.add(meshOf(S, vcMat), meshOf(G, glowMat));
@@ -1262,6 +1269,161 @@ function buildGameDecor(g, S, G, zi) {
     goggles.add(meshOf(GS, vcMat), meshOf(GG, glowMat));
     goggles.userData.anim = t => { const k = toyKick(goggles, t); goggles.rotation.y = Math.sin(t * 0.5) * 0.7 + k * TAU; goggles.position.y = vy + 0.12 + Math.sin(t * 1.2) * 0.006 + k * 0.03; };
     animated.push(goggles); toys.push(goggles);
+  }
+}
+
+// Parque Arcade em neon de fim de tarde: LEDs nas passarelas acendendo em sequência (como o caminho de uma fase),
+// borda acesa nas ilhas redondas acompanhando a curva do chão, boias de luz no lago, portal PARQUE ARCADE na
+// entrada, filas nos brinquedos com crianças segurando balões, o mascote da Miniverso (de óculos VR) passeando,
+// placas da Miniverso na beira da pista e o fiscal da bandeirada na chegada.
+function buildNeon(g, S, G, zi) {
+  const y0 = (x, z) => sag(x, z) + FLOOR;
+  const O = new THREE.Object3D(), ZERO = new THREE.Matrix4().makeScale(0, 0, 0), col = new THREE.Color();
+  // LEDs no meio das passarelas.
+  const leds = [];
+  for (const [a, b, bend] of TRAIL) {
+    const [ax, az] = a, [bx, bz] = b, mx = (ax + bx) / 2 - (bz - az) * bend, mz = (az + bz) / 2 + (bx - ax) * bend;
+    let lx = ax, lz = az, acc = 0, along = leds.length;
+    for (let t = 0; t <= 1; t += 0.002) {
+      const u = 1 - t, qx = u * u * ax + 2 * u * t * mx + t * t * bx, qz = u * u * az + 2 * u * t * mz + t * t * bz;
+      acc += Math.hypot(qx - lx, qz - lz); lx = qx; lz = qz;
+      if (acc >= 0.011) { acc = 0; leds.push([qx, qz, leds.length - along]); }
+    }
+  }
+  const ledM = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0016, 6, 4), new THREE.MeshBasicMaterial({ toneMapped: false }), leds.length);
+  leds.forEach(([x, z], i) => { O.position.set(x, y0(x, z) + 0.0013, z); O.updateMatrix(); ledM.setMatrixAt(i, O.matrix); ledM.setColorAt(i, col.set('#7fe9ff')); });
+  ledM.frustumCulled = false; ledM.userData.keep = true; g.add(ledM);
+  const cA = new THREE.Color('#2a3a7a'), cB = new THREE.Color('#aef6ff'), cC = new THREE.Color('#ff7fe6');
+  ledM.userData.anim = t => { leds.forEach(([, , k], i) => { const w = Math.max(0, Math.sin(k * 0.5 - t * 4)); col.copy(cA).lerp(k % 7 === 0 ? cC : cB, 0.25 + w * w * 0.75); ledM.setColorAt(i, col); }); ledM.instanceColor.needsUpdate = true; };
+  animated.push(ledM);
+
+  // Borda acesa nas ilhas redondas, seguindo a curva do planeta (um anel reto ficaria meio enterrado).
+  for (const isl of ISLANDS) {
+    if (!isl.r) continue;
+    const pts = []; for (let k = 0; k <= 64; k++) { const a = k / 64 * TAU, x = isl.x + Math.cos(a) * (isl.r - 0.002), z = isl.z + Math.sin(a) * (isl.r - 0.002); pts.push(new THREE.Vector3(x, y0(x, z) + 0.0011, z)); }
+    const ring = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 128, 0.0011, 5, true), new THREE.MeshBasicMaterial({ color: isl.c, toneMapped: false }));
+    ring.userData.keep = true; g.add(ring);
+  }
+
+  // Boias de luz no lago (dentro do circuito, longe das ilhas e das passarelas), balançando devagar.
+  const inLoop = (x, z) => { let c = false; for (let i = 0, j = track.N - 1; i < track.N; j = i++) { const xi = track.X[i], zi2 = track.Z[i], xj = track.X[j], zj = track.Z[j]; if ((zi2 > z) !== (zj > z) && x < (xj - xi) * (z - zi2) / (zj - zi2) + xi) c = !c; } return c; };
+  const nearIsland = (x, z, m) => ISLANDS.some(isl => isl.r ? Math.hypot(x - isl.x, z - isl.z) < isl.r + m : Math.abs(x - isl.x) < isl.w / 2 + m && Math.abs(z - isl.z) < isl.d / 2 + m);
+  const nearLed = (x, z, m) => leds.some(([lx, lz]) => Math.hypot(x - lx, z - lz) < m);
+  const nearTrack = (x, z) => { for (let i = 0; i < track.N; i += 3) if (Math.hypot(x - track.X[i], z - track.Z[i]) < track.BARRIER + 0.03) return true; return false; };
+  const buoys = [];
+  for (let tries = 0; buoys.length < 26 && tries < 4000; tries++) {
+    const x = (R() - 0.5) * 1.1, z = (R() - 0.5) * 1.1;
+    if (!inLoop(x, z) || nearIsland(x, z, 0.02) || nearLed(x, z, 0.022) || nearTrack(x, z) || buoys.some(b => Math.hypot(b[0] - x, b[1] - z) < 0.05)) continue;
+    buoys.push([x, z, R() * TAU]);
+  }
+  const bTop = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0034, 10, 8), new THREE.MeshBasicMaterial({ toneMapped: false }), buoys.length);
+  const bBase = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0042, 0.005, 0.002, 10), new THREE.MeshStandardMaterial({ color: '#1a1d3a', roughness: 0.4 }), buoys.length);
+  const halo = new THREE.InstancedMesh(new THREE.CircleGeometry(0.011, 16).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }), buoys.length);
+  const bc = ['#ff4fd8', '#7fe9ff', '#ffd23f', '#b07cff'].map(c => new THREE.Color(c));
+  buoys.forEach((_, i) => { bTop.setColorAt(i, bc[i % 4]); halo.setColorAt(i, bc[i % 4]); });
+  for (const m of [bTop, bBase, halo]) { m.frustumCulled = false; m.userData.keep = true; g.add(m); }
+  bTop.userData.anim = t => {
+    buoys.forEach(([x, z, ph], i) => {
+      const y = y0(x, z) + 0.001 + Math.sin(t * 1.4 + ph) * 0.0008;
+      O.position.set(x, y, z); O.rotation.set(Math.sin(t + ph) * 0.15, 0, Math.cos(t * 0.8 + ph) * 0.15); O.scale.setScalar(1); O.updateMatrix(); bBase.setMatrixAt(i, O.matrix);
+      O.position.y = y + 0.004; O.updateMatrix(); bTop.setMatrixAt(i, O.matrix);
+      O.position.set(x, y0(x, z) + 0.0004, z); O.rotation.set(0, 0, 0); O.scale.setScalar(0.85 + 0.15 * Math.sin(t * 2 + ph)); O.updateMatrix(); halo.setMatrixAt(i, O.matrix);
+    });
+    bTop.instanceMatrix.needsUpdate = bBase.instanceMatrix.needsUpdate = halo.instanceMatrix.needsUpdate = true;
+  };
+  animated.push(bTop);
+
+  // Portal PARQUE ARCADE na passarela entre o carrossel e o Salão Arcade (atravessado nela). Antes ficava na saída da
+  // fonte, bem onde fica o olho de quem joga o Reciclaverso, e tampava o palco.
+  {
+    const A = [0.02, 0.21], B = [-0.205, 0.175], bend = 0.15, mx = (A[0] + B[0]) / 2 - (B[1] - A[1]) * bend, mz = (A[1] + B[1]) / 2 + (B[0] - A[0]) * bend;
+    const px0 = 0.25 * A[0] + 0.5 * mx + 0.25 * B[0], pz0 = 0.25 * A[1] + 0.5 * mz + 0.25 * B[1], tx = B[0] - A[0], tz = B[1] - A[1], tl = Math.hypot(tx, tz);
+    const nx = tz / tl, nz = -tx / tl, ry = Math.atan2(-nz, nx), yb = y0(px0, pz0);
+    for (const sd of [-1, 1]) {
+      const qx = px0 + nx * 0.03 * sd, qz = pz0 + nz * 0.03 * sd;
+      piece(S, Bx(0.006, 0.05, 0.006), '#2b2250', qx, y0(qx, qz) + 0.025, qz, ry);
+      piece(G, Bx(0.0016, 0.05, 0.0016), sd > 0 ? '#ff4fd8' : '#7fe9ff', qx + (tx / tl) * 0.0032, y0(qx, qz) + 0.025, qz + (tz / tl) * 0.0032, ry);
+      piece(G, new THREE.SphereGeometry(0.0042, 10, 8), '#ffd23f', qx, y0(qx, qz) + 0.054, qz);
+    }
+    piece(S, Bx(0.072, 0.014, 0.006), '#2b2250', px0, yb + 0.047, pz0, ry);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(0.066, 0.0118), signMat(512, 92, (x, w, h) => {
+      x.fillStyle = '#140c2a'; x.fillRect(0, 0, w, h); x.strokeStyle = '#ff4fd8'; x.lineWidth = 5; x.strokeRect(4, 4, w - 8, h - 8);
+      x.font = 'bold 54px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = '#7fe9ff'; x.shadowBlur = 16; x.fillStyle = '#e9fbff'; x.fillText('PARQUE ARCADE', w / 2, h / 2 + 3);
+      x.shadowBlur = 0; x.fillStyle = '#ffd23f'; for (let k = 0; k < 22; k++) { x.beginPath(); x.arc(14 + k * (w - 28) / 21, 10, 3, 0, TAU); x.fill(); x.beginPath(); x.arc(14 + k * (w - 28) / 21, h - 10, 3, 0, TAU); x.fill(); }
+    }));
+    // Um letreiro de cada lado da viga (um só, dupla face, ficava espelhado de um dos lados).
+    for (const sd of [-1, 1]) { const sg = sd < 0 ? sign : new THREE.Mesh(sign.geometry, sign.material); sg.rotation.y = ry + (sd < 0 ? Math.PI : 0); sg.position.set(px0 + sd * (tx / tl) * 0.0032, yb + 0.047, pz0 + sd * (tz / tl) * 0.0032); sg.userData.keep = true; g.add(sg); }
+  }
+
+  // Filas nos brinquedos (roda-gigante, arena e carrossel) com crianças segurando balões.
+  const queue = (cx, cz, r, a0, n, face = true) => Array.from({ length: n }, (_, k) => { const a = a0 + k * 0.16, x = cx + Math.cos(a) * r, z = cz + Math.sin(a) * r; return [x, z, y0(x, z) + 0.0002, face ? Math.atan2(cx - x, cz - z) : undefined]; });
+  const q1 = queue(-0.24, -0.15, 0.088, 0.9, 6), q2 = queue(0.19, 0.075, 0.116, 2.3, 7), q3 = queue(0.02, 0.21, 0.066, -2.2, 5);
+  const qAll = [...q1, ...q2, ...q3];
+  crowd(g, qAll, zi, ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6'], { fx: () => -1 });
+  const kids = qAll.filter((_, k) => k % 3 === 1);
+  const bal = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0042, 10, 8).scale(1, 1.18, 1), new THREE.MeshStandardMaterial({ roughness: 0.3 }), kids.length);
+  const str = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.00022, 0.00022, 0.016, 3).translate(0, 0.008, 0), new THREE.MeshBasicMaterial({ color: '#f6f6f6' }), kids.length);
+  kids.forEach((_, i) => bal.setColorAt(i, bc[(i + 1) % 4]));
+  for (const m of [bal, str]) { m.frustumCulled = false; m.userData.keep = true; g.add(m); }
+  bal.userData.anim = t => {
+    kids.forEach(([x, z, y], i) => {
+      const sw = Math.sin(t * 1.3 + i) * 0.12, hx = x + 0.0035, hy = y + 0.012;
+      O.position.set(hx, hy, z); O.rotation.set(sw, 0, sw * 0.6); O.scale.setScalar(1); O.updateMatrix(); str.setMatrixAt(i, O.matrix);
+      O.position.set(hx + Math.sin(sw * 0.6) * -0.016, hy + 0.019, z + Math.sin(sw) * 0.016); O.updateMatrix(); bal.setMatrixAt(i, O.matrix);
+    });
+    bal.instanceMatrix.needsUpdate = str.instanceMatrix.needsUpdate = true;
+  };
+  animated.push(bal);
+
+  // Mascote da Miniverso: bonecão roxo de óculos VR dando voltas na ilha da fonte e acenando.
+  {
+    const MS = 1.55, m = figures(g, 1, ['#7a5cff'], MS);
+    const vrG = new THREE.InstancedMesh(mergeGeometries([paint(Bx(0.0072, 0.0034, 0.0034).translate(0, 0.0168, 0.0022), '#eef4fb'), paint(Bx(0.006, 0.0018, 0.0006).translate(0, 0.0168, 0.004), '#00b7e3'), paint(Bx(0.0078, 0.0009, 0.0068).translate(0, 0.0168, -0.0006), '#2a2f3a')]), glowMat, 1);
+    vrG.frustumCulled = false; vrG.userData.keep = true; g.add(vrG);
+    m.host.userData.anim = t => {
+      const a = t * 0.35, x = Math.cos(a) * 0.042, z = 0.03 + Math.sin(a) * 0.042, rot = -a + Math.PI, step = Math.sin(t * 6);
+      const y = y0(x, z) + 0.0004 + Math.abs(step) * 0.0006;
+      m.place(0, x, y, z, rot, step * 0.6, 0.35 + 0.35 * Math.max(0, Math.sin(t * 2.4)), step * 0.03); m.done();
+      O.position.set(x, y, z); O.rotation.set(0, rot, step * 0.03); O.scale.setScalar(MS); O.updateMatrix(); vrG.setMatrixAt(0, O.matrix); vrG.instanceMatrix.needsUpdate = true;
+    };
+    animated.push(m.host);
+  }
+
+  // Placas da Miniverso na beira da pista (fora das muretas, só onde a pista é plana e não há outra peça).
+  const boardTex = [signMat(256, 64, (x, w, h) => { x.fillStyle = '#140c2a'; x.fillRect(0, 0, w, h); x.font = 'bold 34px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.shadowColor = '#ff4fd8'; x.shadowBlur = 10; x.fillStyle = '#ffffff'; x.fillText('MINIVERSO', w / 2, h / 2 + 2); x.fillStyle = '#ff4fd8'; x.fillRect(0, h - 6, w, 6); }),
+    signMat(256, 64, (x, w, h) => { x.fillStyle = '#ff4fd8'; x.fillRect(0, 0, w, h); x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#140c2a'; x.fillText('VR · AR · 3D', w / 2, h / 2 + 2); }),
+    signMat(256, 64, (x, w, h) => { x.fillStyle = '#00b7e3'; x.fillRect(0, 0, w, h); x.font = 'bold 30px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#ffffff'; x.fillText('SÃO LUÍS · MA', w / 2, h / 2 + 2); })];
+  const tp = {}, tq = {};
+  for (const sA of [0.55, 0.95, 1.6, 2.15, 2.75, 3.3]) {
+    const i = Math.floor(sA / track.ds) % track.N; if (track.Y[i] > 0.003 || Math.abs(track.K[i]) > 3) continue;
+    for (const sd of [-1, 1]) {
+      trackAt(sA, sd * (track.BARRIER + 0.028), tp); trackAt(sA, 0, tq);
+      if (ISLANDS.some(isl => isl.r ? Math.hypot(tp.x - isl.x, tp.z - isl.z) < isl.r + 0.03 : Math.abs(tp.x - isl.x) < isl.w / 2 + 0.03 && Math.abs(tp.z - isl.z) < isl.d / 2 + 0.03)) continue;
+      if (Math.hypot(tp.x, tp.z) > 0.68) continue;
+      const grp = new THREE.Group(); grp.position.set(tp.x, y0(tp.x, tp.z), tp.z);
+      grp.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(tp.x, Math.sqrt(2.56 - tp.x * tp.x - tp.z * tp.z), tp.z).normalize()); g.add(grp);
+      const inner = new THREE.Group(); inner.rotation.y = Math.atan2(tq.x - tp.x, tq.z - tp.z); grp.add(inner);
+      const bd = new THREE.Mesh(new THREE.PlaneGeometry(0.06, 0.015), boardTex[(Math.round(sA * 10) + (sd > 0 ? 1 : 0)) % 3]); bd.position.y = 0.016; inner.add(bd);
+      const back = new THREE.Mesh(new THREE.BoxGeometry(0.062, 0.017, 0.002), mat('#1a1d3a')); back.position.set(0, 0.016, -0.0012); inner.add(back);
+      for (const k of [-1, 1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.0009, 0.0009, 0.009, 5), mat('#2a2f3a')); leg.position.set(k * 0.024, 0.0045, -0.0012); inner.add(leg); }
+      break;
+    }
+  }
+
+  // Fiscal da bandeirada na chegada: num pódio pequeno por fora da pista, agitando a bandeira quadriculada.
+  {
+    trackAt(0.04, -(track.BARRIER + 0.02), tp); trackAt(0.04, 0, tq);
+    const fx = tp.x, fz = tp.z, fy = y0(fx, fz);
+    piece(S, Bx(0.012, 0.006, 0.012), '#2b2250', fx, fy + 0.003, fz); piece(G, Bx(0.0125, 0.0012, 0.0125), '#ff4fd8', fx, fy + 0.006, fz);
+    const face = Math.atan2(tq.x - fx, tq.z - fz), fm = figures(g, 1, ['#f6f6f6']);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.012, 0.008), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide, map: canvasTex(32, 24, (x, w, h) => { for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { x.fillStyle = (r + k) % 2 ? '#15161c' : '#f6f6f6'; x.fillRect(k * 8, r * 8, 8, 8); } }) }));
+    flag.geometry.translate(0.006, 0, 0); flag.userData.keep = true; g.add(flag);
+    fm.host.userData.anim = t => {
+      const wave = Math.sin(t * (race.state === 'run' || race.state === 'done' ? 7 : 2.5));
+      fm.place(0, fx, fy + 0.0066, fz, face, 0, 0.85 + 0.1 * wave); fm.done();
+      flag.position.set(fx + Math.cos(face) * 0.004, fy + 0.0066 + 0.026, fz - Math.sin(face) * 0.004); flag.rotation.set(0, face + Math.PI / 2 + wave * 0.5, wave * 0.3);
+    };
+    animated.push(fm.host);
   }
 }
 

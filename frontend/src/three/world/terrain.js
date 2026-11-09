@@ -25,8 +25,10 @@ function terrain(d) {
 }
 // Umidade (0 seco a 1 úmido): define cerrado, campos e mata.
 const moisture = d => fbm3(d.x * 1.6 - 7.1, d.y * 1.6 + 4.4, d.z * 1.6 + 2.2);
+const SNOWY = ZONES.filter(z => z.snow).map(z => z.dir);
 const shadeOf = (h, d) => {
   const T = TERRAIN;
+  if (h >= 0.02 && SNOWY.some(sd => d.angleTo(sd) < 0.5)) return T.snow;              // neve em volta da vila de Natal
   if (smooth(0.4, 0.26, d.angleTo(DUNES)) > 0.5 && h >= 0) return T.dunes;
   if (h < 0) return h < -0.05 ? T.deepWater : T.shallow;
   if (h < 0.022) return T.beach;

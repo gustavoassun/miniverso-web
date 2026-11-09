@@ -5,7 +5,7 @@ import { small } from '../../core/quality.js';
 import { box, cityFloor, compact, cyl, draped, hipRoof, liftBox, mat, road, roundedPad, sag } from '../build.js';
 import { C } from '../palette.js';
 import { crowd, walkers } from '../people.js';
-import { confetti, lamp, lampiao, palm, tree, waveFlag, zebra } from '../props.js';
+import { confetti, lamp, lampiao, palm, waveFlag, zebra } from '../props.js';
 import { animated, fxT, zoneFx } from '../runtime.js';
 import { boiPanelTex, bordadoTex, canvasTex, facadeMat, holoMat, maranhaoTex, saiaTex, stoneTex } from '../textures.js';
 import { sailboat, trafficLoop } from '../vehicles.js';
@@ -70,11 +70,15 @@ function buildCentro(g, zi) {
     geo.computeVertexNormals();
     const m = new THREE.Mesh(geo, material); m.position.set(x, 0, cz); g.add(m); return m;
   };
+  // Árvore copada: tronco com dois galhos e copa de bolas facetadas em três tons de verde (oitizeiros e mangueiras das
+  // praças de São Luís).
+  const leafM = ['#2f7d4f', '#3a9a5c', '#28704a'].map(c => mat(c, { flatShading: true }));
   const roundTree = (x, z, s, y) => {
-    cyl(0.004 * s, 0.03 * s, C.trunk, x, y, z, g, 5);
-    for (const [dx, dy, dz, r] of [[0, 0.045, 0, 0.022], [0.012, 0.04, 0.007, 0.016], [-0.011, 0.042, -0.007, 0.017], [0.003, 0.056, -0.009, 0.015]]) {
-      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 0), mat('#2f7d4f')); b.position.set(x + dx * s, y + dy * s, z + dz * s); g.add(b);
-    }
+    cyl(0.004 * s, 0.03 * s, C.trunk, x, y, z, g, 6);
+    for (const sd of [-1, 1]) { const br = new THREE.Mesh(new THREE.CylinderGeometry(0.0016 * s, 0.0022 * s, 0.016 * s, 5), mat(C.trunk)); br.position.set(x + sd * 0.005 * s, y + 0.033 * s, z); br.rotation.z = -sd * 0.6; g.add(br); }
+    [[0, 0.047, 0, 0.022], [0.013, 0.041, 0.007, 0.016], [-0.012, 0.043, -0.007, 0.017], [0.003, 0.059, -0.008, 0.015], [-0.006, 0.052, 0.011, 0.014], [0.011, 0.054, -0.01, 0.012]].forEach(([dx, dy, dz, r], k) => {
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), leafM[k % 3]); b.position.set(x + dx * s, y + dy * s, z + dz * s); g.add(b);
+    });
   };
   const parked = (x, z, color, y) => {
     const c = new THREE.Group();
@@ -99,7 +103,7 @@ function buildCentro(g, zi) {
   canopy(-0.42, -0.31, -0.152, -0.128, (x, z) => top(x, z) + 0.066, 0.016, true);                     // bandeirolas na rua transversal
   [-0.33, -0.27, -0.21, -0.09, -0.03, 0.03, 0.09, 0.15, 0.21, 0.27].forEach((z, i) => casarao(-0.345, z, 0.07, 0.056, 0.07 + (i % 3) * 0.015, i, top));
   [-0.09, -0.03, 0.03, 0.09].forEach((z, i) => casarao(-0.195, z, 0.07, 0.056, 0.075 + (i % 2) * 0.015, i + 3, top));
-  for (const z of [-0.32, -0.22, -0.03, 0.08, 0.19]) tree(g, -0.41, z, 0.8, undefined, top(-0.41, z));
+  for (const z of [-0.32, -0.22, -0.03, 0.08, 0.19]) roundTree(-0.41, z, 0.8, top(-0.41, z));
   // Lampiões nas calçadas, a 1,4 cm das fachadas e abaixo do teto de bandeirolas.
   for (const z of [-0.36, -0.24, -0.06, 0.06, 0.18]) for (const x of [-0.296, -0.244]) lampiao(g, x, z, top(x, z), 0.04);
   canopy(-0.297, -0.243, -0.12, 0.26, (x, z) => top(x, z) + 0.072);
@@ -108,7 +112,20 @@ function buildCentro(g, zi) {
   const sz0 = -0.41, sy0 = top(-0.27, sz0), se = standing(-0.27, sy0 - 0.0015, sz0);
   const sp = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); se.add(o); return o; };
   sp(new THREE.BoxGeometry(0.1, 0.0765, 0.045), mat(C.white), 0, 0.0383, 0);
-  for (const x of [-0.035, 0.035]) { sp(new THREE.BoxGeometry(0.025, 0.1215, 0.025), mat(C.white), x, 0.0608, 0.012); const spr = sp(new THREE.ConeGeometry(0.019, 0.035, 4), mat(C.terracotta), x, 0.1395, 0.012); spr.rotation.y = Math.PI / 4; }
+  const domeM = mat('#8fa3b8', { metalness: 0.3, roughness: 0.45 }), creme = mat('#f3ecdc'), ouroS = mat('#d4a640', { metalness: 0.6, roughness: 0.35 });
+  const crossAt = (x, y, z, s0 = 1) => { sp(new THREE.BoxGeometry(0.0012 * s0, 0.009 * s0, 0.0012 * s0), ouroS, x, y + 0.0045 * s0, z); sp(new THREE.BoxGeometry(0.0055 * s0, 0.0012 * s0, 0.0012 * s0), ouroS, x, y + 0.0062 * s0, z); };
+  for (const x of [-0.035, 0.035]) {
+    sp(new THREE.BoxGeometry(0.025, 0.1215, 0.025), mat(C.white), x, 0.0608, 0.012);
+    sp(new THREE.BoxGeometry(0.029, 0.003, 0.029), creme, x, 0.0815, 0.012); sp(new THREE.BoxGeometry(0.029, 0.004, 0.029), creme, x, 0.1235, 0.012);
+    for (const [bx0, bz0] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) sp(new THREE.BoxGeometry(0.003, 0.009, 0.003), creme, x + bx0 * 0.0125, 0.13, 0.012 + bz0 * 0.0125);
+    sp(new THREE.CylinderGeometry(0.0095, 0.0105, 0.012, 8), creme, x, 0.1315, 0.012);
+    sp(new THREE.SphereGeometry(0.0108, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), domeM, x, 0.1375, 0.012);
+    sp(new THREE.CylinderGeometry(0.0022, 0.003, 0.005, 6), creme, x, 0.15, 0.012); crossAt(x, 0.1525, 0.012);
+  }
+  for (const px of [-0.048, -0.017, 0.017, 0.048]) sp(new THREE.BoxGeometry(0.0045, 0.074, 0.002), creme, px, 0.038, 0.0235);
+  sp(new THREE.BoxGeometry(0.104, 0.004, 0.006), creme, 0, 0.0775, 0.022);
+  crossAt(0, 0.128, 0.02, 1.3);
+  for (let st = 0; st < 3; st++) sp(new THREE.BoxGeometry(0.07 - st * 0.008, 0.0025 * (st + 1), 0.008), mat(st % 2 ? '#e2d9c6' : '#d6ccb6'), 0, 0.00125 * (st + 1) - 0.0005, 0.044 - st * 0.007);
   const gable = sp(new THREE.CylinderGeometry(0.038, 0.038, 0.005, 3), mat('#f3ecdc', { emissive: '#f3ecdc', emissiveIntensity: 0.18 }), 0, 0.0945, 0.02); gable.rotation.x = -Math.PI / 2;
   sp(new THREE.BoxGeometry(0.02, 0.035, 0.003), mat('#5a3a2a'), 0, 0.019, 0.023);
   const seTex = canvasTex(200, 150, (x, w, h) => {
@@ -172,7 +189,7 @@ function buildCentro(g, zi) {
   canopy(EX - 0.017, EX + 0.017, -0.36, 0.2, (x, z) => top(x, z) + 0.07, 0.014);
   // Praça Dom Pedro II e Palácio dos Leões (fachada para a praça, fundos para o mar, afastado do mirante).
   draped(0.075, 0.002, 0.18, '#e9e1d2', -0.207, -0.27, g, T);
-  for (const z of [-0.36, -0.2]) roundTree(-0.232, z, 0.6, top(-0.232, z));                          // árvores baixas nas pontas, sem tampar a fachada
+  for (const z of [-0.3, -0.15]) roundTree(-0.232, z, 0.6, top(-0.232, z));                          // árvores baixas nas pontas, sem tampar a fachada
   // Palácio dos Leões, mais fiel ao real: neoclássico branco de dois andares, janelas altas em arco com venezianas,
   // pilastras, corpo central avançado com sacada, frontão e brasão, platibanda com balaústres, bandeiras do Brasil e
   // do Maranhão e os leões de bronze nos pedestais da entrada. Fachada comprida virada para a praça (−x).
@@ -233,7 +250,7 @@ function buildCentro(g, zi) {
   for (let z = LZ0 + 0.01; z < LZ1; z += 0.02) box(0.0015, 0.011, 0.0015, '#c3cad3', LX + 0.031, onLad(LX + 0.031, z) + 0.008, z, g);
   ramp(-0.13, 0.07, LZ0, LZ1, () => FL, z => lad(z) + 0.006, mat('#5aa85a'));
   for (const z of [0.33, 0.41, 0.48]) lampiao(g, -0.158, z, onLad(-0.158, z) + 0.006);
-  tree(g, -0.115, 0.42, 0.75, '#2f9b7a', onLad(-0.115, 0.42) + 0.006);
+  roundTree(-0.115, 0.42, 0.75, onLad(-0.115, 0.42) + 0.006);
   [0.335, 0.395, 0.455].forEach((z, i) => casarao(-0.26, z, 0.06, 0.056, 0.085, i + 1, low));
   canopy(LX - 0.025, LX + 0.025, LZ0 + 0.006, LZ1 - 0.004, (x, z) => onLad(x, z) + 0.055, 0.011);
   cobble(draped(0.31, 0.002, 0.04, '#a9a297', -0.165, 0.535, g, FL + 0.0004), 0.31, 0.04);
@@ -323,8 +340,9 @@ function buildCentro(g, zi) {
   cyl(0.003, 0.016, '#e9e1d2', PX, ffy, FZ, g, 8);
   const jato = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.02, 10, 1, true), jatoMat); jato.rotation.x = Math.PI; jato.position.set(PX, ffy + 0.026, FZ); g.add(jato);
   for (const s of [-1, 1]) box(0.006, 0.005, 0.026, '#a07a5a', PX + s * 0.042, py(PX + s * 0.042, FZ), FZ, g);
-  for (const x of [PX - 0.06, PX + 0.06]) tree(g, x, FZ - 0.005, 0.75, '#2f9b7a', py(x, FZ - 0.005));
-  for (const z of [0.13, 0.22, 0.31]) for (const s of [-1, 1]) lampiao(g, PX + s * (HX - 0.006), z, py(PX + s * (HX - 0.006), z));
+  for (const x of [PX - 0.06, PX + 0.06]) roundTree(x, FZ - 0.005, 0.75, py(x, FZ - 0.005));
+  for (const z of [0.13, 0.2, 0.262]) for (const s of [-1, 1]) lampiao(          // longe das copas das árvores do fundo
+    g, PX + s * (HX - 0.006), z, py(PX + s * (HX - 0.006), z));
   // Bandeira do Maranhão em destaque ao lado da plateia: pedestal de dois degraus, canteiro florido, banco virado
   // para ela e duas luzes no chão iluminando o mastro.
   const FX = PX + 0.06, FLZ = 0.255, fly = py(FX, FLZ);
@@ -449,7 +467,7 @@ function buildCentro(g, zi) {
     box(0.034, h, 0.034, [C.white, C.ice, '#cfd8e6'][i % 3], x, sag(x, z), z, g);
     box(0.036, 0.006, 0.036, '#9fe9ff', x, sag(x, z) + h * 0.7, z, g, { emissive: '#3fbfe8', emissiveIntensity: 0.5 });
   });
-  for (const z of [-0.26, -0.1, 0.06, 0.22]) tree(g, 0.555, z, 0.8);
+  for (const z of [-0.26, -0.1, 0.06, 0.22]) roundTree(0.555, z, 0.8, sag(0.555, z));
   for (const z of [-0.55, -0.38, 0.22, 0.36, 0.5]) palm(g, 0.466, z, 0.08);
 
   // ── Pedestres: cada um no seu caminho, longe de carros, postes e palmeiras.

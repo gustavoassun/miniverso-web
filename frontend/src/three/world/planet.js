@@ -18,6 +18,7 @@ import { buildRailway } from './zones/ferrovia.js';
 import { buildGames } from './zones/jogos.js';
 import { buildDunes } from './zones/lencois.js';
 import { buildBusiness } from './zones/negocios.js';
+import { buildNatal } from './zones/natal.js';
 import { buildPort } from './zones/porto.js';
 import { applyReveal } from './reveal.js';
 
@@ -51,7 +52,7 @@ const atmosphere = new THREE.Mesh(new THREE.SphereGeometry(PR * 1.17, 48, 32), n
 }));
 tilt.add(atmosphere);
 await breathe();
-const BUILDERS = [buildCentro, buildEducation, buildEcology, buildGames, buildBusiness, buildRailway, buildPort, buildDunes];
+const BUILDERS = [buildCentro, buildEducation, buildEcology, buildGames, buildBusiness, buildRailway, buildPort, buildDunes, buildNatal];
 for (const [i, z] of ZONES.entries()) { BUILDERS[i](z.group = zoneGroup(z.dir, z.rail), i); await breathe(); }
 // Trilhos, dormentes e os trens de minério percorrendo o planeta pelo caminho sinuoso.
 {

@@ -7,7 +7,7 @@ import { atmoUniforms, atmosphere, balloons, cloudM, clouds, formPts, formUnifor
 import { cabin, updateCabin } from './world/cabin.js';
 import { railPt, railTan } from './world/rail.js';
 import { animated, rt, toys, trains, zoneFx, zoneFx2, zoneFx3, zoneFx4 } from './world/runtime.js';
-import { skyUniforms, worldCamera, worldScene } from './world/stage.js';
+import { hemi, rim2, skyUniforms, sun, worldCamera, worldScene } from './world/stage.js';
 import { PR, RAIL_R, TRAIN_SPEED } from './world/terrain.js';
 import { ZONES } from './world/zones.js';
 import { ZONE_COLORS } from './zoneNames.js';
@@ -231,7 +231,7 @@ export function createMiniverso(rootEl, opts = {}) {
     return trains.findIndex(t => { for (let o = hit.object; o; o = o.parent) if (o === t.group) return true; return false; });
   }
   // Minigames: placar grande no topo da tela, com dica de como jogar (ver games.js).
-  const { stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy } = createGames({
+  const { exitable, stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy } = createGames({
     $, on, ray, pointer, zoneStatus, st: () => ({ reduced, focusZone, worldLive, cab }), compact: v => cardCompact(v), view: p => { tourStop(); aim(p); }, sound: music });
   labels.forEach((el, i) => on(el, 'click', () => openZone(i)));
   on(window, 'keydown', e => { if (e.key === 'Escape' && focusZone >= 0 && !cab && cabT === 0) closeZone(); });
@@ -553,7 +553,22 @@ export function createMiniverso(rootEl, opts = {}) {
   const burstEl = $('.burst');
   const up = new THREE.Vector3(0, 1, 0);
 
+  // Botão Sair do jogo: aparece em qualquer jogo rolando (corrida, Reciclaverso, blocos, expedição, limpeza).
+  const gameExit = $('.game-exit');
+  on(gameExit, 'click', () => { stopGame(); gameExit.hidden = true; });
+  // Fim de tarde do Parque Arcade: céu roxo e luz mais quente e baixa enquanto a área dos Jogos está aberta (o neon
+  // aparece mais). Volta ao dia quando a área fecha.
+  let dusk = 0; const sunDay = sun.color.clone(), sunDusk = new THREE.Color('#ffb08a'), hemiDay = hemi.color.clone(), hemiDusk = new THREE.Color('#b9a2ff'), rimDay = rim2.color.clone(), rimDusk = new THREE.Color('#ff4fd8');
+  function tickDusk(dt) {
+    const want = lastFocus >= 0 && ZONES[lastFocus].dusk ? smooth(0.4, 0.95, focusT) : 0;
+    dusk += (want - dusk) * (1 - Math.exp(-dt * 2.5));
+    skyUniforms.uDusk.value = dusk;
+    sun.intensity = 2.6 * (1 - dusk * 0.42); sun.color.copy(sunDay).lerp(sunDusk, dusk);
+    hemi.intensity = 1.1 * (1 - dusk * 0.3); hemi.color.copy(hemiDay).lerp(hemiDusk, dusk);
+    rim2.intensity = 1.4 * (1 + dusk * 0.4); rim2.color.copy(rimDay).lerp(rimDusk, dusk * 0.7);
+  }
   function tick(now) {
+    if (gameExit.hidden === exitable()) gameExit.hidden = !exitable();
     if (disposed) return;
     raf = requestAnimationFrame(tick);
     if (now < nextFrame - 1) return;
@@ -745,7 +760,7 @@ export function createMiniverso(rootEl, opts = {}) {
           if (!sh.seen) { trL.copy(tgL); trC.copy(tgC); tp.copy(tob.position); sh.seen = true; }
           const ez2 = 1 - Math.exp(-dt * 3); trL.lerp(tgL, ez2); trC.lerp(tgC, ez2); showLook.copy(trL); showCam.copy(trC);
         } else { showLook.set(...sh.look); showCam.set(...sh.cam); }
-        const camLocal = vb.copy(showCam);
+        const camLocal = vb.copy(showCam).lerp(showLook, 0.5);                                 // chão entre a câmera e o alvo
         showCam.sub(showLook).multiplyScalar(portrait ? sh.pk ?? 1.6 : 1).add(showLook);
         zg.localToWorld(showCam); zg.localToWorld(showLook);
         // Na cena de cinema o "para cima" é o do chão onde a câmera está (longe do centro da área o planeta inclina).
@@ -810,6 +825,7 @@ export function createMiniverso(rootEl, opts = {}) {
     worldCamera.updateMatrixWorld();
     skyUniforms.uTime.value = clock;
     skyUniforms.uDay.value = smoother(0.35, 1, focusT);                // perto de uma área, céu de dia
+    tickDusk(dt);
 
     zoneMarks.forEach((z, i) => {
       z.glow += ((hoverZone === i ? 1 : 0) - z.glow) * (1 - Math.exp(-dt * 10));

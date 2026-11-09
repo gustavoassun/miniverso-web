@@ -224,7 +224,8 @@ function buildBusiness(g, zi) {
     const sk = fxT3(zi), lit = sk < 0 ? 0 : smooth(0, 1.2, sk) * (1 - smooth(12, 14, sk));
     glass.emissiveIntensity = glass2.emissiveIntensity = 0.45 + lit * 0.9;
     night.set(sk < 0 ? 0 : smooth(1.2, 2.6, sk) * (1 - smooth(11, 12.2, sk)), t);
-    const ci = ((t * (0.3 + lit * 1.2)) % crownCols.length + crownCols.length) % crownCols.length || 0, i0 = Math.floor(ci) % crownCols.length, c0 = crownCols[i0], c1 = crownCols[(i0 + 1) % crownCols.length];
+    const dtC = Math.min(0.05, Math.max(0, t - (crownM.userData.t ?? t))); crownM.userData.t = t; crownM.userData.ph = (crownM.userData.ph ?? 0) + dtC * (0.3 + lit * 1.2);
+    const ci = (crownM.userData.ph % crownCols.length + crownCols.length) % crownCols.length || 0, i0 = Math.floor(ci) % crownCols.length, c0 = crownCols[i0], c1 = crownCols[(i0 + 1) % crownCols.length];
     tmpC.copy(c0).lerp(c1, ci % 1); crownM.color.copy(tmpC); crownM.emissive.copy(tmpC); crownM.emissiveIntensity = 1.4 + lit * 1.6;
     beams.forEach((b, i) => { b.material.opacity = lit * 0.16; b.rotation.set(Math.sin(t * 0.9 + i * 1.7) * 0.5 * lit, 0, Math.cos(t * 0.7 + i) * 0.5 * lit); });
     drones.forEach(({ d, props, k }) => { const a = t * (0.6 + k * 0.2) + k * 3; d.position.set(-0.05 + Math.cos(a) * (0.16 + k * 0.06), Y(-0.05, -0.05) + 0.24 + k * 0.05 + Math.sin(t * 1.7 + k) * 0.01, -0.05 + Math.sin(a) * (0.16 + k * 0.06)); d.rotation.y = -a; props.forEach(p => { p.rotation.y = t * 40; }); });

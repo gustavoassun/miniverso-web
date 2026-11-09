@@ -4,15 +4,41 @@ import { R, TAU } from '../core/math.js';
 // Texturas pintadas em canvas (fachadas, vidro, bandeira, painel): detalhe sem modelos para baixar.
 const canvasTex = (w, h, draw) => { const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; return t; };
 // Fachada de casarão: azulejos, cornijas brancas, janelas altas com venezianas e sacada.
-const facadeMat = (base, tile, shutter) => new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex(64, 96, (x, w, h) => {
+// Fachada de casarão colonial de São Luís: azulejo português (losango e quartos de círculo em cada peça), cornija no
+// alto, faixa entre os andares, janelas com moldura clara, venezianas e sacada de ferro no andar de cima, portas e
+// janelas em arco no térreo e embasamento de pedra. Uma textura por cor de casarão (repetida em todos).
+const facadeMat = (base, tile, shutter) => new THREE.MeshStandardMaterial({ roughness: 0.8, map: canvasTex(128, 192, (x, w, h) => {
   x.fillStyle = base; x.fillRect(0, 0, w, h);
-  if (tile) { x.fillStyle = tile; for (let r = 0; r < 24; r++) for (let k = 0; k < 16; k++) if ((r + k) % 2 === 0) x.fillRect(k * 4 + 1, r * 4 + 1, 2, 2); }
-  x.fillStyle = '#f4efe6'; x.fillRect(0, 0, w, 5); x.fillRect(0, 46, w, 4); x.fillRect(0, h - 4, w, 4);
-  for (const fy of [12, 58]) for (let i = 0; i < 3; i++) {
-    const wx = 6 + i * 20; x.fillStyle = '#f4efe6'; x.fillRect(wx - 2, fy - 3, 16, 30);
-    x.fillStyle = shutter; x.fillRect(wx, fy, 12, 26); x.fillStyle = 'rgba(255,255,255,.22)'; x.fillRect(wx + 5, fy, 2, 26);
+  if (tile) {
+    for (let r = 0; r < 24; r++) for (let k = 0; k < 16; k++) {
+      const tx = k * 8, ty = r * 8; x.fillStyle = tile;
+      x.beginPath(); x.moveTo(tx + 4, ty + 1.2); x.lineTo(tx + 6.8, ty + 4); x.lineTo(tx + 4, ty + 6.8); x.lineTo(tx + 1.2, ty + 4); x.fill();
+      for (const [cx, cy] of [[tx, ty], [tx + 8, ty], [tx, ty + 8], [tx + 8, ty + 8]]) { x.beginPath(); x.arc(cx, cy, 1.6, 0, Math.PI * 2); x.fill(); }
+    }
+    x.fillStyle = 'rgba(255,255,255,.12)'; for (let r = 0; r <= 24; r++) x.fillRect(0, r * 8, w, 0.6); for (let k = 0; k <= 16; k++) x.fillRect(k * 8, 0, 0.6, h);
   }
-  x.fillStyle = '#26262e'; x.fillRect(3, 38, w - 6, 2);
+  const light = '#f4efe6', dark = '#26262e';
+  x.fillStyle = light; x.fillRect(0, 0, w, 9); x.fillStyle = 'rgba(0,0,0,.25)'; x.fillRect(0, 9, w, 2);               // cornija
+  x.fillStyle = light; x.fillRect(0, 94, w, 6); x.fillStyle = 'rgba(0,0,0,.2)'; x.fillRect(0, 100, w, 1.5);          // faixa entre os andares
+  x.fillStyle = '#b9b2a6'; x.fillRect(0, h - 8, w, 8);                                                                // embasamento
+  // Andar de cima: três janelas de sacada.
+  for (let i = 0; i < 3; i++) {
+    const wx = 12 + i * 40;
+    x.fillStyle = light; x.fillRect(wx - 3, 22, 30, 62); x.beginPath(); x.arc(wx + 12, 24, 15, Math.PI, 0); x.fill();
+    x.fillStyle = shutter; x.fillRect(wx, 26, 24, 56); x.beginPath(); x.arc(wx + 12, 27, 12, Math.PI, 0); x.fill();
+    x.fillStyle = 'rgba(0,0,0,.22)'; for (let y = 30; y < 80; y += 4) { x.fillRect(wx + 1, y, 10, 1); x.fillRect(wx + 13, y, 10, 1); }
+    x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(wx + 11.5, 26, 1, 56);
+    x.fillStyle = light; x.fillRect(wx - 6, 84, 36, 3);                                                              // laje da sacada
+    x.fillStyle = dark; x.fillRect(wx - 5, 72, 34, 1.5); for (let b = 0; b <= 11; b++) x.fillRect(wx - 5 + b * 3.1, 72, 1, 12);  // gradil
+  }
+  // Térreo: porta em arco no meio e janelas em arco dos lados.
+  for (let i = 0; i < 3; i++) {
+    const wx = 12 + i * 40, door = i === 1;
+    x.fillStyle = light; x.fillRect(wx - 3, door ? 118 : 124, 30, door ? 66 : 50); x.beginPath(); x.arc(wx + 12, door ? 120 : 126, 15, Math.PI, 0); x.fill();
+    x.fillStyle = door ? '#5a3a28' : shutter; x.fillRect(wx, door ? 122 : 128, 24, door ? 62 : 44); x.beginPath(); x.arc(wx + 12, door ? 123 : 129, 12, Math.PI, 0); x.fill();
+    if (door) { x.fillStyle = 'rgba(255,255,255,.18)'; x.fillRect(wx + 3, 136, 7, 18); x.fillRect(wx + 14, 136, 7, 18); x.fillRect(wx + 3, 160, 7, 18); x.fillRect(wx + 14, 160, 7, 18); x.fillStyle = '#ffd27a'; x.beginPath(); x.arc(wx + 12, 123, 9, Math.PI, 0); x.fill(); }
+    else { x.fillStyle = 'rgba(0,0,0,.22)'; for (let y = 132; y < 170; y += 4) x.fillRect(wx + 1, y, 22, 1); }
+  }
 }) });
 const glassMat = () => {
   const map = canvasTex(32, 96, (x, w, h) => {

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { R, mix, smooth } from '../core/math.js';
 import { sag } from './build.js';
 import { animated, fxT } from './runtime.js';
@@ -69,12 +70,28 @@ function loopPath(pts) {
     return { x: q.a[0] + (q.b[0] - q.a[0]) * u, z: q.a[1] + (q.b[1] - q.a[1]) * u, tx, tz };
   } };
 }
+// Chapéus (uma malha só, com cor por vértice): capacete de obra com aba (cor) ou gorro de Papai Noel ('santa': cone
+// vermelho caído para trás, aba e pompom brancos). Ficam assentados na cabeça, um pouco abaixo do topo do cabelo.
+function hatGeo(kind) {
+  const paint = (geo, c) => { geo = geo.index ? geo.toNonIndexed() : geo; const col = new THREE.Color(c), a = new Float32Array(geo.attributes.position.count * 3); for (let i = 0; i < a.length; i += 3) { a[i] = col.r; a[i + 1] = col.g; a[i + 2] = col.b; } geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); if (geo.attributes.uv) geo.deleteAttribute('uv'); return geo; };
+  if (kind === 'santa') {
+    const cone = new THREE.ConeGeometry(0.0033, 0.0085, 10).translate(0, 0.0042, 0).rotateX(-0.55).translate(0, 0.0186, -0.0004);
+    const brim = new THREE.TorusGeometry(0.0033, 0.0011, 6, 14).rotateX(Math.PI / 2).translate(0, 0.0186, -0.0002);
+    const pom = new THREE.SphereGeometry(0.0013, 8, 6).translate(0, 0.0186 + Math.cos(0.55) * 0.0085, -0.0004 - Math.sin(0.55) * 0.0085);
+    return mergeGeometries([paint(cone, '#d6202b'), paint(brim, '#ffffff'), paint(pom, '#ffffff')]);
+  }
+  const dome = new THREE.SphereGeometry(0.0036, 10, 5, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.0178, 0);
+  const brim = new THREE.CylinderGeometry(0.0046, 0.0046, 0.0006, 12).translate(0, 0.0179, 0.0004);
+  const ridge = new THREE.BoxGeometry(0.0009, 0.0012, 0.0066).translate(0, 0.0212, 0);
+  return mergeGeometries([paint(dome, kind), paint(brim, kind), paint(ridge, kind)]);
+}
+
 // Pedestres andando por caminhos, nos dois sentidos, com passo de verdade (pernas e braços alternando).
-// Com hat (cor), cada um usa capacete (trabalhadores).
+// Com hat (cor), cada um usa capacete (trabalhadores); com hat 'santa', gorro de Papai Noel.
 function walkers(g, loops, per, colors, yAt = sag, hat) {
   const paths = loops.map(loopPath), n = loops.length * per, f = figures(g, n, colors);
   let hats = null;
-  if (hat) { hats = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0037, 8, 4, 0, Math.PI * 2, 0, Math.PI / 2).translate(0, 0.0174, 0), new THREE.MeshStandardMaterial({ roughness: 0.6, color: hat }), n); hats.frustumCulled = false; hats.userData.detail = true; g.add(hats); }
+  if (hat) { hats = new THREE.InstancedMesh(hatGeo(hat), new THREE.MeshStandardMaterial({ roughness: 0.6, vertexColors: true, flatShading: true }), n); hats.frustumCulled = false; hats.userData.detail = true; g.add(hats); }
   const people = [];
   paths.forEach(p => { for (let k = 0; k < per; k++) people.push({ p, off: (k / per + R() * 0.08) * p.L, sp: 0.011 + R() * 0.006, dir: k % 2 ? 1 : -1, side: (R() - 0.5) * 0.006 + (k % 2 ? 0.003 : -0.003), ph: R() * 9 }); });
   const o = new THREE.Object3D();
@@ -83,7 +100,7 @@ function walkers(g, loops, per, colors, yAt = sag, hat) {
       const q = w.p.at(w.off + w.dir * t * w.sp), x = q.x - q.tz * w.side, z = q.z + q.tx * w.side, step = Math.sin(t * 10 + w.ph), rot = Math.atan2(-q.tz * w.dir, q.tx * w.dir) + Math.PI / 2;
       const y = yAt(x, z) + Math.abs(step) * 0.0009;
       f.place(i, x, y, z, rot, step, 0, step * 0.04);
-      if (hats) { o.position.set(x, y, z); o.rotation.set(0, rot, 0); o.updateMatrix(); hats.setMatrixAt(i, o.matrix); }
+      if (hats) { o.position.set(x, y, z); o.rotation.set(0, rot, step * 0.04); o.updateMatrix(); hats.setMatrixAt(i, o.matrix); }      // mesma inclinação do corpo: o capacete não samba na cabeça
     });
     f.done(); if (hats) hats.instanceMatrix.needsUpdate = true;
   };

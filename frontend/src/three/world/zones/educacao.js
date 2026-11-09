@@ -173,7 +173,7 @@ function buildEducation(g, zi) {
   const v3 = () => { const v = fxT3(zi); return v < 0 ? 0 : smooth(0, 1, v) * (1 - smooth(10, 11.5, v)); };
   anims.push(t => {
     const vr = v3();
-    holo.scale.setScalar(1 + vr * 1.4); holo.position.y = hy + vr * 0.035;
+    holo.scale.setScalar(1 + vr * 0.5); holo.position.y = hy + vr * 0.002;
     hPlanet.rotation.y = t * 0.6; dna.rotation.y = t * 1.1; atom.rotation.y = t * 0.8;
     electrons.forEach((e, i) => { const a = t * (2.4 + i * 0.7) + i; e.position.set(Math.cos(a) * 0.014, Math.sin(a) * 0.014, 0); });
     beams.forEach(b => { b.material.opacity = 0.08 + vr * 0.22; });
@@ -205,7 +205,7 @@ function buildEducation(g, zi) {
   glassDoors.position.set(UX, Y(UX, PZ - 0.004) + 0.02, PZ - 0.004); glassDoors.userData.big = true; g.add(glassDoors);
   for (const dx of [-0.033, 0, 0.033]) box(0.0016, 0.04, 0.0035, '#d9dde5', UX + dx, Y(UX, PZ - 0.004), PZ - 0.004, g);
   box(0.11, 0.003, 0.03, '#ffffff', UX, Y(UX, PZ) + 0.043, PZ + 0.012, g);                          // marquise
-  for (let st = 0; st < 3; st++) box(0.1 - st * 0.008, 0.0024, 0.012, '#e6e2da', UX, Y(UX, PZ + 0.026 - st * 0.006) - 0.001 + (2 - st) * 0.0022, PZ + 0.026 - st * 0.006, g);
+  for (let st = 0; st < 3; st++) { const sz = PZ + 0.026 - st * 0.006; box(0.1 - st * 0.008, 0.0026 * (st + 1), 0.012 - st * 0.002, st % 2 ? '#ece8e0' : '#e0dbd1', UX, Y(UX, sz) + 0.0012, sz, g); }
   // Totem com a marca no gramado em frente.
   const TTX = UX + 0.075, TTZ = UZ + 0.11, tty = Y(TTX, TTZ);
   box(0.034, 0.03, 0.006, '#ffffff', TTX, tty, TTZ, g);
@@ -238,23 +238,50 @@ function buildEducation(g, zi) {
   stage.add(balG);
   sb(0.012, 0.016, 0.008, '#3a2a22', 0.038, SH, 0.006); sb(0.014, 0.002, 0.01, '#5a3a2a', 0.038, SH + 0.016, 0.005);
   const grads = Array.from({ length: 5 }, (_, k) => [-0.032 + k * 0.014, 0.0, SH]);
-  crowd(stage, grads.map(([x, z, y]) => [x, z, y]), zi, ['#1a1d24'], { fx: fxT4, jump: 0.006, speed: 6 });
-  const CH = 18, chairs = new THREE.InstancedMesh(paintGeo([[bx(0.006, 0.0008, 0.006, 0, 0.0045, 0), '#ffffff'], [bx(0.006, 0.006, 0.0008, 0, 0.0045, 0.0028), '#ffffff'], [bx(0.0008, 0.0045, 0.0008, -0.0024, 0, -0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, 0.0024, 0, -0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, -0.0024, 0, 0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, 0.0024, 0, 0.0024), '#c9d3dc']]), vehMat(), CH);
+  const gradF = figures(stage, grads.length, ['#1a1d24']), gph = grads.map((_, k) => k * 1.3);
+  // Passarela dos formandos: sai da escada do palco e vai pelo corredor da plateia, com tapete magenta, borda branca
+  // e luzinhas dos dois lados. A plateia fica num deque de madeira com cadeiras de almofada magenta, arranjos de
+  // flores nas pontas e refletores mirando o palco.
+  const DECK = 0.0016;
+  sb(0.112, DECK, 0.054, '#c9a27a', 0, 0, 0.083);
+  for (let k = 0; k < 9; k++) sb(0.112, 0.0002, 0.0006, '#a8835e', 0, DECK, 0.058 + k * 0.006);
+  sb(0.014, 0.0026, 0.074, '#ffffff', 0, 0, 0.073);
+  sb(0.009, 0.0004, 0.074, MAG, 0, 0.0026, 0.073, { emissive: MAG, emissiveIntensity: 0.2 });
+  const LIT = 14, lit = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0011, 6, 4), new THREE.MeshBasicMaterial({ color: '#fff1b8', toneMapped: false }), LIT);
+  for (let k = 0; k < LIT; k++) { bo.position.set((k % 2 ? 1 : -1) * 0.0078, 0.0034, 0.04 + Math.floor(k / 2) * 0.0115); bo.updateMatrix(); lit.setMatrixAt(k, bo.matrix); }
+  stage.add(lit);
+  for (const s0 of [-1, 1]) {
+    sb(0.006, 0.005, 0.006, '#ffffff', s0 * 0.06, DECK, 0.052);
+    const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.0055, 1), mat(s0 > 0 ? '#ff7bb0' : '#ffd23f', { flatShading: true })); fl.position.set(s0 * 0.06, DECK + 0.009, 0.052); stage.add(fl);
+    const lf = new THREE.Mesh(new THREE.IcosahedronGeometry(0.004, 0), mat('#3aa56d', { flatShading: true })); lf.position.set(s0 * 0.06 + s0 * 0.003, DECK + 0.006, 0.054); stage.add(lf);
+    sb(0.0014, 0.04, 0.0014, '#2a3446', s0 * 0.058, 0, 0.115);
+    const spot = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0025, 0.007, 10), mat('#1a1d24')); spot.position.set(s0 * 0.058, 0.041, 0.112); spot.rotation.set(-0.9, 0, -s0 * 0.4); stage.add(spot);
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.0032, 10), new THREE.MeshBasicMaterial({ color: '#fff6c8', toneMapped: false })); lens.position.set(s0 * 0.058 - s0 * 0.0015, 0.0385, 0.109); lens.rotation.set(-0.9 + Math.PI, 0, -s0 * 0.4); stage.add(lens);
+  }
+  const CH = 18, chairs = new THREE.InstancedMesh(paintGeo([[bx(0.006, 0.0008, 0.006, 0, 0.0045, 0), MAG], [bx(0.006, 0.006, 0.0008, 0, 0.0045, 0.0028), '#ffffff'], [bx(0.0062, 0.0008, 0.0009, 0, 0.0102, 0.0028), MAG], [bx(0.006, 0.006, 0.0008, 0, 0.0045, 0.0028), '#ffffff'], [bx(0.0008, 0.0045, 0.0008, -0.0024, 0, -0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, 0.0024, 0, -0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, -0.0024, 0, 0.0024), '#c9d3dc'], [bx(0.0008, 0.0045, 0.0008, 0.0024, 0, 0.0024), '#c9d3dc']]), vehMat(), CH);
   const seatsF = [];
-  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) { const x = -0.04 + c * 0.016 + (c > 2 ? 0.008 : 0), z = 0.062 + r * 0.014; bo.position.set(x, 0, z); bo.rotation.set(0, 0, 0); bo.updateMatrix(); chairs.setMatrixAt(r * 6 + c, bo.matrix); if ((r * 6 + c) % 3 !== 1) seatsF.push([x, z]); }
+  for (let r = 0; r < 3; r++) for (let c = 0; c < 6; c++) { const x = -0.044 + c * 0.016 + (c > 2 ? 0.008 : 0), z = 0.064 + r * 0.014; bo.position.set(x, DECK, z); bo.rotation.set(0, 0, 0); bo.updateMatrix(); chairs.setMatrixAt(r * 6 + c, bo.matrix); if ((r * 6 + c) % 3 !== 1) seatsF.push([x, z]); }
   bo.rotation.set(0, 0, 0); stage.add(chairs);
-  crowd(stage, seatsF.map(([x, z]) => [x, z - 0.0006, -0.0008]), zi, ['#ff7bb0', '#00b7e3', '#ffd23f', '#ffffff', '#3ee07a', '#b07cff'], { fx: fxT4, face: Math.PI, sit: true });
+  crowd(stage, seatsF.map(([x, z]) => [x, z - 0.0006, DECK - 0.0008]), zi, ['#ff7bb0', '#00b7e3', '#ffd23f', '#ffffff', '#3ee07a', '#b07cff'], { fx: fxT4, face: Math.PI, sit: true });
   const caps = new THREE.InstancedMesh(paintGeo([[bx(0.0075, 0.0007, 0.0075, 0, 0.0016, 0), '#1a1d24'], [new THREE.CylinderGeometry(0.0026, 0.0026, 0.0016, 8).translate(0, 0.0008, 0), '#1a1d24'], [bx(0.0006, 0.003, 0.0006, 0.0033, -0.0008, 0), '#ffd23f']]), vehMat(), grads.length);
   caps.frustumCulled = false; caps.userData.detail = true; stage.add(caps);
   const capV = grads.map((_, k) => new THREE.Vector3((k - 2) * 0.012, 0.16 + (k % 3) * 0.03, 0.02 + (k % 2) * 0.02));
   const cheers = [-0.035, 0, 0.035].map(dx => confetti(stage, dx, SH + 0.03, 0.01));
   anims.push(t => {
     const f = fxT4(zi), throwing = f >= 0 && f < 3.2;
+    const party = f < 0 ? 0 : smooth(0, 0.5, f) * (1 - smooth(8, 9, f));
     grads.forEach(([x, z, y], k) => {
-      if (throwing) { const a = Math.max(0, f - 0.4); o.position.set(x + capV[k].x * a, y + 0.0195 + capV[k].y * a - 0.11 * a * a, z + capV[k].z * a); o.rotation.set(a * 9 + k, a * 7, a * 5); }
-      else { o.position.set(x, y + 0.0195, z); o.rotation.set(0, 0.3 * k, 0); }
+      const jump = Math.max(0, Math.sin(t * 5.5 + gph[k])) * 0.0045 * party, head = y + jump + 0.0195, sway = Math.sin(t * 0.8 + gph[k]) * 0.2;
+      gradF.place(k, x, y + jump, z, sway, 0, party > 0.02 ? party * (0.8 + 0.2 * Math.sin(t * 5.5 + gph[k])) : 0);
+      const u = Math.max(0, Math.min(1, (f - 0.45 - k * 0.06) / 2.3));
+      if (f >= 0 && u > 0 && u < 1) {
+        const arc = Math.sin(Math.PI * u), sp = u * (1 - u) * 4;
+        o.position.set(x + capV[k].x * sp * 0.25, head + arc * (0.07 + (k % 3) * 0.012), z + capV[k].z * sp * 0.2);
+        o.rotation.set(Math.sin(Math.PI * u) * (2 + k) , u * TAU * 2, Math.sin(Math.PI * u) * 1.5);
+      } else { o.position.set(x, head, z); o.rotation.set(0, sway + 0.3 * k, 0); }
       o.scale.setScalar(1); o.updateMatrix(); caps.setMatrixAt(k, o.matrix);
     });
+    gradF.done();
     caps.instanceMatrix.needsUpdate = true;
     cheers.forEach((c, k) => { if (f > 0.5 + k * 0.25 && f < 0.6 + k * 0.25 && c.userData.at < t - 3) c.userData.at = t; });
   });

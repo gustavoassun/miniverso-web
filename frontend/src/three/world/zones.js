@@ -23,7 +23,7 @@ const ZONES = [
     // Cenas de cinema de cada interação: a câmera desce até a ação (cam → look), fica dur segundos e volta para after.
     go: { cam: [0.385, 0.03, -0.15], look: [0.28, 0.12, -0.29], dur: 9, after: { at: [0.33, 0.045, -0.19], yaw: 0.6, pitch: 0.45, d: 0.46 } },
     go2: { cam: [-0.14, 0.05, 0.0], look: [0.1, -0.005, 0.03], dur: 9.5, after: { at: [0.18, 0.02, 0.08], yaw: 0.3, pitch: 0.62, d: 0.44 } },
-    go3: { cam: [-0.22, 0.032, 0.2], look: [-0.25, 0.022, 0.02], dur: 10, after: { at: [-0.25, 0.035, 0.03], yaw: -0.25, pitch: 0.45, d: 0.38 } },
+    go3: { cam: [-0.275, 0.045, 0.27], look: [-0.25, 0.014, 0.025], dur: 10, after: { at: [-0.25, 0.035, 0.03], yaw: -0.25, pitch: 0.45, d: 0.38 } },
     go4: { cam: [-0.372, 0.014, 0.07], look: [-0.36, -0.018, -0.115], dur: 9, after: { at: [-0.36, 0.025, -0.1], yaw: -0.4, pitch: 0.58, d: 0.36 } },
     dir: nearRail(2.2, -0.82), R: 0.56, flat: [0.36, 0.44], view: 1.7, pitch: 0.62, music: 'escola',
     pois: [
@@ -49,7 +49,7 @@ const ZONES = [
       { name: 'Centro de visitantes', text: 'Pavilhão de vidro com telhado verde e painéis solares. Lá dentro, as pessoas usam óculos de realidade virtual para visitar lugares preservados sem sair da sala.', at: [0.08, 0.03, 0.25], yaw: 0, pitch: 0.42, d: 0.5 }
     ] },
   { name: 'Jogos', text: 'Parque Arcade: um autódromo de kart contorna o parque, com largada no semáforo, arquibancada, box, telão, faixas de turbo, caixas de item e um viaduto onde a pista passa por cima dela mesma. Dentro dele, um mapa de fases: cada brinquedo numa ilha do lago, ligadas por uma trilha de pedrinhas, com o pavilhão do Reciclaverso, o salão de fliperamas (clique nas máquinas para jogar), a roda-gigante, a torre de queda, a Zona VR, o carrossel, a fonte e a Arena dos Blocos. Quatro minigames: escolha um e jogue!', act: 'Reciclaverso', act2: 'Acerte os blocos', kind2: 'whack', act3: 'Corrida de kart', act4: 'Fliperama', done: '', dir: nearRail(4.2, -0.6),
-    R: 0.58, flat: [0.42, 0.5], view: 1.6, pitch: 0.55,
+    R: 0.58, flat: [0.42, 0.5], clear: 0.53, dusk: true, view: 1.6, pitch: 0.55,
     pois: [
       { name: 'Largada e arquibancada', text: 'Reta principal com o pórtico do semáforo de cinco luzes, a faixa quadriculada, a torcida na arquibancada e o telão com a classificação ao vivo.', at: [0.03, 0.03, -0.45], yaw: 0.35, pitch: 0.85, d: 0.62 },
       { name: 'Viaduto', text: 'O laço do lado direito: a pista contorna um laguinho e volta por cima dela mesma numa ponte com muretas acesas. Na rampa, os karts empinam.', at: [0.5, 0.03, 0.1], yaw: -1.5, pitch: 0.62, d: 0.55 },
@@ -94,6 +94,19 @@ const ZONES = [
       { name: 'Campo de dunas', text: 'Dunas em meia-lua, com o lado do vento suave e o lado de trás íngreme; caminhantes nas cristas e o grupo de turistas seguindo o guia.', at: [0.0, 0.03, -0.22], yaw: 0, pitch: 0.62, d: 0.7 },
       { name: 'Mirante', text: 'Mirante de madeira numa crista, com vista para as lagoas e as dunas até o horizonte.', at: [-0.32, 0.05, 0.3], yaw: -0.6, pitch: 0.4, d: 0.34 },
       { name: 'Vila de pescadores', text: 'Casas de palha, coqueiros, redes e canoas na areia, como nas vilas da beira dos Lençóis.', at: [0.37, 0.02, 0.3], yaw: 0.6, pitch: 0.78, d: 0.46 }
+    ] },
+  { name: 'Natal', text: 'Vila de Natal na neve, logo abaixo da Ferrovia: a árvore de Natal grande com luzinhas, bolas, festão dourado e a estrela no topo, presentes embaixo, casinhas de madeira com telhado nevado e fumaça na chaminé, pista de patinação, bonecos de neve, varais de luzes entre os postes, pinheiros nevados e o trenó do Papai Noel voando em volta.',
+    act: 'Acender a árvore', done: 'A noite caiu e a árvore acendeu: as luzes correm até a estrela!', act2: 'Nevasca', kind2: 'fx', done2: 'Nevasca! A neve engrossou e o vento sopra pela vila.',
+    act3: 'Trenó do Papai Noel', done3: 'O Papai Noel desceu com as renas e passou rasante pela vila!', snow: true,
+    go: { cam: [0.1, 0.07, 0.43], look: [0.0, 0.13, -0.02], dur: 9.6, after: { at: [0, 0.08, -0.02], yaw: 0, pitch: 0.35, d: 0.5 } },
+    go2: { cam: [0.2, 0.05, 0.24], look: [-0.02, 0.04, -0.02], dur: 10 },
+    go3: { track: 'sleigh', cam: [0.02, 0.15, 0.43], dur: 11 },
+    dir: nearRail(0.95, -0.9), R: 0.44, flat: [0.27, 0.36], clear: 0.56, view: 1.5, pitch: 0.5,
+    pois: [
+      { name: 'Árvore de Natal', text: 'A árvore grande no meio da praça: luzinhas que piscam, bolas coloridas, festão dourado, a estrela girando no topo e os presentes embaixo. Use Acender a árvore.', at: [0, 0.08, -0.02], yaw: 0, pitch: 0.35, d: 0.5 },
+      { name: 'Vila das casinhas', text: 'Casinhas de madeira com telhado coberto de neve, janelas acesas, guirlanda na porta e fumaça saindo da chaminé.', at: [-0.15, 0.03, -0.15], yaw: 0.6, pitch: 0.45, d: 0.45 },
+      { name: 'Pista de patinação', text: 'A pista de gelo com a turma patinando em roda, cercada de neve e estacas vermelhas.', at: [0.17, 0.01, 0.14], yaw: -0.4, pitch: 0.6, d: 0.36 },
+      { name: 'Bonecos de neve', text: 'Bonecos de neve de cartola, cachecol e nariz de cenoura, com a criançada em volta.', at: [-0.12, 0.02, 0.19], yaw: 0.4, pitch: 0.5, d: 0.34 }
     ] }
 ];
 const zoneQuat = d => new THREE.Quaternion().setFromUnitVectors(UP, d);

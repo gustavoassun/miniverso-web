@@ -49,7 +49,14 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     }));
     hud.hidden = true; how.hidden = false; howNext = go; compact(true); sfx('tap');
   }
-  function closeHow() { how.hidden = true; howNext = null; }
+  function closeHow() { how.hidden = true; howNext = null; howColors.hidden = true; how.classList.remove('side'); }
+  // Cor do seu kart (escolhida antes da corrida, lembrada no aparelho). Nenhuma igual à dos rivais.
+  const KART_COLORS = [['#ffc56b', 'amarelo'], ['#e8452f', 'vermelho'], ['#f4f4f4', 'branco'], ['#2a2f3a', 'grafite'], ['#b6e84a', 'limão'], ['#d4a640', 'dourado'], ['#7a9cff', 'lavanda'], ['#8a5a3c', 'café']];
+  const howColors = how.querySelector('.how-colors');
+  let kartColor = KART_COLORS[0]; try { const c = localStorage.getItem('miniverso-kart-cor'); kartColor = KART_COLORS.find(k => k[0] === c) || kartColor; } catch { /* sem armazenamento */ }
+  howColors.replaceChildren(...KART_COLORS.map(([c, name]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'how-color'; b.style.setProperty('--k', c); b.title = name; b.setAttribute('aria-label', `Kart ${name}`); b.dataset.c = c; return b; }));
+  const paintPick = () => { for (const b of howColors.children) b.classList.toggle('on', b.dataset.c === kartColor[0]); race.karts[0]?.recolor(kartColor[0]); zoneStatus.textContent = `Você é o kart ${kartColor[1]}. ${LAPS} voltas contra Rosa, Azul, Verde, Roxo e Laranja.`; };
+  on(howColors, 'click', e => { const b = e.target.closest('.how-color'); if (!b) return; kartColor = KART_COLORS.find(k => k[0] === b.dataset.c); try { localStorage.setItem('miniverso-kart-cor', kartColor[0]); } catch { /* sem armazenamento */ } paintPick(); sfx('tap'); });
   on(howGo, 'click', () => { const go = howNext; closeHow(); go?.(); });
   on(how.querySelector('.how-x'), 'click', () => stopGame());
   on(window, 'keydown', e => { if (how.hidden) return; if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); howGo.click(); } });
@@ -351,8 +358,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     race.bananas.length = 0; for (const it of race.items) it.off = -9; race.shield.visible = false;
     Object.assign(race, { state: 'grid', last: nowS(), order: 0, gridAt: nowS() }); setLights(0, false); lights = 0;
     input.l = input.r = input.b = false; compact(true); boardKey = '';
-    zoneStatus.textContent = `Você é o kart amarelo. ${LAPS} voltas contra Rosa, Azul, Verde, Roxo e Laranja.`;
-    intro('race', goRace);
+    intro('race', goRace); howColors.hidden = false; how.classList.add('side'); paintPick();
   }
   function goRace() {
     Object.assign(race, { state: 'count', t0: nowS(), last: nowS() });
@@ -530,7 +536,9 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       }
       if (!a.fin && a.prog >= LAPS * L) a.fin = ++race.order;
     }
-    const [mp, mh] = susp(me, slopeAt(me.prog), dt);
+    // Empina um pouquinho ao acelerar e abaixa o bico ao frear (aceleração suavizada).
+    const accN = dt > 0 ? (me.v - (me.pv ?? me.v)) / dt : 0; me.pv = me.v; me.acc = (me.acc ?? 0) + (accN - (me.acc ?? 0)) * Math.min(1, dt * 6);
+    const [mp, mh] = susp(me, slopeAt(me.prog) + Math.max(-0.06, Math.min(0.06, me.acc * 0.12)), dt);
     me.k.place(me.x, me.z, me.h + me.spin * Math.PI * 2, Math.max(-0.16, Math.min(0.16, me.st * me.v * 0.6)), me.y + mh + (Math.abs(me.lat) > track.W - 0.004 && track.Y[me.i] < 0.004 ? 0.0012 : 0), mp, me.st);
     const sh = race.shield; sh.visible = nowS() < me.shieldUntil;
     if (sh.visible) { sh.position.set(me.x, yAt(me.x, me.z, me.y) + 0.009, me.z); sh.rotation.y = n * 2; sh.material.opacity = 0.22 + Math.sin(n * 10) * 0.06 * (me.shieldUntil - nowS() < 1.5 ? 2 : 1); }
@@ -645,7 +653,15 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     orbL.set(lx, ground(lx, lz) + camY + 0.009, lz);
     // Volta de cinema em torno do grid antes da largada; durante a contagem, encaixa atrás do kart.
     const intro = race.state === 'grid' ? 1 : race.state === 'count' ? 1 - Math.min(1, Math.max(0, (n - race.t0) / 1.8)) : 0;
-    if (intro > 0) {
+    if (intro > 0 && (race.state === 'count' || !how.hidden)) {                                   // da vitrine para trás do kart, sem pulo
+      // Vitrine: enquanto você escolhe a cor, a câmera gira devagar bem perto do seu kart. A mira fica um pouco ao lado
+      // dele (na tela larga), para o kart aparecer ao lado da janela de como jogar e não embaixo dela.
+      const a = me.h + Math.PI * 0.75 + (n - race.gridAt) * 0.35, r0 = 0.062, wide = worldCamera.aspect > 1.1;
+      const cx = me.x + Math.cos(a) * r0, cz = me.z + Math.sin(a) * r0, fx2 = -Math.cos(a), fz2 = -Math.sin(a);
+      const w = intro * intro * (3 - 2 * intro), side = wide ? 0.017 * w : 0, up2 = wide ? 0.004 : -0.012;
+      tmp.lerp(orb.set(cx, ground(cx, cz) + me.y + 0.028, cz), w);
+      orbL.lerp(orb.set(me.x + fz2 * side, ground(me.x, me.z) + me.y + 0.008 + up2 * w, me.z - fx2 * side), w);
+    } else if (intro > 0) {
       trackAt(-0.06, 0, pt);
       // Varre só o lado de dentro da pista (de frente para o grid), longe da arquibancada.
       const a = pt.h + Math.PI / 2 + Math.sin((n - race.gridAt) * 0.35) * 1.1, ox = pt.x + Math.cos(a) * 0.14, oz = pt.z + Math.sin(a) * 0.14, w = intro * intro * (3 - 2 * intro);
@@ -653,7 +669,8 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       orbL.lerp(orb.set(pt.x, ground(pt.x, pt.z) + 0.01, pt.z), w);
     }
     const k = fresh ? 1 : 1 - Math.exp(-dt * 9);
-    camU.lerp(orb.set(0, 1, 0), k); camP.lerp(tmp, k); camL.lerp(orbL, k); camOn = true;
+    // "Para cima" da câmera é o do chão onde ela está (a pista acompanha a curva do planeta).
+    camU.lerp(orb.set(tmp.x, Math.sqrt(Math.max(0, 2.56 - tmp.x * tmp.x - tmp.z * tmp.z)), tmp.z).normalize(), k); camP.lerp(tmp, k); camL.lerp(orbL, k); camOn = true;
     // Campo de visão: bem mais aberto que antes, abrindo mais em alta velocidade e no turbo.
     // No celular em pé o campo de visão abre mais, para a pista à frente e as curvas caberem na tela estreita.
     const tallR = Math.max(0, Math.min(1, (1.25 - worldCamera.aspect) / 0.8));
@@ -680,6 +697,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   // Enquanto um jogo roda, a câmera fica fixa: as setas e a roda do mouse não mexem na vista.
   const busyKeys = () => playing();
   const whacking = () => whack.on;
+  const exitable = () => (rc.on || whack.on || race.state !== 'off' || ecoT.on || cl.on) && how.hidden && !arc.on;
   const playing = () => rc.on || whack.on || arc.on || race.state !== 'off' || !how.hidden || ecoT.on || cl.on;
   // Um passo por quadro: os jogos andam e a música abaixa enquanto algum está rolando.
   function whackTick() { const n = nowS(); recyLoop(n); whackLoop(n); raceLoop(n); ecoLoop(n); cleanLoop(n); sound?.setDuck(playing()); }
@@ -692,5 +710,5 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     for (let o = hit.object; o; o = o.parent) if (toys.includes(o)) return o;
     return null;
   }
-  return { stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy };
+  return { exitable, stopGame, startRecycle, startEcoTour, startClean, sortInto, hitBin, startWhack, startRace, startArcade, hitArcade, busyKeys, playing, whacking, racing, raceCam, kartCam, camFov, whackTick, hitWhack, smack, hitToy };
 }

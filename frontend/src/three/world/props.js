@@ -4,13 +4,23 @@ import { box, cyl, mat, sag } from './build.js';
 import { C } from './palette.js';
 import { animated } from './runtime.js';
 
+// Coqueiro: tronco levemente inclinado com anéis, folhas em arco (sobem e depois caem) em dois tons de verde e cocos.
+const palmLeafG = (() => {
+  const a = new THREE.BoxGeometry(0.03, 0.0022, 0.012); a.translate(0.015, 0, 0);
+  const b = new THREE.BoxGeometry(0.03, 0.002, 0.009); b.translate(0.015, 0, 0); b.rotateZ(-0.75); b.translate(0.029, 0.004, 0);
+  const tip = new THREE.BoxGeometry(0.014, 0.0018, 0.005); tip.translate(0.007, 0, 0); tip.rotateZ(-1.3); tip.translate(0.05, -0.016, 0);
+  return [a, b, tip];
+})();
 function palm(g, x, z, h = 0.12, y = sag(x, z)) {
-  const lean = (R() - 0.5) * 0.2;
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.006, h, 5), mat(C.trunk)); trunk.position.set(x, y + h / 2, z); trunk.rotation.z = lean; g.add(trunk);
-  for (let k = 0; k < 7; k++) {
-    const leaf = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.003, 0.013), mat('#3aa58c')); leaf.geometry.translate(0.027, 0, 0);
-    leaf.position.set(x - Math.sin(lean) * h, y + h, z); leaf.rotation.set(0, k / 7 * TAU, -0.5); g.add(leaf);
+  const lean = (R() - 0.5) * 0.2, topX = x - Math.sin(lean) * h;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.0032, 0.0058, h, 6), mat(C.trunk)); trunk.position.set(x, y + h / 2, z); trunk.rotation.z = lean; g.add(trunk);
+  for (let r = 1; r < 4; r++) { const ring = new THREE.Mesh(new THREE.TorusGeometry(0.0052 - r * 0.0005, 0.0007, 4, 8), mat('#6b4a33')); ring.position.set(x - Math.sin(lean) * h * r / 4, y + h * r / 4, z); ring.rotation.set(Math.PI / 2, lean, 0); g.add(ring); }
+  const greens = ['#3aa58c', '#2f8f6e'];
+  for (let k = 0; k < 9; k++) {
+    const leaf = new THREE.Group(); leaf.position.set(topX, y + h, z); leaf.rotation.set(0, k / 9 * TAU + R() * 0.2, 0.35 + (k % 2) * 0.15); g.add(leaf);
+    for (const geo of palmLeafG) leaf.add(new THREE.Mesh(geo, mat(greens[k % 2])));
   }
+  for (let c = 0; c < 3; c++) { const nut = new THREE.Mesh(new THREE.SphereGeometry(0.0034, 6, 5), mat('#6b4a2a')); const a = c / 3 * TAU; nut.position.set(topX + Math.cos(a) * 0.004, y + h - 0.004, z + Math.sin(a) * 0.004); g.add(nut); }
 }
 function tree(g, x, z, s = 1, color = '#3aa58c', y = sag(x, z)) {
   cyl(0.004 * s, 0.025 * s, C.trunk, x, y, z, g, 5);

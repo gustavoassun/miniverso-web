@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { R, TAU, mix, smooth } from '../../core/math.js';
 import { sag } from '../build.js';
-import { crowd } from '../people.js';
+import { crowd, figures } from '../people.js';
 import { animated, fxT, fxT3, fxT4, toys } from '../runtime.js';
 import { canvasTex } from '../textures.js';
 
@@ -639,6 +639,47 @@ function buildEcology(g, zi) {
       }
     };
     animated.push(tick);
+  }
+
+  // Visitantes na passarela: trilheiros nos dois sentidos (alguns de mochila e boné), um grupo seguindo a guia com a
+  // bandeirinha verde e gente parada olhando cada estação (apontando, de vez em quando).
+  {
+    const HK = 12, walkers0 = Array.from({ length: HK }, (_, k) => ({ off: k / HK * eco.L + R() * 0.03, dir: k % 3 === 0 ? -1 : 1, sp: 0.009 + R() * 0.004, side: (k % 2 ? 1 : -1) * 0.0028, ph: R() * 9 }));
+    // Grupo da guia: cinco pessoas em fila atrás dela, no mesmo ritmo.
+    const tourOff = 0.3; for (let k = 0; k < 6; k++) walkers0.push({ off: tourOff - k * 0.013, dir: 1, sp: 0.0075, side: (k % 2 ? 1 : -1) * 0.002, ph: k * 1.3, guide: k === 0 });
+    const cols = ['#ff8a6b', '#3ee0b5', '#ffc56b', '#00b7e3', '#b07cff', '#f6f6f6', '#ff7bb0', '#3aa56d'];
+    const hk = figures(g, walkers0.length, walkers0.map((w, k) => (w.guide ? '#2f8f5e' : cols[k % cols.length])));
+    const bagG = new THREE.InstancedMesh(new THREE.BoxGeometry(0.0042, 0.0055, 0.0024).translate(0, 0.0102, -0.0042), new THREE.MeshStandardMaterial({ roughness: 0.7 }), walkers0.length);
+    const capG = new THREE.InstancedMesh(mergeGeometries([new THREE.SphereGeometry(0.0034, 10, 5, 0, TAU, 0, Math.PI / 2).translate(0, 0.0176, 0), new THREE.BoxGeometry(0.0042, 0.0005, 0.0034).translate(0, 0.0178, 0.0033)]), new THREE.MeshStandardMaterial({ roughness: 0.6 }), walkers0.length);
+    const flagG = new THREE.InstancedMesh(mergeGeometries([new THREE.CylinderGeometry(0.0003, 0.0003, 0.016, 4).translate(0, 0.022, 0), new THREE.BoxGeometry(0.0004, 0.004, 0.006).translate(0, 0.028, 0.003)]), new THREE.MeshStandardMaterial({ color: '#3ee07a', roughness: 0.5 }), 1);
+    const bagC = ['#e8452f', '#1e4488', '#ffd23f', '#3a3f4a'].map(c => new THREE.Color(c)), ZM = new THREE.Matrix4().makeScale(0, 0, 0);
+    walkers0.forEach((w, k) => { bagG.setColorAt(k, bagC[k % 4]); capG.setColorAt(k, bagC[(k + 2) % 4]); });
+    for (const m of [bagG, capG, flagG]) { m.frustumCulled = false; m.userData.detail = true; g.add(m); }
+    const P0 = new THREE.Vector3(), P1 = new THREE.Vector3(), O = new THREE.Object3D();
+    hk.host.userData.anim = t => {
+      walkers0.forEach((w, k) => {
+        const s = ((w.off + w.dir * t * w.sp) % eco.L + eco.L) % eco.L;
+        eco.at(s, P0); eco.at(Math.min(eco.L, s + 0.004), P1);
+        const tx = P1.x - P0.x, tz = P1.z - P0.z, tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
+        const x = P0.x + nx * w.side, z = P0.z + nz * w.side, step = Math.sin(t * 9 + w.ph), rot = Math.atan2(tx * w.dir, tz * w.dir);
+        const y = P0.y + Math.abs(step) * 0.0006;
+        hk.place(k, x, y, z, rot, step, w.guide ? 0.55 : 0, step * 0.04);
+        O.position.set(x, y, z); O.rotation.set(0, rot, step * 0.04); O.scale.setScalar(1); O.updateMatrix();
+        bagG.setMatrixAt(k, k % 3 === 1 || w.guide ? ZM : O.matrix); capG.setMatrixAt(k, k % 2 ? O.matrix : ZM);
+        if (w.guide) { O.position.x += Math.cos(rot) * 0.004; O.position.z -= Math.sin(rot) * 0.004; O.updateMatrix(); flagG.setMatrixAt(0, O.matrix); }
+      });
+      hk.done(); bagG.instanceMatrix.needsUpdate = capG.instanceMatrix.needsUpdate = flagG.instanceMatrix.needsUpdate = true;
+    };
+    animated.push(hk.host);
+    // Parados nas estações, olhando para elas.
+    const watch = [];
+    for (const st of eco.stations) {
+      if (st.key === 'centro') continue;
+      const P = new THREE.Vector3(); eco.at(st.s, P);
+      const dx = st.look.x - P.x, dz = st.look.z - P.z, rot = Math.atan2(dx, dz);
+      for (const o of [-0.005, 0.005]) watch.push([P.x + Math.cos(rot) * o, P.z - Math.sin(rot) * o, P.y, rot]);
+    }
+    crowd(g, watch, zi, ['#ffc56b', '#ff7bb0', '#00b7e3', '#f6f6f6', '#3ee0b5'], { fx: fxT });
   }
 }
 
