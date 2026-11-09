@@ -23,9 +23,16 @@ function districtFloor(g, r) {
     x.fillStyle = '#dfe3e8'; x.fillRect(0, 0, w, h);
     x.strokeStyle = '#c9cfd7'; x.lineWidth = 1;
     for (let i = 0; i <= w; i += 10) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, h); x.moveTo(0, i); x.lineTo(w, i); x.stroke(); }
-    // Parque central gramado e canteiros.
-    x.fillStyle = '#5fbf8a'; x.beginPath(); x.roundRect(px(-0.2), px(-0.04), 0.24 * k, 0.2 * k, 18); x.fill();
-    x.fillStyle = '#efe7d6'; x.fillRect(px(-0.2), px(0.055), 0.24 * k, 0.014 * k); x.fillRect(px(-0.087), px(-0.04), 0.014 * k, 0.2 * k);
+    // Praça central: piso de granito em placas, quatro gramados arredondados com bordas de flores, caminhos em
+    // curva e a roda de pedra em volta da fonte com desenho radial.
+    const P0x = -0.205, P0z = -0.045, PWd = 0.25, PDp = 0.21, FX = -0.08, FZ = 0.06;
+    x.fillStyle = '#e9e5de'; x.beginPath(); x.roundRect(px(P0x), px(P0z), PWd * k, PDp * k, 10); x.fill();
+    x.strokeStyle = 'rgba(150,140,128,.35)'; x.lineWidth = 1; for (let i = 0; i <= PWd * k; i += 6) { x.beginPath(); x.moveTo(px(P0x) + i, px(P0z)); x.lineTo(px(P0x) + i, px(P0z) + PDp * k); x.stroke(); }
+    const lawn = (x0, z0, w0, d0, r0) => { x.fillStyle = '#4fae73'; x.beginPath(); x.roundRect(px(x0), px(z0), w0 * k, d0 * k, r0 * k); x.fill(); x.fillStyle = '#5ec386'; x.beginPath(); x.roundRect(px(x0) + 2, px(z0) + 2, w0 * k - 4, d0 * k - 4, r0 * k); x.fill(); };
+    lawn(P0x + 0.01, P0z + 0.01, 0.1, 0.08, 0.03); lawn(FX + 0.022, P0z + 0.01, 0.1, 0.08, 0.03); lawn(P0x + 0.01, FZ + 0.022, 0.1, 0.08, 0.03); lawn(FX + 0.022, FZ + 0.022, 0.1, 0.08, 0.03);
+    x.fillStyle = '#dcd4c6'; x.beginPath(); x.arc(px(FX), px(FZ), 0.056 * k, 0, TAU); x.fill();
+    x.strokeStyle = '#bfb3a0'; x.lineWidth = 1.5; for (let a = 0; a < 24; a++) { const t = a / 24 * TAU; x.beginPath(); x.moveTo(px(FX) + Math.cos(t) * 0.04 * k, px(FZ) + Math.sin(t) * 0.04 * k); x.lineTo(px(FX) + Math.cos(t) * 0.056 * k, px(FZ) + Math.sin(t) * 0.056 * k); x.stroke(); }
+    x.beginPath(); x.arc(px(FX), px(FZ), 0.048 * k, 0, TAU); x.stroke();
     // Calçadão de pedra portuguesa (ondas) na beira da baía.
     x.fillStyle = '#f2ece0'; x.fillRect(px(0.27), 0, (BAY - 0.27 + 0.02) * k, h);
     x.strokeStyle = '#2a3446'; x.lineWidth = 2; for (let y = 0; y < h; y += 14) { x.beginPath(); for (let t = 0; t <= 1; t += 0.1) { const xx = px(0.275) + t * (BAY - 0.28) * k, yy = y + Math.sin(t * TAU) * 4; t ? x.lineTo(xx, yy) : x.moveTo(xx, yy); } x.stroke(); }
@@ -84,13 +91,54 @@ function buildBusiness(g, zi) {
   for (const [x, z] of [[0.07, -0.02], [0.13, 0.02], [0.1, -0.01]]) tree(g, x, z, 0.35, undefined, hy + 0.06);
   box(0.06, 0.008, 0.002, '#00b7e3', hx, hy + 0.043, hz + 0.041, g, { emissive: '#00b7e3', emissiveIntensity: 1.5 });
 
-  // ── Parque central: fonte com jato, bancos e árvores.
+  // ── Praça central, como uma praça de centro empresarial: fonte de dois andares com anel de jatos e escultura,
+  // bancos com encosto virados para a fonte, árvores copadas, canteiros com flores, pérgola com bancos, quiosque de
+  // café com mesinhas e guarda-sóis, bicicletas de aluguel e gente sentada.
   const fx = -0.08, fz = 0.06, fy = Y(fx, fz);
-  cyl(0.036, 0.012, C.ice, fx, fy, fz, g, 24);
-  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.032, 0.032, 0.002, 24), mat('#2a86c4', { emissive: '#0a5a8a', emissiveIntensity: 0.6, roughness: 0.1 })); water.position.set(fx, fy + 0.012, fz); g.add(water);
-  const jet = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.05, 10, 1, true), holoMat('#bfefff', 0.6)); jet.geometry.translate(0, 0.025, 0); jet.position.set(fx, fy + 0.012, fz); jet.userData.keep = true; g.add(jet);
-  for (const [x, z, s] of [[-0.18, -0.01, 0.8], [-0.18, 0.13, 0.85], [0.0, 0.13, 0.8], [0.01, -0.02, 0.75]]) tree(g, x, z, s, undefined, Y(x, z));
-  for (const [x, z] of [[-0.13, 0.06], [-0.03, 0.06]]) { box(0.006, 0.005, 0.022, '#a07a5a', x, Y(x, z), z, g); }
+  cyl(0.04, 0.009, '#cfd6de', fx, fy, fz, g, 32);
+  const water = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.002, 32), mat('#2a86c4', { emissive: '#0a5a8a', emissiveIntensity: 0.6, roughness: 0.1 })); water.position.set(fx, fy + 0.0085, fz); g.add(water);
+  cyl(0.017, 0.016, '#e9eef5', fx, fy, fz, g, 20);
+  const water2 = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.0015, 20), mat('#3aa0dc', { emissive: '#0a5a8a', emissiveIntensity: 0.6, roughness: 0.1 })); water2.position.set(fx, fy + 0.0158, fz); g.add(water2);
+  const sculpt = new THREE.Mesh(new THREE.TorusGeometry(0.008, 0.0016, 8, 24), mat('#c9d3dc', { metalness: 0.8, roughness: 0.25 })); sculpt.position.set(fx, fy + 0.027, fz); sculpt.rotation.y = 0.6; g.add(sculpt);
+  const jet = new THREE.Mesh(new THREE.ConeGeometry(0.005, 0.034, 10, 1, true), holoMat('#bfefff', 0.6)); jet.geometry.translate(0, 0.017, 0); jet.position.set(fx, fy + 0.016, fz); jet.userData.keep = true; g.add(jet);
+  const JN = 14, jets = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0005, 0.0012, 0.018, 5).translate(0, 0.009, 0), holoMat('#d9f6ff', 0.7), JN); jets.frustumCulled = false; jets.userData.detail = true; g.add(jets);
+  const jo = new THREE.Object3D();
+  // Bancos com encosto em roda, virados para a fonte.
+  for (let k = 0; k < 6; k++) {
+    const a = k / 6 * TAU + 0.26, bx0 = fx + Math.cos(a) * 0.064, bz0 = fz + Math.sin(a) * 0.064, by = Y(bx0, bz0), bench = new THREE.Group();
+    bench.position.set(bx0, by, bz0); bench.rotation.y = -a + Math.PI / 2; g.add(bench);
+    for (const [w0, h0, d0, x0, y0, z0, c] of [[0.022, 0.0016, 0.006, 0, 0.0045, 0, '#b07a4a'], [0.022, 0.006, 0.0014, 0, 0.008, 0.0028, '#b07a4a'], [0.0014, 0.0045, 0.005, -0.009, 0.00225, 0, '#3a3f4a'], [0.0014, 0.0045, 0.005, 0.009, 0.00225, 0, '#3a3f4a']]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w0, h0, d0), mat(c)); m.position.set(x0, y0, z0); bench.add(m); }
+  }
+  crowd(g, [0, 2, 4].map(k => { const a = k / 6 * TAU + 0.26; return [fx + Math.cos(a) * 0.066, fz + Math.sin(a) * 0.066, Y(fx + Math.cos(a) * 0.066, fz + Math.sin(a) * 0.066) - 0.003]; }), zi, ['#1e4488', '#ffc56b', '#eef4fb']);
+  // Árvores copadas (três bolas de folhagem) nos gramados e em volta da praça.
+  const leafy = ['#2f8f5e', '#3aa56d', '#2c7f52', '#46b07a'];
+  const copa = (x, z, s0) => { const y = Y(x, z); cyl(0.0035 * s0, 0.028 * s0, C.trunk, x, y, z, g, 6); for (const [dx, dy, dz, r] of [[0, 0.04, 0, 0.019], [0.01, 0.034, 0.006, 0.014], [-0.009, 0.036, -0.006, 0.015]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s0, 1), mat(leafy[Math.floor((x * 97 + z * 61 + r * 1000) % 4 + 4) % 4], { flatShading: true })); b.position.set(x + dx * s0, y + dy * s0, z + dz * s0); g.add(b); } };
+  for (const [x, z, s0] of [[-0.17, -0.02, 0.95], [-0.17, 0.14, 1], [0.01, 0.14, 0.9], [0.01, -0.02, 0.95], [-0.08, -0.03, 0.75], [-0.19, 0.06, 0.8], [0.03, 0.06, 0.8]]) copa(x, z, s0);
+  // Canteiros com flores (instâncias) na borda dos gramados.
+  const FL = 70, flowers = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.0024, 0), new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), FL); flowers.userData.detail = true; g.add(flowers);
+  const flc = ['#ff7bb0', '#ffd23f', '#ffffff', '#b07cff', '#ff8a2a'].map(h => new THREE.Color(h));
+  for (let i = 0; i < FL; i++) { const q = i % 4, t = (i >> 2) / (FL / 4), lx = (q % 2 ? fx + 0.022 : -0.195) + t * 0.1, lz = (q < 2 ? -0.035 : fz + 0.022) + (i % 2 ? 0.003 : 0.077); jo.position.set(lx, Y(lx, lz) + 0.0028, lz); jo.rotation.set(i, i * 2, 0); jo.scale.setScalar(0.8 + (i % 3) * 0.2); jo.updateMatrix(); flowers.setMatrixAt(i, jo.matrix); flowers.setColorAt(i, flc[i % flc.length]); }
+  // Pérgola de madeira com bancos no lado norte da praça.
+  const PGx = -0.13, PGz = -0.04;
+  for (const dx of [-0.04, 0, 0.04]) for (const dz of [-0.006, 0.006]) cyl(0.0012, 0.026, '#7a5b45', PGx + dx, Y(PGx + dx, PGz + dz), PGz + dz, g, 5);
+  for (let i = 0; i < 9; i++) box(0.0016, 0.0016, 0.02, '#a07a5a', PGx - 0.04 + i * 0.01, Y(PGx, PGz) + 0.026, PGz, g);
+  box(0.086, 0.002, 0.002, '#a07a5a', PGx, Y(PGx, PGz) + 0.025, PGz - 0.006, g); box(0.086, 0.002, 0.002, '#a07a5a', PGx, Y(PGx, PGz) + 0.025, PGz + 0.006, g);
+  // Quiosque de café com mesinhas e guarda-sóis coloridos.
+  const KX = 0.025, KZ = 0.105, ky = Y(KX, KZ);
+  box(0.024, 0.018, 0.016, '#ffffff', KX, ky, KZ, g); box(0.026, 0.008, 0.002, '#9fe9ff', KX, ky + 0.007, KZ - 0.0085, g, { emissive: '#3fbfe8', emissiveIntensity: 0.4 });
+  box(0.03, 0.003, 0.022, '#1e4488', KX, ky + 0.018, KZ, g);
+  for (const [dx, dz, c] of [[-0.022, 0.012, '#ff8a6b'], [0.0, 0.022, '#00b7e3'], [0.022, 0.012, '#ffc56b']]) {
+    const tx = KX + dx, tz = KZ + dz, tyy = Y(tx, tz);
+    cyl(0.004, 0.0012, '#ffffff', tx, tyy + 0.006, tz, g, 10); cyl(0.0006, 0.006, '#3a3f4a', tx, tyy, tz, g, 4); cyl(0.0006, 0.022, '#e9eef5', tx, tyy, tz, g, 4);
+    const um = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.005, 8), mat(c)); um.position.set(tx, tyy + 0.024, tz); g.add(um);
+  }
+  crowd(g, [[KX - 0.027, KZ + 0.013], [KX + 0.004, KZ + 0.027], [KX + 0.027, KZ + 0.012]].map(([x, z]) => [x, z, Y(x, z) - 0.002]), zi, ['#ff8a6b', '#2a3446', '#ffffff']);
+  // Bicicletas de aluguel na estação ao lado da praça.
+  for (let i = 0; i < 4; i++) { const x = -0.2 + i * 0.008, z = 0.168; const w = new THREE.Mesh(new THREE.TorusGeometry(0.003, 0.0006, 4, 10), mat('#ff8a2a')); w.position.set(x, Y(x, z) + 0.0032, z); w.rotation.y = Math.PI / 2; g.add(w); }
+  box(0.04, 0.012, 0.002, '#1e4488', -0.188, Y(-0.188, 0.172), 0.172, g);
+  for (const [x, z] of [[-0.205, -0.045], [0.045, -0.045], [-0.205, 0.165], [0.045, 0.165]]) lamp(g, x, z, Y(x, z), 0.046);
+  const jetAnim = t => { for (let k = 0; k < JN; k++) { const a = k / JN * TAU; jo.position.set(fx + Math.cos(a) * 0.026, fy + 0.0088, fz + Math.sin(a) * 0.026); jo.rotation.set(-Math.sin(a) * 0.45, 0, Math.cos(a) * 0.45); jo.scale.set(1, 0.7 + 0.35 * Math.sin(t * 3 + k * 0.9), 1); jo.updateMatrix(); jets.setMatrixAt(k, jo.matrix); } jets.instanceMatrix.needsUpdate = true; };
+  jets.userData.anim = jetAnim; animated.push(jets);
 
   // ── Centro de convenções: pavilhão de teto curvo e entrada de vidro.
   const cx = -0.28, cz = 0.18, cy = Y(cx, cz);
@@ -138,7 +186,7 @@ function buildBusiness(g, zi) {
 
   // ── Pessoas nas calçadas e no parque.
   walkers(g, [[[-0.36, -0.315], [0.2, -0.315], [0.2, 0.295], [-0.36, 0.295]], [[0.272, -0.42], [0.272, 0.42], [0.3, 0.42], [0.3, -0.42]]], 7, ['#1e4488', '#2a3446', '#eef4fb', '#00b7e3', '#ffc56b', '#7f8fa3'], (x, z) => Y(x, z) + 0.0016);
-  walkers(g, [Array.from({ length: 16 }, (_, i) => { const a = i / 16 * TAU; return [fx + Math.cos(a) * 0.06, fz + Math.sin(a) * 0.05]; })], 5, ['#ff8a6b', '#1e4488', '#ffffff', '#3aa58c'], (x, z) => Y(x, z) + 0.0016);
+  walkers(g, [Array.from({ length: 16 }, (_, i) => { const a = i / 16 * TAU; return [fx + Math.cos(a) * 0.052, fz + Math.sin(a) * 0.052]; })], 5, ['#ff8a6b', '#1e4488', '#ffffff', '#3aa58c'], (x, z) => Y(x, z) + 0.0016);
 
   // ── Drones de entrega e helicóptero.
   const drones = [0, 1].map(k => {

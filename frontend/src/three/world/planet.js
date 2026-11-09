@@ -7,6 +7,7 @@ import { C, OCEAN, VEHICLES } from './palette.js';
 import { railBasis, railDist, railPt, railTan } from './rail.js';
 import { animated, toyKick, toys, trains } from './runtime.js';
 import { worldScene } from './stage.js';
+import { canvasTex } from './textures.js';
 import { DUNES, PLATEAU, PR, RAIL_R, TRAIN_SPEED, moisture, radiusAt, shadeOf, terrain } from './terrain.js';
 import { locoMesh, paintGeo, sailboat, vehMat, wagonGeo } from './vehicles.js';
 import { ZONES } from './zones.js';
@@ -59,7 +60,43 @@ for (const [i, z] of ZONES.entries()) { BUILDERS[i](z.group = zoneGroup(z.dir, z
     const pts = Array.from({ length: 480 }, (_, i) => { const th = i / 480 * TAU, r = railPt(th); return r.clone().multiplyScalar(RAIL_R + 0.008).addScaledVector(new THREE.Vector3().crossVectors(r, railTan(th)), s * 0.022); });
     planet.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 720, 0.0026, 5, true), railMat));
   }
-  const n = small ? 140 : 220, sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.016, 0.006, 0.07), mat(C.trunk), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
+  // Leito de brita embaixo dos trilhos (uma fita que acompanha a linha), postes de telégrafo de um lado, sinais com
+  // luz vermelha e verde e pequenas paradas com plataforma, cobertura, banco e placa. Tudo instanciado ou mesclado.
+  {
+    const N = 960, pos = [], idx = [], nv = new THREE.Vector3();
+    for (let i = 0; i <= N; i++) {
+      const th = i / N * TAU, r = railPt(th), t = railTan(th); nv.crossVectors(r, t).normalize();
+      for (const s of [-1, 1]) { const p = r.clone().multiplyScalar(RAIL_R + 0.0012).addScaledVector(nv, s * 0.043); pos.push(p.x, p.y, p.z); }
+      if (i < N) { const a = i * 2; idx.push(a, a + 2, a + 1, a + 1, a + 2, a + 3); }
+    }
+    const bg = new THREE.BufferGeometry(); bg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); bg.setIndex(idx); bg.computeVertexNormals();
+    planet.add(new THREE.Mesh(bg, mat('#8c8478', { side: THREE.DoubleSide })));
+    const side = (th, off, lift, out = new THREE.Matrix4()) => { const b = railBasis(th, out), z = new THREE.Vector3().setFromMatrixColumn(b, 2); return out.setPosition(railPt(th).multiplyScalar(RAIL_R + lift).addScaledVector(z, off)); };
+    const NP = small ? 70 : 120, poles = new THREE.InstancedMesh(paintGeo([[new THREE.CylinderGeometry(0.0012, 0.0016, 0.05, 5).translate(0, 0.025, 0), '#6a4e33'], [new THREE.BoxGeometry(0.0015, 0.0015, 0.018).translate(0, 0.046, 0), '#6a4e33'], [new THREE.SphereGeometry(0.0012, 4, 3).translate(0, 0.048, 0.007), '#d9e3ea'], [new THREE.SphereGeometry(0.0012, 4, 3).translate(0, 0.048, -0.007), '#d9e3ea']]), vehMat(), NP);
+    const tmp4 = new THREE.Matrix4(), hid = new THREE.Matrix4().makeScale(0, 0, 0), pv = new THREE.Vector3();
+    const dry = m => terrain(pv.setFromMatrixPosition(m).normalize()) > 0.012;                          // nada de poste dentro do mar
+    for (let i = 0; i < NP; i++) { const m = side(i / NP * TAU + 0.013, -0.068, 0, tmp4); poles.setMatrixAt(i, dry(m) ? m : hid); }
+    planet.add(poles);
+    const NS = 10, sigPole = new THREE.InstancedMesh(paintGeo([[new THREE.CylinderGeometry(0.0012, 0.0012, 0.04, 5).translate(0, 0.02, 0), '#2a3446'], [new THREE.BoxGeometry(0.006, 0.012, 0.005).translate(0, 0.042, 0), '#1a1d24']]), vehMat(), NS);
+    const sigLamp = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0022, 8, 6).translate(0.0028, 0.044, 0), new THREE.MeshBasicMaterial({ toneMapped: false }), NS);
+    for (let i = 0; i < NS; i++) { const m0 = side(i / NS * TAU + 0.31, -0.052, 0, tmp4), m = dry(m0) ? m0 : hid; sigPole.setMatrixAt(i, m); sigLamp.setMatrixAt(i, m); sigLamp.setColorAt(i, new THREE.Color(i % 3 ? '#3dff7a' : '#ff3b3b')); }
+    planet.add(sigPole, sigLamp);
+    // Paradas pelo caminho, longe das áreas (nomes de lugares do Maranhão).
+    for (const [th, name] of [[1.27, 'BACANGA'], [2.7, 'ANIL'], [3.62, 'ALCÂNTARA'], [5.8, 'BARREIRINHAS']]) {
+      const sm = side(th, 0.06, 0); if (!dry(sm)) continue;
+      const st = new THREE.Group(); st.matrixAutoUpdate = false; st.matrix.copy(sm); planet.add(st);
+      const add = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, typeof c === 'string' ? mat(c) : c); m.position.set(x, y, z); st.add(m); return m; };
+      add(new THREE.BoxGeometry(0.11, 0.008, 0.026), '#d9cfbd', 0, 0.004, 0);
+      add(new THREE.BoxGeometry(0.11, 0.0015, 0.003), '#ffd23f', 0, 0.0085, -0.0115);
+      for (const x of [-0.04, 0, 0.04]) add(new THREE.CylinderGeometry(0.0012, 0.0012, 0.026, 5), '#e9eef5', x, 0.021, 0.008);
+      add(new THREE.BoxGeometry(0.1, 0.003, 0.03), '#e8452f', 0, 0.035, 0.002).rotation.x = -0.12;
+      add(new THREE.BoxGeometry(0.018, 0.0015, 0.005), '#a07a5a', -0.02, 0.012, 0.006); add(new THREE.BoxGeometry(0.018, 0.0015, 0.005), '#a07a5a', 0.02, 0.012, 0.006);
+      add(new THREE.BoxGeometry(0.03, 0.02, 0.012), '#f4e7c8', 0.034, 0.018, 0.006);
+      const sign = add(new THREE.PlaneGeometry(0.05, 0.009), new THREE.MeshBasicMaterial({ toneMapped: false, side: THREE.DoubleSide, map: canvasTex(220, 40, (x, w, h) => { x.fillStyle = '#1e4488'; x.fillRect(0, 0, w, h); x.fillStyle = '#ffffff'; x.font = 'bold 22px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(name, w / 2, h / 2 + 1); }) }), 0, 0.03, -0.013);
+      sign.rotation.y = Math.PI;
+    }
+  }
+  const n = small ? 220 : 360, sleepers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.016, 0.006, 0.07), mat(C.trunk), n), m4 = new THREE.Matrix4(), q = new THREE.Quaternion();
   for (let i = 0; i < n; i++) {
     const th = i / n * TAU;
     q.setFromRotationMatrix(railBasis(th));
@@ -244,21 +281,38 @@ const balloons = new THREE.Group(); tilt.add(balloons);
 });
 
 // Junta as peças paradas por material para desenhar o planeta com poucas chamadas.
+// Nível de detalhe: dentro das áreas, as peças pequenas (lampiões, bancos, placas, vasos, janelinhas, enfeites...)
+// vão para malhas separadas de cada área, marcadas como miudeza: de longe o planeta mostra só o básico (relevo,
+// construções, trens) e o detalhe aparece só na área aberta. Menos coisa desenhada na vista do planeta.
 await breathe();
 {
   planet.updateMatrixWorld(true);
-  const groups = new Map(), toRemove = [], inv = new THREE.Matrix4().copy(planet.matrixWorld).invert();
+  const groups = new Map(), fine = new Map(), toRemove = [], inv = new THREE.Matrix4().copy(planet.matrixWorld).invert();
+  const zoneGroups = new Map(ZONES.map(z => [z.group, new THREE.Matrix4().copy(z.group.matrixWorld).invert()]));
+  const bb = new THREE.Box3(), sz = new THREE.Vector3();
+  const FINE = 0.026;                                                                         // ~2,6 cm na escala da área
   planet.traverse(o => {
     if (!o.isMesh || o.isInstancedMesh || o.parent === planet) return;
-    for (let a = o; a && a !== planet; a = a.parent) if (a.userData.anim || a.userData.keep) return;
+    let zg = null;
+    for (let a = o; a && a !== planet; a = a.parent) { if (a.userData.anim || a.userData.keep) return; if (zoneGroups.has(a)) zg = a; }
     const g = (o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone());
     if (!o.material.map) g.deleteAttribute('uv');
-    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
-    if (!groups.has(o.material)) groups.set(o.material, []);
-    groups.get(o.material).push(g); toRemove.push(o);
+    let tiny = false;
+    if (zg && !o.userData.big) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); bb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); tiny = bb.getSize(sz).length() < FINE; }
+    if (tiny) {
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(zoneGroups.get(zg), o.matrixWorld));
+      if (!fine.has(zg)) fine.set(zg, new Map());
+      const fm = fine.get(zg); if (!fm.has(o.material)) fm.set(o.material, []); fm.get(o.material).push(g);
+    } else {
+      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
+      if (!groups.has(o.material)) groups.set(o.material, []);
+      groups.get(o.material).push(g);
+    }
+    toRemove.push(o);
   });
   toRemove.forEach(o => o.parent.remove(o));
   for (const [m, list] of groups) planet.add(new THREE.Mesh(mergeGeometries(list), m));
+  for (const [zg, fm] of fine) for (const [m, list] of fm) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.userData.detail = true; zg.add(mesh); }
 }
 
 await breathe();

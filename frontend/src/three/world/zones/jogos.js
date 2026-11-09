@@ -187,8 +187,9 @@ function buildGames(g, zi) {
       for (const [sx, sz] of stones) { x.fillStyle = 'rgba(20,60,90,.3)'; x.beginPath(); x.arc(sx + 2, sz + 3, 6.5, 0, TAU); x.fill(); }
       for (const [sx, sz] of stones) { x.fillStyle = '#fff7e0'; x.strokeStyle = '#d9b75a'; x.lineWidth = 2; x.beginPath(); x.arc(sx, sz, 6, 0, TAU); x.fill(); x.stroke(); }
       x.restore();
-      // O gramado some aos poucos na beira (r 0,53 → 0,6), mas a área de escape da pista continua inteira até o laço.
-      const gr = x.createRadialGradient(w / 2, h / 2, w * 0.357, w / 2, h / 2, w * 0.405); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
+      // O gramado some aos poucos só na beira de tudo (r 0,67 → 0,74): o laço da pista vai até ~0,65 e, com o sumiço
+      // começando antes (0,53), o laguinho e a área do laço ficavam transparentes e o gramado do planeta aparecia ali.
+      const gr = x.createRadialGradient(w / 2, h / 2, w * 0.452, w / 2, h / 2, w * 0.5); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,1)');
       x.globalCompositeOperation = 'destination-out'; x.fillStyle = gr; x.fillRect(0, 0, w, h); x.globalCompositeOperation = 'source-over';
       // Caixas de brita por fora das curvas mais fechadas.
       for (let i = 0; i < N; i += 6) {

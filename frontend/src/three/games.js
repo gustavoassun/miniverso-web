@@ -620,10 +620,14 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       return camW;
     }
     if (!kart) {
-      fovNow = 52;
+      // Tela em pé (celular): as cinco lixeiras precisam caber na largura. A câmera recua na mesma linha de visão e
+      // abre um pouco o ângulo, conforme o formato da tela.
+      const asp = worldCamera.aspect, tall = Math.max(0, Math.min(1, (1.25 - asp) / 0.8));
+      fovNow = 52 + tall * 10;
       if (rc.eye) {
-        const { eye, look } = recy, k = camOn ? 1 - Math.exp(-dt * 4) : 1;
-        camU.lerp(tmp.set(eye.x, eye.y + PRS, eye.z).normalize(), k); camP.lerp(tmp.set(eye.x, eye.y, eye.z), k); camL.lerp(tmp.set(look.x, look.y, look.z), k); camOn = true;
+        const { eye, look } = recy, k = camOn ? 1 - Math.exp(-dt * 4) : 1, back = 1 + tall * 0.82;
+        tmp.set(look.x + (eye.x - look.x) * back, look.y + (eye.y - look.y) * back + tall * 0.085, look.z + (eye.z - look.z) * back);
+        camU.lerp(orb.set(tmp.x, tmp.y + PRS, tmp.z).normalize(), k); camP.lerp(tmp, k); camL.lerp(orbL.set(look.x, look.y - tall * 0.03, look.z), k); camOn = true;
       }
       outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
       return camW;
@@ -651,7 +655,9 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     const k = fresh ? 1 : 1 - Math.exp(-dt * 9);
     camU.lerp(orb.set(0, 1, 0), k); camP.lerp(tmp, k); camL.lerp(orbL, k); camOn = true;
     // Campo de visão: bem mais aberto que antes, abrindo mais em alta velocidade e no turbo.
-    fovNow = 64 + sp * 7 + Math.min(0.12, me.boost) * 45 - intro * 6;
+    // No celular em pé o campo de visão abre mais, para a pista à frente e as curvas caberem na tela estreita.
+    const tallR = Math.max(0, Math.min(1, (1.25 - worldCamera.aspect) / 0.8));
+    fovNow = 64 + tallR * 22 + sp * 7 + Math.min(0.12, me.boost) * 45 - intro * 6;
     outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
     return camW;
   }

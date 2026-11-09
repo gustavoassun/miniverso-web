@@ -719,13 +719,16 @@ export function createMiniverso(rootEl, opts = {}) {
       const bend = kartCam() ? smoother(0, 1, raceW) * k : 0;
       bendUniforms.uBend.value = bend;
       // Na corrida, as ilhas, balões, nuvens e satélites que flutuam em volta do planeta somem do céu (fora de contexto).
-      const sky = bend < 0.3; if (islands.visible !== sky) { islands.visible = balloons.visible = clouds.visible = orbit.visible = sky; raceMode(zg, !sky); }
+      const sky = bend < 0.3; if (clouds.visible !== sky) { clouds.visible = sky; raceMode(zg, !sky); }
+      // De perto numa área, as ilhas, os balões e os satélites que voam em volta do planeta somem (passavam na frente
+      // da câmera, como uma coluna escura); na vista geral eles voltam.
+      const roam = sky && focusT < 0.55; if (islands.visible !== roam) islands.visible = balloons.visible = orbit.visible = roam;
       if (bend > 0) {
         const sc = zg.matrixWorld.getMaxScaleOnAxis();
         zg.getWorldPosition(bendUniforms.uBendC.value); bendUniforms.uBendN.value.set(0, 1, 0).transformDirection(zg.matrixWorld);
         bendUniforms.uBendK.value = 1 / (2 * 1.6) / sc; bendUniforms.uBendR1.value = 0.85 * sc; bendUniforms.uBendR3.value = 1.3 * sc;
       }
-    } else { raceW = 0; bendUniforms.uBend.value = 0; if (!islands.visible) { islands.visible = balloons.visible = clouds.visible = orbit.visible = true; raceMode(null, false); } }
+    } else { raceW = 0; bendUniforms.uBend.value = 0; if (!clouds.visible) { clouds.visible = true; raceMode(null, false); } if (!islands.visible) islands.visible = balloons.visible = orbit.visible = true; }
     cabT = clamp(cabT + (cab ? 1 : -1) * dt / (reduced ? 0.2 : 3.2));             // entrada e saída em ~3 s, com a íris da cabine
     if (cabT > 0.001) {
       // Da área até a cabine num arco por cima do planeta (nunca atravessando o chão).
@@ -740,7 +743,10 @@ export function createMiniverso(rootEl, opts = {}) {
       camPos.copy(da).multiplyScalar(mix(ra, rb, k) + Math.sin(Math.PI * k) * Math.min(1.6, ang * 0.9));
       camLook.lerp(vc, k); fup.lerp(fdir, k).normalize();
     }
-    const fov = mix(mix(30, camFov(), smoother(0, 1, raceW)), 58, smoother(0, 0.7, cabT)), near = cabT > 0.25 || raceW > 0.2 ? 0.004 : 0.05;
+    // Plano de corte próximo acompanha a distância até o chão: de longe ele vai para bem longe da câmera e a precisão
+    // de profundidade sobra para as peças finas (pisos, ruas e faixas a milímetros uma da outra não piscam/se cruzam).
+    const fov = mix(mix(30, camFov(), smoother(0, 1, raceW)), 58, smoother(0, 0.7, cabT));
+    const near = cabT > 0.25 || raceW > 0.2 ? 0.004 : Math.round(clamp((camPos.length() - PR - 0.32) * 0.5, 0.05, 2.5) * 200) / 200;
     // Com uma área aberta, o centro da vista sobe para o meio do espaço livre acima da barra da área.
     if (!zoneCard.hidden) barH = zoneCard.offsetHeight + 18;
     const lift = Math.round(barH * 0.5 * smoother(0, 1, focusT) * (1 - smoother(0, 0.3, cabT)));

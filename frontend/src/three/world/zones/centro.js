@@ -30,9 +30,14 @@ function buildCentro(g, zi) {
   cityFloor(g, 0.78, 0.0075, [0.249, 0.452]);
   const facades = [facadeMat('#2f6fb8', '#d8e8ff', '#1f4a36'), facadeMat('#f2c14e', null, '#2c5b4a'), facadeMat('#f6dccd', '#3f7fc4', '#6a3b28'), facadeMat('#a5dccb', null, '#3a2a22'), facadeMat('#eef4fb', '#2f6fb8', '#1f4a36'), facadeMat('#e98a6b', null, '#2c3e5b')];
   const azulejos = [facadeMat('#e9f1fb', '#2f6fb8', '#1f4a36'), facadeMat('#2f6fb8', '#d8e8ff', '#2c5b4a'), facadeMat('#f2c14e', '#c8643f', '#1f4a36'), facadeMat('#d9efe6', '#3aa58c', '#3a2a22'), facadeMat('#f6dccd', '#c8643f', '#6a3b28')];
+  // O Centro é grande: longe do meio da área o chão do planeta já inclina 10° a 20°. Peças largas (casarões, palácio,
+  // chafariz) ficam de pé em relação ao chão de onde estão (normal da esfera), sem um lado enterrado e o outro no ar.
+  const UPV = new THREE.Vector3(0, 1, 0), nrm = new THREE.Vector3();
+  const tiltAt = (x, z) => new THREE.Quaternion().setFromUnitVectors(UPV, nrm.set(x, Math.sqrt(PR * PR - x * x - z * z), z).normalize());
+  const standing = (x, y, z) => { const s0 = new THREE.Group(); s0.position.set(x, y, z); s0.quaternion.copy(tiltAt(x, z)); g.add(s0); return s0; };
   const casarao = (x, z, w, d, h, k, yAt, list = facades) => {
-    const y = yAt(x, z), m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), list[k % list.length]); m.position.set(x, y + h / 2, z); g.add(m);
-    const roof = hipRoof(w + 0.008, d + 0.008, 0.02, C.terracotta); roof.position.set(x, y + h + 0.01, z); g.add(roof);
+    const s0 = standing(x, yAt(x, z) - 0.0015, z), m = new THREE.Mesh(new THREE.BoxGeometry(w, h + 0.0015, d), list[k % list.length]); m.position.y = (h + 0.0015) / 2; s0.add(m);
+    const roof = hipRoof(w + 0.008, d + 0.008, 0.02, C.terracotta); roof.position.y = h + 0.0115; s0.add(roof);
   };
   // Teto de bandeirolas de São João: fios atravessando a rua, cada bandeirinha uma instância (uma só chamada de desenho).
   const flagCols = ['#e2207a', '#2fd0e0', '#ff8a2a', '#ffd23f', '#ffffff', '#9b5de5', '#3ee07a'].map(h => new THREE.Color(h));
@@ -98,13 +103,14 @@ function buildCentro(g, zi) {
   // Lampiões nas calçadas, a 1,4 cm das fachadas e abaixo do teto de bandeirolas.
   for (const z of [-0.36, -0.24, -0.06, 0.06, 0.18]) for (const x of [-0.296, -0.244]) lampiao(g, x, z, top(x, z), 0.04);
   canopy(-0.297, -0.243, -0.12, 0.26, (x, z) => top(x, z) + 0.072);
-  // Catedral da Sé no topo da Rua Portugal.
-  const sz0 = -0.41, sy0 = top(-0.27, sz0);
-  box(0.1, 0.075, 0.045, C.white, -0.27, sy0, sz0, g);
-  for (const x of [-0.305, -0.235]) { box(0.025, 0.12, 0.025, C.white, x, sy0, sz0 + 0.012, g); const sp = new THREE.Mesh(new THREE.ConeGeometry(0.019, 0.035, 4), mat(C.terracotta)); sp.rotation.y = Math.PI / 4; sp.position.set(x, sy0 + 0.137, sz0 + 0.012); g.add(sp); }
-  const gable = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.005, 3), mat('#f3ecdc', { emissive: '#f3ecdc', emissiveIntensity: 0.18 })); gable.rotation.x = -Math.PI / 2; gable.position.set(-0.27, sy0 + 0.093, sz0 + 0.02); g.add(gable);
-  box(0.02, 0.035, 0.003, '#5a3a2a', -0.27, sy0, sz0 + 0.023, g);
-  // Fachada da Sé com detalhe (cornijas, janelas em arco, rosácea, portas e relógio), levemente iluminada.
+  // Catedral da Sé no topo da Rua Portugal, de pé no chão de onde está (ali o planeta já inclina ~17°): nave com a
+  // fachada detalhada, duas torres com coruchéu, frontão e porta; levemente iluminada.
+  const sz0 = -0.41, sy0 = top(-0.27, sz0), se = standing(-0.27, sy0 - 0.0015, sz0);
+  const sp = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); se.add(o); return o; };
+  sp(new THREE.BoxGeometry(0.1, 0.0765, 0.045), mat(C.white), 0, 0.0383, 0);
+  for (const x of [-0.035, 0.035]) { sp(new THREE.BoxGeometry(0.025, 0.1215, 0.025), mat(C.white), x, 0.0608, 0.012); const spr = sp(new THREE.ConeGeometry(0.019, 0.035, 4), mat(C.terracotta), x, 0.1395, 0.012); spr.rotation.y = Math.PI / 4; }
+  const gable = sp(new THREE.CylinderGeometry(0.038, 0.038, 0.005, 3), mat('#f3ecdc', { emissive: '#f3ecdc', emissiveIntensity: 0.18 }), 0, 0.0945, 0.02); gable.rotation.x = -Math.PI / 2;
+  sp(new THREE.BoxGeometry(0.02, 0.035, 0.003), mat('#5a3a2a'), 0, 0.019, 0.023);
   const seTex = canvasTex(200, 150, (x, w, h) => {
     x.fillStyle = '#f3ecdc'; x.fillRect(0, 0, w, h);
     x.fillStyle = '#e2d6bd'; for (const y of [46, 96]) x.fillRect(0, y, w, 6); x.fillRect(0, 0, w, 5);
@@ -118,10 +124,10 @@ function buildCentro(g, zi) {
     x.beginPath(); x.moveTo(100, 24); x.lineTo(100, 17); x.moveTo(100, 24); x.lineTo(105, 24); x.stroke();
   });
   const seM = new THREE.MeshStandardMaterial({ map: seTex, emissiveMap: seTex, emissive: '#ffffff', emissiveIntensity: 0.22, roughness: 0.85 });
-  const seFront = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.075), seM); seFront.position.set(-0.27, sy0 + 0.0375, sz0 + 0.0228); g.add(seFront);
+  sp(new THREE.PlaneGeometry(0.1, 0.075), seM, 0, 0.039, 0.0228);
   const towerTex = canvasTex(40, 120, (x, w, h) => { x.fillStyle = '#f3ecdc'; x.fillRect(0, 0, w, h); x.fillStyle = '#e2d6bd'; for (const y of [38, 78]) x.fillRect(0, y, w, 4); x.fillStyle = '#3d5a7a'; for (const y of [10, 50, 90]) { x.beginPath(); x.moveTo(13, y + 22); x.lineTo(13, y + 7); x.arc(20, y + 7, 7, Math.PI, 0); x.lineTo(27, y + 22); x.fill(); } });
   const towerM = new THREE.MeshStandardMaterial({ map: towerTex, emissiveMap: towerTex, emissive: '#ffffff', emissiveIntensity: 0.22, roughness: 0.85 });
-  for (const tx of [-0.305, -0.235]) { const tf = new THREE.Mesh(new THREE.PlaneGeometry(0.025, 0.12), towerM); tf.position.set(tx, sy0 + 0.06, sz0 + 0.0246); g.add(tf); }
+  for (const tx of [-0.035, 0.035]) sp(new THREE.PlaneGeometry(0.025, 0.12), towerM, tx, 0.0615, 0.0246);
   // Praça Benedito Leite, atrás da Sé: pedra portuguesa, chafariz de água verde com estátua dourada e jatos,
   // gramado em volta, palmeiras, árvores copadas, lampiões, bancos, casarões e carros estacionados.
   const BX = -0.255, BZ = -0.535, bTop = (x, z) => sag(x, z) + T + 0.0025;
@@ -131,25 +137,30 @@ function buildCentro(g, zi) {
     for (let r = 10; r < h; r += 16) { x.beginPath(); for (let i = 0; i <= w; i += 4) x.lineTo(i, r + Math.sin(i / w * TAU * 3) * 4); x.stroke(); }
     x.strokeStyle = '#c9a77a'; x.lineWidth = 4; x.strokeRect(3, 3, w - 6, h - 6);
   });
-  const fy = bTop(BX, BZ);
-  cyl(0.054, 0.003, '#4f9b5a', BX, fy, BZ, g, 28);
-  cyl(0.044, 0.009, '#e9e1d2', BX, fy, BZ, g, 28);
-  const lago = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.002, 28), mat('#2fb8a0', { emissive: '#0f8f7a', emissiveIntensity: 0.35 })); lago.position.set(BX, fy + 0.008, BZ); g.add(lago);
-  cyl(0.007, 0.012, '#e9e1d2', BX, fy, BZ, g, 10);
+  // Chafariz de pé no chão inclinado: canteiro, calçada, mureta octogonal, água dentro da bacia, pedestal com taça,
+  // estátua dourada e os jatos.
+  const fy = bTop(BX, BZ) - 0.001, fon = standing(BX, fy, BZ);
+  const fpart = (geo, m, y) => { const o = new THREE.Mesh(geo, m); o.position.y = y; fon.add(o); return o; };
+  fpart(new THREE.CylinderGeometry(0.056, 0.058, 0.004, 32), mat('#4f9b5a'), 0.002);
+  fpart(new THREE.CylinderGeometry(0.047, 0.049, 0.004, 32), mat('#d9cfbd'), 0.004);
+  fpart(new THREE.CylinderGeometry(0.043, 0.043, 0.011, 8, 1, true), mat('#efe7d8', { side: THREE.DoubleSide }), 0.0095);
+  fpart(new THREE.TorusGeometry(0.043, 0.0018, 4, 8).rotateX(Math.PI / 2).rotateY(Math.PI / 8), mat('#f6f0e3'), 0.0152);
+  fpart(new THREE.CylinderGeometry(0.0412, 0.0412, 0.0018, 8), mat('#2fb8a0', { emissive: '#0f8f7a', emissiveIntensity: 0.35, roughness: 0.15 }), 0.0128);
+  fpart(new THREE.CylinderGeometry(0.009, 0.012, 0.012, 10), mat('#efe7d8'), 0.018);
+  fpart(new THREE.CylinderGeometry(0.016, 0.01, 0.003, 12), mat('#efe7d8'), 0.0255);
   const ouro = mat('#d4a640', { metalness: 0.6, roughness: 0.35 });
-  const estatua = new THREE.Mesh(new THREE.CylinderGeometry(0.0022, 0.003, 0.014, 6), ouro); estatua.position.set(BX, fy + 0.019, BZ); g.add(estatua);
-  const cabecaEst = new THREE.Mesh(new THREE.SphereGeometry(0.0028, 8, 6), ouro); cabecaEst.position.set(BX, fy + 0.028, BZ); g.add(cabecaEst);
+  fpart(new THREE.CylinderGeometry(0.0022, 0.003, 0.014, 6), ouro, 0.034); fpart(new THREE.SphereGeometry(0.0028, 8, 6), ouro, 0.0435);
   const jatoMat = mat('#bff3ff', { emissive: '#7fe9ff', emissiveIntensity: 0.6, transparent: true, opacity: 0.75 });
-  const jatos = new THREE.Group(); jatos.position.set(BX, fy + 0.009, BZ);
+  const jatos = new THREE.Group(); jatos.position.copy(fon.position); jatos.quaternion.copy(fon.quaternion); jatos.translateY(0.014);
   for (let k = 0; k < 8; k++) {
-    const a = k / 8 * TAU, j = new THREE.Mesh(new THREE.CylinderGeometry(0.0006, 0.0014, 0.022, 5), jatoMat); j.geometry.translate(0, 0.011, 0);
-    j.position.set(Math.cos(a) * 0.03, 0, Math.sin(a) * 0.03); j.rotation.set(-Math.sin(a) * 0.35, 0, Math.cos(a) * 0.35); jatos.add(j);
+    const a = k / 8 * TAU, jt = new THREE.Mesh(new THREE.CylinderGeometry(0.0006, 0.0014, 0.02, 5), jatoMat); jt.geometry.translate(0, 0.01, 0);
+    jt.position.set(Math.cos(a) * 0.03, 0, Math.sin(a) * 0.03); jt.rotation.set(-Math.sin(a) * 0.35, 0, Math.cos(a) * 0.35); jatos.add(jt);
   }
-  jatos.userData.anim = t => jatos.children.forEach((j, k) => { j.scale.y = 0.75 + 0.3 * Math.sin(t * 3 + k); });
+  jatos.userData.anim = t => jatos.children.forEach((jt, k) => { jt.scale.y = 0.75 + 0.3 * Math.sin(t * 3 + k); });
   g.add(jatos); animated.push(jatos);
   for (const s of [-1, 1]) box(0.006, 0.005, 0.026, '#a07a5a', BX + s * 0.062, bTop(BX + s * 0.062, BZ), BZ, g);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { palm(g, BX + sx * 0.072, BZ + sz * 0.032, 0.09, bTop(BX + sx * 0.072, BZ + sz * 0.032)); lampiao(g, BX + sx * 0.105, BZ + sz * 0.06, bTop(BX + sx * 0.105, BZ + sz * 0.06)); lampiao(g, BX + sx * 0.04, BZ + sz * 0.062, bTop(BX + sx * 0.04, BZ + sz * 0.062)); }
-  for (const s of [-1, 1]) roundTree(BX + s * 0.103, BZ, 1, bTop(BX + s * 0.103, BZ));
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) { palm(g, BX + sx * 0.098, BZ + sz * 0.05, 0.075, bTop(BX + sx * 0.098, BZ + sz * 0.05)); lampiao(g, BX + sx * 0.105, BZ + sz * 0.06, bTop(BX + sx * 0.105, BZ + sz * 0.06)); lampiao(g, BX + sx * 0.04, BZ + sz * 0.062, bTop(BX + sx * 0.04, BZ + sz * 0.062)); }
+  for (const s of [-1, 1]) roundTree(BX + s * 0.1, BZ, 0.8, bTop(BX + s * 0.1, BZ));
   [-0.585, -0.525, -0.47].forEach((z, i) => casarao(-0.41, z, 0.05, 0.054, 0.07 + (i % 2) * 0.014, i + 2, top));
   cobble(draped(0.03, 0.002, 0.17, '#8f877c', -0.11, -0.53, g, T), 0.03, 0.17);
   ['#e8452f', C.white, '#2a3446', C.amber, C.tile].forEach((c, i) => { const z = -0.592 + i * 0.03; parked(-0.112, z, c, top(-0.112, z) + 0.002); });
@@ -161,15 +172,50 @@ function buildCentro(g, zi) {
   canopy(EX - 0.017, EX + 0.017, -0.36, 0.2, (x, z) => top(x, z) + 0.07, 0.014);
   // Praça Dom Pedro II e Palácio dos Leões (fachada para a praça, fundos para o mar, afastado do mirante).
   draped(0.075, 0.002, 0.18, '#e9e1d2', -0.207, -0.27, g, T);
-  for (const z of [-0.33, -0.27, -0.21]) tree(g, -0.225, z, 0.7, '#2f9b7a', top(-0.225, z));
-  const PAX = -0.14;
-  const palace = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.055, 0.17), facadeMat('#f4f1ea', null, '#4a6a8a')); palace.position.set(PAX, top(PAX, -0.28) + 0.0275, -0.28); g.add(palace);
-  const proof = hipRoof(0.073, 0.178, 0.022, C.terracotta); proof.position.set(PAX, top(PAX, -0.28) + 0.055 + 0.011, -0.28); g.add(proof);
-  box(0.012, 0.06, 0.05, C.white, PAX - 0.037, top(PAX - 0.037, -0.28), -0.28, g);
-  for (const z of [-0.31, -0.25]) {                                                         // leões na entrada
-    const ly = top(-0.195, z); box(0.012, 0.01, 0.012, '#cbbfa8', -0.195, ly, z, g);
-    box(0.012, 0.008, 0.007, '#d8c9a8', -0.195, ly + 0.01, z, g);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.0055, 8, 6), mat('#d8c9a8')); head.position.set(-0.201, ly + 0.022, z); g.add(head);
+  for (const z of [-0.36, -0.2]) roundTree(-0.232, z, 0.6, top(-0.232, z));                          // árvores baixas nas pontas, sem tampar a fachada
+  // Palácio dos Leões, mais fiel ao real: neoclássico branco de dois andares, janelas altas em arco com venezianas,
+  // pilastras, corpo central avançado com sacada, frontão e brasão, platibanda com balaústres, bandeiras do Brasil e
+  // do Maranhão e os leões de bronze nos pedestais da entrada. Fachada comprida virada para a praça (−x).
+  const PAX = -0.14, PAZ = -0.28, PW = 0.062, PD = 0.17, PH = 0.056;
+  const palTex = canvasTex(256, 96, (x, w, h) => {
+    x.fillStyle = '#f6f3ec'; x.fillRect(0, 0, w, h);
+    x.fillStyle = '#e4ddcf'; x.fillRect(0, 44, w, 5); x.fillRect(0, 0, w, 6); x.fillRect(0, h - 8, w, 8);
+    for (let c = 0; c < 13; c++) { const cx = 8 + c * 19.2; x.fillStyle = '#e9e3d6'; x.fillRect(cx - 9, 6, 3, h - 14); }
+    for (const [y0, hh] of [[12, 28], [54, 30]]) for (let c = 0; c < 12; c++) {
+      const cx = 17.6 + c * 19.2;
+      x.fillStyle = '#ffffff'; x.beginPath(); x.moveTo(cx - 7, y0 + hh); x.lineTo(cx - 7, y0 + 6); x.arc(cx, y0 + 6, 7, Math.PI, 0); x.lineTo(cx + 7, y0 + hh); x.fill();
+      x.fillStyle = '#3f6f8f'; x.beginPath(); x.moveTo(cx - 5, y0 + hh - 1); x.lineTo(cx - 5, y0 + 6); x.arc(cx, y0 + 6, 5, Math.PI, 0); x.lineTo(cx + 5, y0 + hh - 1); x.fill();
+      x.fillStyle = '#2e5672'; x.fillRect(cx - 0.6, y0 + 3, 1.2, hh - 4);
+      if (y0 > 40) { x.fillStyle = '#5a5f6b'; x.fillRect(cx - 8, y0 + hh - 4, 16, 2); }
+    }
+  });
+  const palM = new THREE.MeshStandardMaterial({ map: palTex, emissiveMap: palTex, emissive: '#ffffff', emissiveIntensity: 0.3, roughness: 0.75 }), white = mat('#ffffff', { emissive: '#ffffff', emissiveIntensity: 0.25 });
+  const pal = standing(PAX, top(PAX, PAZ) - 0.0015, PAZ);
+  const pp = (geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); pal.add(o); return o; };
+  pp(new THREE.BoxGeometry(PD, PH, PW), palM, 0, PH / 2, 0).rotation.y = Math.PI / 2;
+  pp(new THREE.BoxGeometry(PW + 0.004, 0.004, PD + 0.004), white, 0, PH + 0.002, 0);
+  for (let i = 0; i < 34; i++) { const z = -PD / 2 + 0.003 + i * (PD - 0.006) / 33; pp(new THREE.BoxGeometry(0.0022, 0.006, 0.0022), white, -PW / 2 + 0.002, PH + 0.007, z); }
+  pp(new THREE.BoxGeometry(0.003, 0.0016, PD), white, -PW / 2 + 0.002, PH + 0.0105, 0);
+  pp(new THREE.BoxGeometry(PW - 0.006, 0.006, PD - 0.006), mat('#c9c2b4'), 0, PH + 0.004, 0);
+  pp(new THREE.BoxGeometry(0.012, PH + 0.004, 0.05), white, -PW / 2 - 0.005, (PH + 0.004) / 2, 0);
+  const portal = new THREE.Mesh(new THREE.PlaneGeometry(0.044, PH - 0.004), palM); portal.rotation.y = -Math.PI / 2; portal.position.set(-PW / 2 - 0.0112, PH / 2, 0); pal.add(portal);
+  pp(new THREE.BoxGeometry(0.008, 0.002, 0.04), mat('#5a5f6b'), -PW / 2 - 0.014, PH * 0.52, 0);
+  pp(new THREE.BoxGeometry(0.002, 0.016, 0.012), mat('#5a3a2a'), -PW / 2 - 0.0113, 0.008, 0);
+  const frGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, -0.027), new THREE.Vector3(0, 0, 0.027), new THREE.Vector3(0, 0.012, 0)]); frGeo.setIndex([0, 1, 2, 0, 2, 1]); frGeo.computeVertexNormals();
+  pp(frGeo, mat('#ffffff', { side: THREE.DoubleSide }), -PW / 2 - 0.0112, PH + 0.004, 0);
+  pp(new THREE.CircleGeometry(0.0032, 12), mat('#d4a640', { metalness: 0.5, roughness: 0.4 }), -PW / 2 - 0.0114, PH + 0.0085, 0).rotation.y = -Math.PI / 2;
+  for (const [dz, c1, c2] of [[-0.01, '#1f9d55', '#ffd23f'], [0.01, '#d21f26', '#ffffff']]) {
+    pp(new THREE.CylinderGeometry(0.0008, 0.0008, 0.03, 4), mat('#d9d9d9'), -0.006, PH + 0.02, dz);
+    pp(new THREE.BoxGeometry(0.0008, 0.008, 0.012), mat(c1), -0.006, PH + 0.031, dz + 0.006);
+    pp(new THREE.BoxGeometry(0.0009, 0.003, 0.012), mat(c2), -0.006, PH + 0.031, dz + 0.006);
+  }
+  const bronze = mat('#9a7a3a', { metalness: 0.55, roughness: 0.4 }), mane = mat('#7a5a2a', { metalness: 0.5, roughness: 0.45 });
+  for (const dz of [-0.04, 0.04]) {
+    const lx = -PW / 2 - 0.03;
+    pp(new THREE.BoxGeometry(0.012, 0.01, 0.012), mat('#e9e1d2'), lx, 0.005, dz);
+    pp(new THREE.BoxGeometry(0.012, 0.006, 0.006), bronze, lx, 0.013, dz);
+    pp(new THREE.SphereGeometry(0.0042, 8, 6), bronze, lx - 0.006, 0.018, dz);
+    pp(new THREE.SphereGeometry(0.0052, 8, 6), mane, lx - 0.005, 0.0185, dz).scale.set(0.8, 1, 1.15);
   }
   // Mirante na beira da colina: balaustrada e lampiões (com vão para a escadaria).
   draped(0.15, 0.002, 0.12, '#e9e1d2', -0.165, 0.22, g, T);

@@ -5,7 +5,7 @@ import { C, VEHICLES } from '../palette.js';
 import { walkers } from '../people.js';
 import { animated, fxT } from '../runtime.js';
 import { gallery, terminalMask, windrow, yardFloor } from '../industry.js';
-import { locoMesh, wagonMesh } from '../vehicles.js';
+import { locoMesh, paintGeo, vehMat, wagonMesh } from '../vehicles.js';
 
 // Ferrovia: terminal ao sul da linha principal (que passa em z ≈ −0,29). Pátio de manobras com quatro linhas,
 // desvios e ligação com a linha principal; galpão do virador de vagões com poeira de minério; correia coberta
@@ -193,6 +193,22 @@ function buildRailway(g, zi) {
     chunks.forEach((m, i) => { along(((t * 0.05 + i / chunks.length) % 1) * totL, tmp); m.position.copy(tmp); m.position.y += 0.005; m.rotation.y = i; });
   };
   animated.push(dumper);
+  // Cinturão verde do terminal, no lado sul (longe da linha principal): fileiras de árvores e a cerca de segurança,
+  // tudo instanciado (duas chamadas de desenho).
+  {
+    const treeG = paintGeo([[new THREE.CylinderGeometry(0.003, 0.004, 0.022, 5).translate(0, 0.011, 0), '#6a4e33'], [new THREE.IcosahedronGeometry(0.016, 0).translate(0, 0.03, 0), '#2f8f5e'], [new THREE.IcosahedronGeometry(0.012, 0).translate(0.008, 0.026, 0.005), '#3aa56d']]);
+    const spots = [];
+    for (let a = 0.35; a < Math.PI - 0.35; a += 0.085) for (const [r, off] of [[0.62, 0], [0.68, 0.04]]) { const aa = a + off; spots.push([Math.cos(aa) * r, Math.sin(aa) * r, 0.8 + R() * 0.4]); }
+    const trees = new THREE.InstancedMesh(treeG, vehMat(), spots.length), o = new THREE.Object3D();
+    spots.forEach(([x, z, sc], k) => { o.position.set(x, gy(x, z) - 0.002, z); o.rotation.set(0, R() * TAU, 0); o.scale.setScalar(sc); o.updateMatrix(); trees.setMatrixAt(k, o.matrix); });
+    g.add(trees);
+    const posts = [];
+    for (let a = 0.3; a < Math.PI - 0.3; a += 0.03) posts.push([Math.cos(a) * 0.575, Math.sin(a) * 0.575, a]);
+    const fence = new THREE.InstancedMesh(paintGeo([[new THREE.BoxGeometry(0.0014, 0.014, 0.0014).translate(0, 0.007, 0), '#9aa3ad'], [new THREE.BoxGeometry(0.0008, 0.0008, 0.018).translate(0, 0.012, 0), '#9aa3ad'], [new THREE.BoxGeometry(0.0008, 0.0008, 0.018).translate(0, 0.006, 0), '#9aa3ad']]), vehMat(), posts.length);
+    posts.forEach(([x, z, a], k) => { o.position.set(x, gy(x, z) - 0.001, z); o.rotation.set(0, -a, 0); o.scale.setScalar(1); o.updateMatrix(); fence.setMatrixAt(k, o.matrix); });
+    g.add(fence);
+  }
+
 }
 
 export { buildRailway };

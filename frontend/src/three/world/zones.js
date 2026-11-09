@@ -10,24 +10,25 @@ const ZONES = [
     R: 0.74, flat: [0.5, 0.6], view: 2, music: 'boi', water: (x, z) => smooth(0.25, 0.27, x) * (1 - smooth(0.44, 0.46, x)),
     pois: [
       { name: 'Palco do boi', text: 'Na Praça Maria Aragão o Bumba meu boi sobe ao palco nas noites de São João, com matracas, pandeirões e a plateia dançando junto.', at: [0.085, 0.03, 0.12], yaw: 0, pitch: 0.36, d: 0.46 },
-      { name: 'Rua Portugal e a Sé', text: 'Casarões coloniais com fachadas de azulejo, lampiões e bandeirolas, subindo até a Catedral da Sé.', at: [-0.27, 0.05, -0.32], yaw: 0.2, pitch: 0.44, d: 0.52 },
-      { name: 'Praça Benedito Leite', text: 'Atrás da Sé, a praça arborizada com o chafariz e a estátua no centro: bancos, palmeiras e ponto de encontro da cidade alta.', at: [-0.255, 0.045, -0.535], yaw: 0.4, pitch: 1.2, d: 0.5 },
+      { name: 'Rua Portugal e a Sé', text: 'Casarões coloniais com fachadas de azulejo, lampiões e bandeirolas, subindo até a Catedral da Sé.', at: [-0.27, 0.05, -0.3], yaw: 0.1, pitch: 0.56, d: 0.56 },
+      { name: 'Praça Benedito Leite', text: 'Atrás da Sé, a praça arborizada com o chafariz e a estátua no centro: bancos, palmeiras e ponto de encontro da cidade alta.', at: [-0.255, 0.045, -0.535], yaw: 0.5, pitch: 0.72, d: 0.42 },
       { name: 'Palácio dos Leões', text: 'Sede do governo do Maranhão, com os leões na entrada, de frente para a praça, e os fundos voltados para o mar.', at: [-0.19, 0.05, -0.28], yaw: -1.0, pitch: 0.75, d: 0.46 },
       { name: 'Rua da Estrela', text: 'Mais casarões azulejados em fila, com lampiões nas calçadas e bandeirolas de São João cruzando a rua.', at: [-0.55, 0.06, -0.1], yaw: 1.3, pitch: 0.58, d: 0.42 },
       { name: 'Feira da Praia Grande', text: 'Barracas coloridas e o casarão do mercado: frutas, artesanato e comidas típicas no coração da Praia Grande.', at: [0.09, 0.02, 0.49], yaw: 2.8, pitch: 0.75, d: 0.4 },
       { name: 'Cais e Rio Anil', text: 'Canoas amarradas no cais, veleiros passeando pelo rio e a Ponte do São Francisco ligando o Centro ao bairro novo.', at: [0.33, 0.01, -0.38], yaw: 0.25, pitch: 0.62, d: 0.55 }
     ] },
-  { name: 'Educação', text: 'Campus da Educação: escola com torre do sino, laboratório de realidade virtual (a especialidade da Miniverso), biblioteca, observatório, sala maker com braço robótico, anfiteatro ao ar livre, feira de ciências, quadra com pista de corrida, horta, coleta seletiva, parquinho e estudantes pelo caminho. Aprender vivendo a experiência.',
-    act: 'Abrir o observatório', done: 'Cúpula aberta: o telescópio subiu para olhar as estrelas.', act2: 'Tocar o recreio', kind2: 'fx', done2: 'Recreio! A turma foi para a quadra e para o parquinho.',
-    act3: 'Aula em VR', done3: 'A turma colocou os óculos: o sistema solar surgiu em holograma sobre o laboratório!', act4: 'Feira de ciências', done4: 'O vulcão entrou em erupção e o foguete de garrafa PET decolou!',
-    dir: nearRail(2.2, -0.82), R: 0.56, flat: [0.36, 0.44], view: 1.7, pitch: 0.55, music: 'escola',
+  { name: 'Educação', text: 'Campus Miniverso: a Escola Miniverso de dois andares com pátio coberto, bandeiras e amarelinha; a Universidade com colunas, gramado e o palco da formatura; o Laboratório de VR imersivo, onde a turma de óculos estuda com hologramas de planeta, DNA e átomo (a especialidade da Miniverso); o Planetário com telescópios no gramado; a quadra com placar, pula-corda e pipas; a Ciência ao ar livre com horta, estufa, estação do tempo, painéis solares e o lago dos patos; e a Rua da escola, com faixa de pedestre, guarda de trânsito, ciclovia, bicicletário, ônibus escolar e o carrinho de pipoca. Aprender vivendo a experiência.',
+    act: 'Noite de estrelas', done: 'A cúpula do planetário abriu, o telescópio subiu e estrelas cadentes cruzaram o céu do campus!', act2: 'Tocar o recreio', kind2: 'fx', done2: 'Recreio! A turma correu para o pátio, o jogo esquentou na quadra e as pipas subiram.',
+    act3: 'Aula em VR', done3: 'A turma colocou os óculos: planeta, DNA e átomo cresceram em holograma no laboratório!', act4: 'Formatura', done4: 'Formatura! Os formandos jogaram os capelos para o alto.',
+    dir: nearRail(2.2, -0.82), R: 0.56, flat: [0.36, 0.44], view: 1.7, pitch: 0.62, music: 'escola',
     pois: [
-      { name: 'Laboratório de VR', text: 'Pavilhão de vidro onde a turma estuda com óculos de realidade virtual. Use Aula em VR para ver o sistema solar aparecer em holograma.', at: [-0.3, 0.04, 0.02], yaw: 0.5, pitch: 0.5, d: 0.42 },
-      { name: 'Escola e torre do sino', text: 'O prédio principal com painéis solares no teto e a escola amarela com a torre do sino e o relógio.', at: [0.05, 0.05, -0.22], yaw: 0, pitch: 0.42, d: 0.55 },
-      { name: 'Observatório', text: 'A cúpula se abre em duas metades e o telescópio sobe. Use Abrir o observatório.', at: [0.36, 0.05, 0], yaw: -0.9, pitch: 0.45, d: 0.4 },
-      { name: 'Feira de ciências', text: 'Barracas com maquetes, o vulcão de bicarbonato e o foguete de garrafa PET. Use Feira de ciências para ver tudo funcionando.', at: [0.02, 0.03, 0.14], yaw: 0.1, pitch: 0.55, d: 0.36 },
-      { name: 'Quadra e pista', text: 'Quadra poliesportiva cercada por uma pista de corrida. No recreio, a turma joga bola.', at: [0.13, 0.02, 0.27], yaw: 0.3, pitch: 0.75, d: 0.42 },
-      { name: 'Biblioteca e sala maker', text: 'A biblioteca com estantes coloridas e, ao lado, a sala maker, onde um braço robótico monta peças.', at: [-0.22, 0.04, -0.33], yaw: 0.6, pitch: 0.5, d: 0.45 }
+      { name: 'Escola Miniverso', text: 'O prédio de dois andares com a entrada vermelha, o pátio coberto com bancos, as bandeiras e a amarelinha pintada no chão.', at: [0, 0.04, -0.25], yaw: 0, pitch: 0.5, d: 0.56 },
+      { name: 'Recreio e quadra', text: 'Quadra com placar e traves, pula-corda no pátio e pipas no céu. Use Tocar o recreio para a turma sair correndo.', at: [0.18, 0.02, 0.08], yaw: 0.3, pitch: 0.62, d: 0.44 },
+      { name: 'Laboratório de VR', text: 'Pavilhão de vidro onde a turma de óculos estuda com hologramas de planeta, DNA e átomo. Use Aula em VR para ver tudo crescer.', at: [-0.25, 0.035, 0.03], yaw: -0.25, pitch: 0.45, d: 0.38 },
+      { name: 'Universidade e formatura', text: 'O prédio de colunas e frontão, o gramado com estudantes estudando em roda e o palco da formatura. Use Formatura para os capelos voarem.', at: [-0.32, 0.035, -0.2], yaw: -0.6, pitch: 0.45, d: 0.46 },
+      { name: 'Planetário', text: 'A cúpula se abre em duas metades e o telescópio sobe; no gramado, telescópios apontados para o céu. Use Noite de estrelas.', at: [0.33, 0.045, -0.19], yaw: 0.6, pitch: 0.45, d: 0.46 },
+      { name: 'Ciência ao ar livre', text: 'Horta, estufa, estação do tempo com anemômetro, painéis solares, o lago dos patos e a trilha com plaquinhas.', at: [-0.33, 0.02, 0.17], yaw: -0.65, pitch: 0.62, d: 0.42 },
+      { name: 'Rua da escola', text: 'Faixa de pedestre com o guarda de trânsito, ciclovia com a turma de bicicleta, bicicletário, o ônibus escolar no ponto e o carrinho de pipoca.', at: [-0.08, 0.01, 0.36], yaw: 0.15, pitch: 0.9, d: 0.42 }
     ] },
   { name: 'Ecologia', text: 'Reserva do mangue, no litoral maranhense: no alto, uma cachoeira desce do morro de pedras no meio do bosque de ipês e buritis; o rio corre até o mar e, na foz, o mangue cresce na lama do estuário, com os guarás. No meio, um campo com borboletas e a lagoa das vitórias-régias; do outro lado, a praia dos ninhos de tartaruga, o viveiro de mudas, o centro de visitantes e as turbinas de vento. Uma passarela de madeira liga seis estações. Faça a Expedição em VR (uma visita guiada em primeira pessoa, como a Miniverso faz em sala de aula), limpe o lixo do mangue, solte as tartarugas e os guarás. Clique no viveiro para plantar mudas.',
     act: 'Expedição em VR', kind: 'ecotour', done: '', act2: 'Limpe o mangue', kind2: 'clean', act3: 'Soltar as tartarugas', done3: 'Os filhotes saíram dos ninhos e correram para o mar!', act4: 'Soltar os guarás', done4: 'O bando de guarás levantou voo sobre o mangue!',
@@ -65,8 +66,21 @@ const ZONES = [
   { name: 'Ferrovia', text: 'Terminal ferroviário: pátio de manobras com quatro linhas e desvios, o virador de vagões no galpão descarregando o minério, a correia coberta até o pátio de estocagem, onde a empilhadeira forma as pilhas, oficina de locomotivas, posto de abastecimento e torre de controle. Na linha principal, os trens seguem viagem.', act: 'Descarregar vagão', done: 'Virador girando: o minério vai para a esteira.', act2: 'Ir na cabine do trem', kind2: 'cab', dir: nearRail(0.85, -0.2), rail: 0.85,
     R: 0.66, flat: [0.44, 0.52], view: 1.75, pitch: 0.62, music: 'trem' },
   { name: 'Porto', text: 'Terminal de minério e porto multiuso: o minério chega da Ferrovia, vai para as pilhas e segue pela correia coberta até o píer, onde o carregador enche os porões do navio. Contêineres, tanques, rebocadores, boias do canal, o farol no quebra-mar e navios esperando a vez.', act: 'Zarpar o navio', done: 'O navio carregado saiu com os rebocadores; o próximo da fila já vem atracar.', act2: 'Carregar o navio', kind2: 'fx', done2: 'O carregador está enchendo os porões: veja o navio afundar na linha-d’água.', dir: nearRail(0.25, 0.24),
-    R: 0.62, flat: [0.36, 0.46], clear: 0.75, music: 'porto', view: 1.7, pitch: 0.5, focus: [0.05, 0.015, 0.18], water: (x, z) => smooth(0.21, 0.27, z) },
-  { name: 'Lençóis', text: 'Dunas brancas com lagoas de água azul e verde, como nos Lençóis Maranhenses. Passeios virtuais por paisagens do Maranhão.', act: 'Passeio de 4x4', done: 'O 4x4 saiu pelas dunas.', dir: nearRail(5.5, 0.62), music: 'dunas' }
+    R: 0.62, flat: [0.36, 0.46], clear: 0.75, music: 'porto', view: 1.7, pitch: 0.5, focus: [0.05, 0.015, 0.18], water: (x, z) => smooth(0.21, 0.27, z),
+    pois: [
+      { name: 'Navio e carregador', text: 'O navio atracado no píer e o carregador sobre trilhos enchendo os porões de minério. Use Carregar o navio.', at: [0.06, 0.02, 0.47], yaw: 0.2, pitch: 0.62, d: 0.6 },
+      { name: 'Pátio de minério', text: 'As pilhas de minério que chegam da Ferrovia, a empilhadeira e a correia coberta até o píer.', at: [-0.2, 0.02, 0.06], yaw: -0.35, pitch: 0.62, d: 0.66 },
+      { name: 'Contêineres', text: 'O pátio de contêineres coloridos com o pórtico sobre pneus e os caminhões.', at: [0.24, 0.02, 0.04], yaw: 0.4, pitch: 0.66, d: 0.6 },
+      { name: 'Administração e torre', text: 'O prédio de vidro da administração e a torre de controle do tráfego de navios com o radar girando.', at: [0.02, 0.04, -0.085], yaw: 0.1, pitch: 0.52, d: 0.52 }
+    ] },
+  { name: 'Lençóis', text: 'Dunas brancas com lagoas de água azul e verde, como nos Lençóis Maranhenses. Passeios virtuais por paisagens do Maranhão.', act: 'Passeio de 4x4', done: 'O 4x4 saiu pelas dunas, contornando as lagoas.', dir: nearRail(5.5, 0.62), music: 'dunas',
+    R: 0.5, flat: [0.34, 0.44], view: 1.6, pitch: 0.55,
+    pois: [
+      { name: 'Lagoa Azul', text: 'Lagoas de chuva entre as dunas, azuis no fundo e verde-água na beira, com gente se banhando e guarda-sóis na areia.', at: [0.1, 0.02, 0.0], yaw: 0.3, pitch: 0.55, d: 0.42 },
+      { name: 'Campo de dunas', text: 'Dunas em meia-lua, com o lado do vento suave e o lado de trás íngreme; caminhantes nas cristas e o grupo de turistas seguindo o guia.', at: [0.0, 0.04, -0.25], yaw: 0, pitch: 0.42, d: 0.6 },
+      { name: 'Mirante', text: 'Mirante de madeira numa crista, com vista para as lagoas e as dunas até o horizonte.', at: [-0.32, 0.05, 0.3], yaw: -0.6, pitch: 0.4, d: 0.34 },
+      { name: 'Vila de pescadores', text: 'Casas de palha, coqueiros, redes e canoas na areia, como nas vilas da beira dos Lençóis.', at: [0.38, 0.02, 0.31], yaw: 0.7, pitch: 0.5, d: 0.36 }
+    ] }
 ];
 const zoneQuat = d => new THREE.Quaternion().setFromUnitVectors(UP, d);
 for (const z of ZONES) { const q = zoneQuat(z.dir); z.lx = new THREE.Vector3(1, 0, 0).applyQuaternion(q); z.lz = new THREE.Vector3(0, 0, 1).applyQuaternion(q); }

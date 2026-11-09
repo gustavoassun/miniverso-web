@@ -613,6 +613,16 @@ onUnmounted(() => {
 .rh-lap { font: 600 13px/1.2 var(--font-display); color: #bff4ff; }
 .rh-map { grid-column: 1 / -1; width: 120px; height: 120px; justify-self: center; }
 @media (max-width: 560px) { .rh-map { width: 92px; height: 92px; } .rh-pos { font-size: 32px; } }
+/* Celular: painéis dos jogos menores e colados no alto, para sobrar tela para o jogo (lixeiras, pista, blocos). */
+@media (max-width: 560px) {
+  .game-hud { top: calc(12px + env(safe-area-inset-top, 0px)); padding: 7px 12px; gap: 3px; }
+  .gh-title { font-size: 15px; } .gh-score { font-size: 21px; } .gh-hint { font-size: 13px; }
+  .gh-bins { gap: 5px; } .gh-bins button { padding: 7px 11px 7px 8px; font-size: 13px; }
+  .race-hud { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; padding: 7px 9px; gap: 2px 8px; }
+  .rh-map { width: 70px; height: 70px; } .rh-pos { font-size: 28px; } .rh-item { width: 38px; height: 38px; font-size: 22px; }
+  .race-pad { left: 12px; right: 12px; }
+  .rp-btn { width: 76px; height: 76px; }
+}
 .race-flash { position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%) scale(.6); opacity: 0; pointer-events: none; white-space: nowrap;
   font: 700 clamp(36px, 8vw, 72px)/1 var(--font-title); letter-spacing: .03em; color: #fff; text-shadow: 0 4px 0 #140c2a, 0 0 24px rgba(127, 233, 255, .7); transition: opacity .25s, transform .3s cubic-bezier(.2, 1.6, .4, 1); }
 .race-flash[hidden] { display: none; }
