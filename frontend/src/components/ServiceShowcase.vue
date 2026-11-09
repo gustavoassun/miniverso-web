@@ -2,7 +2,10 @@
 // Vitrine dos serviços: à esquerda a lista (troca sozinha, com barra de tempo); à direita a cena do serviço,
 // metade foto real e metade "versão virtual" (planta em linhas ciano). A linha que separa as duas passeia
 // sozinha e pode ser arrastada — o real virando virtual, que é o que a Miniverso faz.
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
+// Até 1000 px a vitrine vira sanfona: a cena aparece logo abaixo do serviço tocado (antes ficava lá em cima e a
+// pessoa precisava subir para ver). Nesse modo não troca sozinha, senão a cena pularia de lugar enquanto se lê.
+const stacked = () => matchMedia('(max-width: 1000px)').matches;
 const props = defineProps({ items: { type: Array, default: () => [] }, reduced: Boolean });
 const active = ref(0);
 const split = ref(50);
@@ -10,8 +13,12 @@ const dragging = ref(false);
 const svc = computed(() => props.items[active.value] || {});
 const CYCLE = 7000;
 let timer = 0, raf = 0, io, visible = false, t0 = 0, paused = false;
-function cycle() { clearTimeout(timer); if (props.reduced || !visible || paused) return; timer = setTimeout(() => { active.value = (active.value + 1) % props.items.length; cycle(); }, CYCLE); }
-function choose(i) { active.value = i; cycle(); }
+function cycle() { clearTimeout(timer); if (props.reduced || !visible || paused || stacked()) return; timer = setTimeout(() => { active.value = (active.value + 1) % props.items.length; cycle(); }, CYCLE); }
+async function choose(i) {
+  active.value = i; cycle();
+  // Na sanfona, garante que a cena recém-aberta fique à vista.
+  if (stacked()) { await nextTick(); setTimeout(() => stage.value?.scrollIntoView({ block: 'nearest', behavior: props.reduced ? 'auto' : 'smooth' }), 120); }
+}
 function sweep(now) {
   raf = 0; if (!visible || props.reduced) return;
   if (!dragging.value) split.value = 50 + Math.sin((now - t0) / 1600) * 28;
@@ -37,7 +44,7 @@ onUnmounted(() => { clearTimeout(timer); cancelAnimationFrame(raf); io?.disconne
 <template>
   <div ref="root" class="showcase" :class="{ reduced }">
     <div class="tabs" role="tablist" aria-label="Serviços da Miniverso">
-      <button v-for="(s, i) in items" :key="s.nome" type="button" role="tab" class="tab" :class="{ on: i === active }" :aria-selected="i === active" @click="choose(i)">
+      <button v-for="(s, i) in items" :key="s.nome" type="button" role="tab" class="tab" :class="{ on: i === active }" :style="{ '--o': i * 2 }" :aria-selected="i === active" @click="choose(i)">
         <span class="t-num">0{{ i + 1 }}</span>
         <span class="t-body">
           <b>{{ s.nome }}</b>
@@ -47,7 +54,7 @@ onUnmounted(() => { clearTimeout(timer); cancelAnimationFrame(raf); io?.disconne
       </button>
     </div>
 
-    <div ref="stage" class="stage" :style="{ '--split': split + '%' }" @pointermove="drag" @pointerup="stop" @pointercancel="stop">
+    <div ref="stage" class="stage" :style="{ '--split': split + '%', '--so': active * 2 + 1 }" @pointermove="drag" @pointerup="stop" @pointercancel="stop">
       <Transition name="scene" mode="out-in">
         <div :key="svc.nome" class="scene">
           <img class="real" :src="svc.imagem" alt="" width="960" height="540">
@@ -110,7 +117,8 @@ onUnmounted(() => { clearTimeout(timer); cancelAnimationFrame(raf); io?.disconne
 .h-knob{position:absolute;left:50%;top:50%;display:grid;place-items:center;width:46px;height:46px;margin:-23px;border-radius:50%;background:#fff;color:#0a1024;box-shadow:0 0 0 6px #00b7e340,0 10px 30px #0008;transition:transform .2s}
 .handle:hover .h-knob,.handle:focus-visible .h-knob{transform:scale(1.1)}
 .h-knob svg{width:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.caption{position:absolute;left:0;right:0;bottom:0;z-index:4;padding:60px 26px 24px;background:linear-gradient(0deg,#070b1af0,transparent);pointer-events:none}
+/* A legenda fica por cima da linha do comparador (a linha não corta mais o texto); sem cliques, o arrasto passa por ela. */
+.caption{position:absolute;left:0;right:0;bottom:0;z-index:6;padding:60px 26px 24px;background:linear-gradient(0deg,#070b1af0,transparent);pointer-events:none}
 .caption p{margin:10px 0 0;max-width:46ch;color:#dbe9f0;font-size:16px;line-height:1.55}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:0;padding:0;list-style:none}
 .chips li{padding:6px 12px;border-radius:99px;background:#00b7e326;border:1px solid #00b7e344;color:#bdeefa;font-size:13px;font-weight:600}
@@ -119,6 +127,9 @@ onUnmounted(() => { clearTimeout(timer); cancelAnimationFrame(raf); io?.disconne
 .swap-enter-active,.swap-leave-active{transition:opacity .4s,transform .4s}
 .swap-enter-from{opacity:0;transform:translateY(10px)}.swap-leave-to{opacity:0}
 .reduced .grid{animation:none}
-@media(max-width:1000px){.showcase{grid-template-columns:1fr}.stage{min-height:400px;order:-1}}
-@media(max-width:700px){.showcase{margin-top:40px}.stage{min-height:320px;border-radius:24px}.tab{padding:18px 20px 22px}.caption p{font-size:14px}}
+/* Sanfona: a lista se desfaz na grade e a cena entra logo depois do serviço ativo (ordem 0, 2, 4… para os
+   serviços e ativo×2+1 para a cena). */
+@media(max-width:1000px){.showcase{grid-template-columns:1fr;gap:10px}.tabs{display:contents}.tab{order:var(--o)}.t-bar{display:none}.stage{min-height:400px;order:var(--so)}}
+/* Celular: a legenda ocupa boa parte do quadro, então ele fica mais alto e o botão sobe, longe das etiquetas. */
+@media(max-width:700px){.showcase{margin-top:40px}.stage{min-height:380px;border-radius:24px}.h-knob{top:34%}.tab{padding:18px 20px 22px}.caption p{font-size:14px}}
 </style>

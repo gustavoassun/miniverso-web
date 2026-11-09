@@ -1,8 +1,11 @@
 <template>
   <!-- Painel de acessibilidade: texto maior, alto contraste, menos movimento, fonte mais legível, links destacados e o
        tradutor de Libras (VLibras), que só é carregado se a pessoa ligar. As escolhas ficam salvas no aparelho. -->
-  <div class="a11y" @keydown.esc="close(true)">
-    <button ref="btn" class="a11y-btn" type="button" data-act="open" :aria-expanded="open" aria-controls="painel-acessibilidade">
+  <!-- Sempre à mão: na capa ele fica no cabeçalho; quando o cabeçalho sai da tela (planeta, site rolado, outras
+       páginas), o mesmo botão vai para o <body> e flutua num canto fixo. -->
+  <Teleport to="body" :disabled="!docked">
+  <div class="a11y" :class="{ docked }" @keydown.esc="close(true)">
+    <button ref="btn" class="a11y-btn" type="button" data-act="open" :aria-expanded="open" aria-controls="painel-acessibilidade" :title="docked ? 'Acessibilidade' : null">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.2" r="2.2" /><path d="M4 8.2c2.6.7 5.3 1 8 1s5.4-.3 8-1M12 9.2v5.3m0 0-3.4 7m3.4-7 3.4 7" /></svg>
       <span class="a11y-label">Acessibilidade</span>
     </button>
@@ -26,6 +29,7 @@
       </div>
     </div>
   </div>
+  </Teleport>
 </template>
 
 <script setup>
@@ -40,6 +44,8 @@ const OPTIONS = [
   { key: 'links', name: 'Destacar links', hint: 'Sublinha todos os links.' },
   { key: 'libras', name: 'Tradutor de Libras', hint: 'Abre o VLibras, do Governo Federal (carrega um serviço externo).' }
 ];
+// docked: o App avisa quando o cabeçalho saiu da tela (o botão passa a flutuar no canto).
+defineProps({ docked: Boolean });
 const open = ref(false), btn = ref(null), panel = ref(null), libStatus = ref('');
 const state = reactive({ big: false, contrast: false, motion: false, font: false, links: false, libras: false });
 
@@ -136,4 +142,28 @@ onMounted(() => {
 .a11y-reset { min-height: 40px; padding: 0 14px; border-radius: 99px; border: 1px solid rgba(255, 255, 255, .28); background: transparent; color: #fff; font: 600 13px var(--font-body); cursor: pointer; }
 .a11y-foot a { color: #9fe9f6; font: 600 13px var(--font-body); }
 @media (max-width: 700px) { .a11y-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .a11y-btn { padding: 0 12px; } }
+/* Celular, no cabeçalho: o botão não é o último à direita (ao lado vem o "Vamos conversar"), então o painel abre
+   logo abaixo do cabeçalho, com as margens da tela. */
+@media (max-width: 700px) { .a11y:not(.docked) { position: static; } .a11y:not(.docked) .a11y-panel { left: 16px; right: 16px; top: 78px; width: auto; } }
+
+/* Flutuando: um botão redondo no canto de baixo à esquerda (lado livre no planeta e no site; à direita ficam o
+   botão do planeta e o aviso do app). O painel abre para cima. Fica abaixo das telas de viagem e carregamento. */
+.a11y.docked { position: fixed; z-index: 55; left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); animation: a11y-dock .35s ease both; }
+.docked .a11y-btn { width: 48px; height: 48px; padding: 0; justify-content: center; border-color: rgba(124, 222, 239, .45); background: rgba(10, 11, 22, .72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 10px 28px rgba(0, 0, 0, .45); }
+.docked .a11y-btn svg { width: 22px; height: 22px; }
+.docked .a11y-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.docked .a11y-panel { left: 0; right: auto; top: auto; bottom: calc(100% + 10px); max-height: calc(100dvh - 100px); overflow-y: auto; }
+@keyframes a11y-dock { from { opacity: 0; transform: translateY(8px) scale(.9); } }
+@media (prefers-reduced-motion: reduce) { .a11y.docked { animation: none; } }
+</style>
+
+<style>
+/* Quando o cartão de uma área (e, no celular, as instruções de um jogo ou os controles da corrida) ocupa a parte de
+   baixo da tela, o botão sobe para o canto de cima (lá só passam os nomes das áreas) e o painel abre para baixo. */
+body:has(.zone-card:not([hidden])) .a11y.docked { bottom: auto; top: max(16px, env(safe-area-inset-top)); }
+body:has(.zone-card:not([hidden])) .a11y.docked .a11y-panel { top: calc(100% + 10px); bottom: auto; }
+@media (max-width: 760px) {
+  body:has(.zone-card:not([hidden]), .race-pad:not([hidden]), .how:not([hidden])) .a11y.docked { bottom: auto; top: max(16px, env(safe-area-inset-top)); }
+  body:has(.zone-card:not([hidden]), .race-pad:not([hidden]), .how:not([hidden])) .a11y.docked .a11y-panel { top: calc(100% + 10px); bottom: auto; }
+}
 </style>

@@ -1,6 +1,6 @@
 <template>
   <div class="app-shell" :class="{ 'immersive-shell': isHome, 'admin-shell': isDashboard, 'portal-shell': isLogin }">
-    <header class="app-header">
+    <header ref="header" class="app-header">
       <nav aria-label="Navegação principal" class="navbar">
         <router-link class="brand" to="/" aria-label="Miniverso — início" @click="menuOpen = false"><img src="/images/miniverso-logo.png" alt="Miniverso" width="1024" height="236" /></router-link>
         <button class="menu-button" type="button" :aria-expanded="menuOpen" aria-controls="navigation-links" @click="menuOpen = !menuOpen">{{ menuOpen ? 'Fechar' : 'Menu' }}</button>
@@ -10,7 +10,7 @@
           <li><router-link class="restricted-link" to="/login" @click="menuOpen = false">Acesso restrito</router-link></li>
         </ul>
         <div class="header-actions">
-          <AccessibilityPanel />
+          <AccessibilityPanel :docked="away" />
           <router-link class="header-contact" :to="{ path: '/', hash: '#contato' }">Vamos conversar <span aria-hidden="true">↗</span></router-link>
         </div>
       </nav>
@@ -22,7 +22,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import PwaStatus from './components/PwaStatus.vue';
 import AccessibilityPanel from './components/AccessibilityPanel.vue';
@@ -33,6 +33,17 @@ const isDashboard = computed(() => route.name === 'Dashboard');
 const isLogin = computed(() => route.name === 'Login');
 const menuOpen = ref(false);
 watch(() => route.fullPath, () => { menuOpen.value = false; });
+// Acessibilidade sempre à mão: quando o cabeçalho sai da tela (planeta, site rolado, outras páginas), o botão flutua
+// no canto de baixo à esquerda. Cabeçalho escondido de propósito (painel administrativo): não flutua.
+const header = ref(null), away = ref(false);
+let headIO;
+onMounted(() => {
+  headIO = new IntersectionObserver(([e]) => {
+    away.value = e.intersectionRatio < 0.5 && getComputedStyle(header.value).display !== 'none';
+  }, { threshold: [0, 0.5, 1] });
+  headIO.observe(header.value);
+});
+onUnmounted(() => headIO?.disconnect());
 </script>
 
 <style>
@@ -92,7 +103,7 @@ html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after { anim
 .app-shell:not(.immersive-shell) #conteudo-principal { padding: clamp(24px, 5vw, 70px); }
 .admin-shell .app-header,.admin-shell .app-footer{display:none}.admin-shell #conteudo-principal{padding:0!important}
 .portal-shell #conteudo-principal{padding:0!important}
-.app-footer { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding: 40px 5%; color: #9a9eb4; background: #0a0b16; font-size: 11px; }
+.app-footer { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding: 40px 5% 88px; color: #9a9eb4; background: #0a0b16; font-size: 11px; }
 .app-footer img { width: 135px; height: auto; display: block; }
 .app-footer span { font: 10px var(--font-mono); }
 /* Na Home, o rodapé fica sobre o céu do site, sem faixa de outra cor. */
@@ -105,16 +116,30 @@ html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after { anim
   .header-contact { padding: 0 16px; gap: 8px; }
 }
 @media(max-width: 700px) {
-  .navbar { height: 78px; margin-inline: 6%; }
+  .navbar { height: 78px; margin-inline: 5%; }
   .brand img { width: 118px; }
   .menu-button { display: block; margin-left: 0; border: 1px solid #9d99b260; border-radius: 30px; background: transparent; color: #e9eaf3; padding: 10px 17px; min-height: 44px; font-size: 11px; cursor: pointer; }
-  .header-contact { display: none; }
-  .header-actions { margin-left: auto; }
+  /* Celular: "Vamos conversar" continua no cabeçalho, mais compacto, ao lado da acessibilidade. */
+  .navbar .header-contact { display: inline-flex; height: 40px; padding: 0 12px; gap: 6px; font-size: 11.5px; letter-spacing: 0; white-space: nowrap; }
+  .navbar { gap: 8px; }
+  .navbar .brand img { width: 100px; }
+  .navbar .menu-button { padding: 10px 12px; min-height: 40px; }
+  .navbar .header-actions .a11y-btn { width: 40px; height: 40px; padding: 0; justify-content: center; }
+  .header-contact span { display: none; }
+  .header-actions { margin-left: auto; gap: 8px; }
   .nav-links { display: none; position: absolute; top: 78px; left: 0; right: 0; padding: 22px 6%; background: #121022; border-bottom: 1px solid #756397; }
   .nav-links.menu-open { display: flex; align-items: start; flex-direction: column; gap: 4px; }
   .nav-links a { font-size: 15px; min-height: 46px; }
-  .app-footer { align-items: start; flex-direction: column; padding: 36px 6%; gap: 18px; }
+  .app-footer { align-items: start; flex-direction: column; padding: 36px 6% 88px; gap: 18px; }
   .app-footer p { margin: 0; }
+}
+/* Celulares bem estreitos (320–360 px): logo e botões ainda mais justos, para o cabeçalho não quebrar. */
+@media(max-width: 360px) {
+  .navbar { gap: 6px; margin-inline: 4%; }
+  .navbar .brand img { width: 84px; }
+  .navbar .menu-button { padding: 10px 10px; }
+  .navbar .header-contact { padding: 0 10px; font-size: 11px; }
+  .header-actions { gap: 6px; }
 }
 @media(prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0s !important; animation: none !important; } }
 </style>

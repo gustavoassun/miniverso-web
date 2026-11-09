@@ -62,7 +62,16 @@ onUnmounted(() => { resize?.disconnect(); cancelAnimationFrame(frame); window.re
 @keyframes brand-appear { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
 @media(min-width:701px) and (max-width:1100px) { .gooey-nav { top: max(16px,env(safe-area-inset-top)); right: 3%; } .gooey-nav .nav-link { padding-inline: 13px; font-size: 11px; } }
 @media(max-width:700px) { .gooey-nav { top: max(12px,env(safe-area-inset-top)); right: 4%; max-width: 92vw; } .gooey-nav .nav-brand { margin-inline: 6px 8px; } .nav-brand img { width: 82px; } .gooey-nav .nav-link { padding-inline: 11px; font-size: 11px; } }
-@media(max-width:440px) { .gooey-nav.has-brand { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); width: 92vw; border-radius: 24px; } .gooey-nav.has-brand .nav-brand { grid-column: 1 / -1; justify-self: start; min-height: 32px; margin-inline: 12px; } .gooey-nav.has-brand .nav-link { padding-inline: 5px; font-size: 10px; } .gooey-nav.has-brand .gooey-pill { top: 44px; } .gooey-nav:not(.has-brand) .nav-link { padding-inline: 10px; font-size: 10px; } }
+/* Celular: tudo numa linha só. No lugar do logo inteiro fica só o símbolo do óculos (a parte esquerda da mesma
+   imagem), e os quatro itens se dividem por igual no espaço que sobra. */
+@media(max-width:440px) {
+  .gooey-nav { left: 4%; right: 4%; max-width: none; }
+  .gooey-nav .nav-link { flex: 1 1 0; padding-inline: 4px; font-size: 11px; }
+  .gooey-nav .nav-brand { flex: none; width: 30px; overflow: hidden; justify-content: flex-start; margin-inline: 8px 12px; }
+  .gooey-nav .nav-brand img { width: 132px; max-width: none; }
+  .gooey-nav .nav-brand::after { display: none; }
+  .nav-orb { width: 16px; height: 16px; margin-right: 5px; }
+}
 .reduced, .reduced .gooey-pill { transition: none; } .reduced i { animation: none; }
 .reduced .nav-brand { animation: none; }
 </style>

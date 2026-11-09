@@ -24,7 +24,10 @@ const { offlineReady, needRefresh, updateServiceWorker } = useRegisterSW({
   onRegisteredSW(_url, value) { registration = value; },
   onRegisterError(error) { registrationError.value = true; console.warn('Não foi possível preparar o modo offline.', error); }
 });
-const visible = computed(() => !online.value || (!dismissed.value && (registrationError.value || installPrompt.value)));
+// Sem conexão: só um alerta pequeno no topo, que a pessoa pode esconder (volta a avisar se a conexão cair de novo).
+const offlineHidden = ref(false);
+const offlineAlert = computed(() => !online.value && !offlineHidden.value);
+const visible = computed(() => online.value && !dismissed.value && (registrationError.value || installPrompt.value));
 
 async function checkUpdate() {
   if (!registration || !navigator.onLine || checking) return;
@@ -32,7 +35,7 @@ async function checkUpdate() {
   try { await registration.update(); } catch { /* Mantém a versão local em caso de falha na conexão. */ }
   finally { checking = false; }
 }
-function syncConnection() { online.value = navigator.onLine; dismissed.value = false; if (online.value) checkUpdate(); }
+function syncConnection() { online.value = navigator.onLine; dismissed.value = false; offlineHidden.value = false; if (online.value) checkUpdate(); }
 function captureInstall(event) { event.preventDefault(); installPrompt.value = event; dismissed.value = false; }
 function finishInstall() { installed.value = true; installPrompt.value = null; }
 function onVisibility() { if (document.visibilityState === 'visible') checkUpdate(); else if (pendingApply) apply(); }
@@ -77,15 +80,21 @@ onUnmounted(() => {
 <template>
   <aside v-if="visible" class="pwa-status" aria-label="Aplicativo Miniverso">
     <p role="status" aria-live="polite">
-      <template v-if="!online">Você está sem conexão. O conteúdo salvo continua disponível; links externos e serviços online precisam de internet.</template>
-      <template v-else-if="registrationError">Não foi possível preparar o modo offline. Tente recarregar quando a conexão estiver estável.</template>
+      <template v-if="registrationError">Não foi possível preparar o modo offline. Tente recarregar quando a conexão estiver estável.</template>
       <template v-else>Leve o Miniverso para sua tela inicial.</template>
     </p>
     <div class="pwa-actions">
-      <button v-if="online && installPrompt && !installed" type="button" :disabled="installing" @click="install">Instalar Miniverso</button>
-      <button v-if="online" type="button" class="pwa-dismiss" @click="dismissed = true">Agora não</button>
+      <button v-if="installPrompt && !installed" type="button" :disabled="installing" @click="install">Instalar Miniverso</button>
+      <button type="button" class="pwa-dismiss" @click="dismissed = true">Agora não</button>
     </div>
   </aside>
+  <Transition name="upd">
+    <div v-if="offlineAlert" class="pwa-offline" role="status" aria-live="polite">
+      <span class="pwa-dot" aria-hidden="true"></span>
+      <span>Sem conexão</span>
+      <button type="button" aria-label="Esconder aviso de sem conexão" @click="offlineHidden = true">×</button>
+    </div>
+  </Transition>
   <Transition name="upd"><p v-if="updatedNote" class="pwa-updated" role="status">✓ Você está na versão mais nova do Miniverso</p></Transition>
 </template>
 
@@ -98,5 +107,11 @@ onUnmounted(() => {
 .pwa-updated { position: fixed; z-index: 81; left: 50%; top: max(16px, env(safe-area-inset-top)); transform: translateX(-50%); margin: 0; padding: 10px 18px; border: 1px solid #8fe1ee55; border-radius: 999px; background: #0c1b29e6; backdrop-filter: blur(10px); color: #dff4fb; font-size: 13px; font-weight: 600; box-shadow: 0 8px 28px #0006; white-space: nowrap; }
 .upd-enter-active, .upd-leave-active { transition: opacity .4s, transform .4s; }
 .upd-enter-from, .upd-leave-to { opacity: 0; transform: translate(-50%, -8px); }
+/* Logo abaixo do cabeçalho e da barra de seções, para não cobrir os botões deles. */
+.pwa-offline { position: fixed; z-index: 81; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 122px); transform: translateX(-50%); display: inline-flex; align-items: center; gap: 10px; height: 40px; padding: 0 6px 0 16px; border: 1px solid #ffc56b66; border-radius: 999px; background: #1a1424ee; backdrop-filter: blur(10px); color: #fbeedd; font-size: 13px; font-weight: 600; box-shadow: 0 8px 28px #0006; white-space: nowrap; }
+.pwa-dot { width: 8px; height: 8px; border-radius: 50%; background: #ffc56b; }
+.pwa-offline button { display: grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: #ffffff14; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.pwa-offline button:hover { background: #ffffff26; }
+@media (max-width: 700px) { .pwa-offline { top: calc(env(safe-area-inset-top, 0px) + 86px); } }
 .pwa-actions .pwa-dismiss { background: transparent; color: #f3f4fa; border-color: #ffffff55; }
 </style>
