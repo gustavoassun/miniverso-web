@@ -17,7 +17,7 @@
           <button class="btn ghost" type="button" aria-haspopup="dialog" @click="contactBrief.open()">Conte sua ideia</button>
         </div>
       </div>
-      <OrbitPortals v-reveal="120" :items="projetos" :reduced="scene.reduced" />
+      <component :is="sobreVisual" v-reveal="120" :items="projetos" :reduced="scene.reduced" v-bind="sobreTeste ? { mode: sobreTeste } : {}" />
     </section>
 
     <!-- 3. Por que imersão -->
@@ -164,6 +164,9 @@ import GlowCursor from '../components/GlowCursor.vue';
 import GooeyNav from '../components/GooeyNav.vue';
 import ScrollExpand from '../components/ScrollExpand.vue';
 import OrbitPortals from '../components/OrbitPortals.vue';
+import GalaxyPortals from '../components/GalaxyPortals.vue';
+import SobreLab from '../components/SobreLab.vue';
+import RingPortals from '../components/RingPortals.vue';
 import ServiceShowcase from '../components/ServiceShowcase.vue';
 import WorldCarousel from '../components/WorldCarousel.vue';
 import AreaMarquee from '../components/AreaMarquee.vue';
@@ -172,6 +175,11 @@ import LineSidebar from '../components/LineSidebar.vue';
 import { useProjectStore } from '../utils/projectStore.js';
 
 const contactBrief = ref(null);
+// Visual da seção Sobre: Planeta com anel. TESTE: /?teste=galaxia, portais (o antigo) ou oculos, solar, roda,
+// constelacao, anel, cartas, esfera, imersiva mostram outras ideias para comparar. Sem o parâmetro, fica o anel.
+const testeParam = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('teste') : null;
+const sobreTeste = ['oculos', 'solar', 'roda', 'constelacao', 'anel', 'cartas', 'esfera', 'imersiva'].includes(testeParam) ? testeParam : null;
+const sobreVisual = testeParam === 'galaxia' ? GalaxyPortals : testeParam === 'portais' ? OrbitPortals : sobreTeste ? SobreLab : RingPortals;
 const scene = ref({ progress: 0, reduced: false });
 // Os efeitos do resto da página entram quando o planeta sai de cena (ele ocupa o fim da rolagem da abertura).
 const entered = computed(() => scene.value.passed === true);
