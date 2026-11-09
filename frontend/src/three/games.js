@@ -637,12 +637,12 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     camH += wrapA(me.h - camH) * (1 - Math.exp(-dt * 7)); camY += (me.y - camY) * (1 - Math.exp(-dt * 8));
     // A câmera anda pela própria pista, um trecho atrás do kart (nunca sai do asfalto, nem no viaduto e no laço),
     // e olha um pouco à frente dele.
-    const sp = Math.min(1.3, me.v / VMAX), fx = Math.cos(camH), fz = Math.sin(camH), back = 0.088 + sp * 0.02 + me.boost * 0.12;
+    const sp = Math.min(1.3, me.v / VMAX), fx = Math.cos(camH), fz = Math.sin(camH), back = 0.064 + sp * 0.016 + me.boost * 0.09;
     trackAt(me.prog - back, (me.lat ?? 0) * 0.6, pt);
-    const cx = pt.x, cz = pt.z, cy = pt.y, lx = me.x + fx * 0.085, lz = me.z + fz * 0.085;
+    const cx = pt.x, cz = pt.z, cy = pt.y, lx = me.x + fx * 0.075, lz = me.z + fz * 0.075;
     const shake = Math.max(0, 1 - (n - me.hitAt) / 0.35) * 0.0035;
-    tmp.set(cx + Math.sin(n * 83) * shake, ground(cx, cz) + cy + 0.031 + Math.sin(n * 97) * shake, cz);
-    orbL.set(lx, ground(lx, lz) + camY + 0.011, lz);
+    tmp.set(cx + Math.sin(n * 83) * shake, ground(cx, cz) + cy + 0.0245 + Math.sin(n * 97) * shake, cz);
+    orbL.set(lx, ground(lx, lz) + camY + 0.009, lz);
     // Volta de cinema em torno do grid antes da largada; durante a contagem, encaixa atrás do kart.
     const intro = race.state === 'grid' ? 1 : race.state === 'count' ? 1 - Math.min(1, Math.max(0, (n - race.t0) / 1.8)) : 0;
     if (intro > 0) {
@@ -657,12 +657,14 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     // Campo de visão: bem mais aberto que antes, abrindo mais em alta velocidade e no turbo.
     // No celular em pé o campo de visão abre mais, para a pista à frente e as curvas caberem na tela estreita.
     const tallR = Math.max(0, Math.min(1, (1.25 - worldCamera.aspect) / 0.8));
-    fovNow = 64 + tallR * 22 + sp * 7 + Math.min(0.12, me.boost) * 45 - intro * 6;
+    fovNow = 60 + tallR * 22 + sp * 7 + Math.min(0.12, me.boost) * 45 - intro * 6;
     outCam.copy(camP); outLook.copy(camL); outUp.copy(camU).normalize();
     return camW;
   }
   // 4) Fliperama: a câmera chega na frente das máquinas do salão e a tela do Quebra-pixel abre por cima.
-  const arc = createArcade({ el: $('.arcade'), on, sfx, buzz, onClose: () => { compact(false); view(null); zoneStatus.textContent = 'Toque nas máquinas ou em Fliperama para jogar de novo.'; } });
+  // As jogadas do Quebra-pixel também fazem a turma da calçada reagir (acerto, bônus/fase, bola perdida).
+  const arcSfx = (k, p) => { sfx(k, p); if (k === 'hit') arcade.hitAt = rt.clock; else if (k === 'bonus' || k === 'win') arcade.hypeAt = rt.clock; else if (k === 'bad' || k === 'lose') arcade.sadAt = rt.clock; };
+  const arc = createArcade({ el: $('.arcade'), on, sfx: arcSfx, buzz, onClose: () => { compact(false); view(null); zoneStatus.textContent = 'Toque nas máquinas ou em Fliperama para jogar de novo.'; } });
   function startArcade() {
     if (arc.on) return;
     stopGame(); compact(true);

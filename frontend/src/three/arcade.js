@@ -10,13 +10,23 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
   const cv = el.querySelector('canvas'), x = cv.getContext('2d'), scoreEl = el.querySelector('.ac-score'), hintEl = el.querySelector('.ac-hint');
   let open = false, raf = 0, last = 0, kv = 0, keys = { l: false, r: false };
   let px = W / 2, pw = 48, wideUntil = 0, ball, bricks, lives, score, level, msg = '', msgUntil = 0, over = false, sparks = [];
+  // Efeitos da tela: rastro da bola, pontos subindo, combo (blocos seguidos sem tocar na raquete), tremida, clarão.
+  let trail = [], pops = [], combo = 0, shake = 0, flash = 0, padFlash = 0;
+  const stars = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.3 + Math.random() * 0.7 }));
+  // Fundo pintado uma vez: degradê roxo, sol neon e chão de grade (estilo fliperama), mais a vinheta da tela.
+  const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
+  { const b = bg.getContext('2d'), gr = b.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#07041a'); gr.addColorStop(0.62, '#1c0a3a'); gr.addColorStop(1, '#2a0b3f'); b.fillStyle = gr; b.fillRect(0, 0, W, H);
+    const sun = b.createLinearGradient(0, 150, 0, 200); sun.addColorStop(0, 'rgba(255,197,107,.32)'); sun.addColorStop(1, 'rgba(255,79,216,.18)'); b.fillStyle = sun; b.beginPath(); b.arc(W / 2, 196, 46, Math.PI, 0); b.fill();
+    b.fillStyle = '#1c0a3a'; for (let k = 0; k < 5; k++) b.fillRect(W / 2 - 48, 160 + k * 8, 96, 2 + k * 0.6); }
+  const vig = document.createElement('canvas'); vig.width = W; vig.height = H;
+  { const v = vig.getContext('2d'), gr = v.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.55)'); v.fillStyle = gr; v.fillRect(0, 0, W, H); }
   let best = 0; try { best = Number(localStorage.getItem(BEST_KEY)) || 0; } catch { /* sem armazenamento */ }
 
   function layout() {
     bricks = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
       const gold = Math.random() < 0.08, hard = level > 1 && r < level - 1 && !gold;
-      bricks.push({ x: OX + c * (BW + GAP), y: OY + r * (BH + GAP), c: gold ? '#ffd23f' : ROW_COLORS[r], hp: hard ? 2 : 1, gold, pts: gold ? 50 : (ROWS - r) * 10 });
+      bricks.push({ x: OX + c * (BW + GAP), y: OY + r * (BH + GAP), c: gold ? '#ffd23f' : ROW_COLORS[r], hp: hard ? 2 : 1, max: hard ? 2 : 1, gold, pts: gold ? 50 : (ROWS - r) * 10, born: performance.now() / 1000 + (r * COLS + c) * 0.012 });
     }
   }
   const speed = () => 175 + level * 28;
@@ -26,10 +36,10 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
     if (!ball.stuck) return;
     const a = (Math.random() - 0.5) * 0.9; ball.vx = Math.sin(a) * speed(); ball.vy = -Math.cos(a) * speed(); ball.stuck = false; sfx('tap');
   }
-  function reset() { level = 1; score = 0; lives = 3; over = false; pw = 48; wideUntil = 0; layout(); serve(); say('Fase 1', 1.4); hud(); }
+  function reset() { level = 1; score = 0; lives = 3; over = false; pw = 48; wideUntil = 0; combo = 0; trail = []; pops = []; layout(); serve(); say('Fase 1', 1.4); hud(); }
   function say(t, s) { msg = t; msgUntil = performance.now() / 1000 + s; }
   function hud() { scoreEl.textContent = `${score} pts · ${'♥'.repeat(Math.max(0, lives))} · fase ${level}`; }
-  function burst(bx, by, c) { for (let i = 0; i < 8; i++) sparks.push({ x: bx, y: by, vx: (Math.random() - 0.5) * 160, vy: (Math.random() - 0.5) * 160, t: 0.5, c }); }
+  function burst(bx, by, c, n = 12) { for (let i = 0; i < n; i++) sparks.push({ x: bx, y: by, vx: (Math.random() - 0.5) * 190, vy: (Math.random() - 0.7) * 170, t: 0.55, c }); }
 
   function step(dt, now) {
     // Teclado: a raquete arranca rápido até 420 px/s e para na hora em que a tecla é solta.
@@ -46,7 +56,7 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
     // Raquete: o ponto onde a bola bate decide o ângulo da volta.
     if (ball.vy > 0 && ball.y > 216 && ball.y < 226 && Math.abs(ball.x - px) < pw / 2 + 3) {
       const k = (ball.x - px) / (pw / 2), sp = Math.min(330, Math.hypot(ball.vx, ball.vy) * 1.03), a = k * 1.05;
-      ball.vx = Math.sin(a) * sp; ball.vy = -Math.cos(a) * sp; ball.y = 216; sfx('paddle'); buzz(8);
+      ball.vx = Math.sin(a) * sp; ball.vy = -Math.cos(a) * sp; ball.y = 216; sfx('paddle'); buzz(8); combo = 0; padFlash = 1;
     }
     if (ball.y > H + 6) {
       lives--; hud();
@@ -55,6 +65,7 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
         hintEl.textContent = `Fim de jogo! ${score} pts · recorde ${best} pts. Toque ou aperte espaço para jogar de novo.`;
         sfx('lose'); buzz([60, 40, 60]);
       } else { serve(); say('Mais uma!', 1); sfx('bad'); buzz([40, 30, 40]); }
+      combo = 0; shake = 6; flash = 0.25;
       return;
     }
     for (const b of bricks) {
@@ -62,30 +73,73 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
       const dx = Math.min(ball.x - (b.x - 3), b.x + BW + 3 - ball.x), dy = Math.min(ball.y - (b.y - 3), b.y + BH + 3 - ball.y);
       if (dx < dy) ball.vx = -ball.vx; else ball.vy = -ball.vy;
       if (--b.hp <= 0) {
-        score += b.pts; burst(b.x + BW / 2, b.y + BH / 2, b.c);
+        combo++; const pts = b.pts * Math.min(4, 1 + Math.floor(combo / 3)); score += pts; burst(b.x + BW / 2, b.y + BH / 2, b.c, b.gold ? 22 : 12); shake = Math.min(5, 2 + combo * 0.4);
+        pops.push({ x: b.x + BW / 2, y: b.y, t: 0.9, s: `+${pts}`, c: b.gold ? '#ffd23f' : '#ffffff' });
+        if (combo >= 3 && combo % 3 === 0) pops.push({ x: W / 2, y: 120, t: 1.1, s: `COMBO x${Math.min(4, 1 + Math.floor(combo / 3))}`, c: '#ff4fd8', big: true });
         if (b.gold) { pw = 72; wideUntil = now + 8; say('Raquete larga!', 1.2); sfx('bonus'); buzz(25); } else { sfx('hit', (ROWS - Math.round((b.y - OY) / (BH + GAP))) * 2); buzz(10); }
       } else sfx('paddle');
       hud(); break;
     }
-    if (bricks.every(b => b.hp <= 0)) { level++; layout(); serve(); say(`Fase ${level}!`, 1.6); hud(); sfx('win'); buzz([30, 60, 30, 60, 80]); }
+    if (bricks.every(b => b.hp <= 0)) { level++; layout(); serve(); say(`Fase ${level}!`, 1.6); hud(); sfx('win'); buzz([30, 60, 30, 60, 80]); flash = 0.6; combo = 0; for (let k = 0; k < 6; k++) burst(40 + k * 48, 120, ROW_COLORS[k % 5], 14); }
   }
   function draw(now) {
-    x.fillStyle = '#0b0618'; x.fillRect(0, 0, W, H);
-    x.fillStyle = 'rgba(127,233,255,.05)'; for (let i = 0; i < W; i += 16) x.fillRect(i, 0, 1, H); for (let j = 0; j < H; j += 16) x.fillRect(0, j, W, 1);
+    const dt = 1 / 60;
+    x.save();
+    if (shake > 0.1) { x.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.86; }
+    x.drawImage(bg, 0, 0);
+    // Estrelas descendo devagar (mais perto, mais rápidas) e o chão de grade correndo na direção da tela.
+    for (const st of stars) { st.y += st.z * 14 * dt; if (st.y > 150) { st.y = 0; st.x = Math.random() * W; } x.fillStyle = `rgba(255,255,255,${0.25 + st.z * 0.55 * (0.7 + 0.3 * Math.sin(now * 3 + st.x))})`; x.fillRect(st.x, st.y, st.z > 0.8 ? 2 : 1, st.z > 0.8 ? 2 : 1); }
+    x.strokeStyle = 'rgba(255,79,216,.28)'; x.lineWidth = 1; x.beginPath();
+    for (let k = -8; k <= 8; k++) { x.moveTo(W / 2 + k * 8, 196); x.lineTo(W / 2 + k * 48, H); }
+    for (let k = 0; k < 6; k++) { const u = ((k + (now * 0.8) % 1) / 6), yy = 196 + u * u * 44; x.moveTo(0, yy); x.lineTo(W, yy); }
+    x.stroke();
+    // Placar dentro da tela.
+    x.fillStyle = 'rgba(7,4,26,.75)'; x.fillRect(0, 0, W, 20); x.fillStyle = '#ff4fd8'; x.fillRect(0, 20, W, 1);
+    x.font = '700 9px monospace'; x.textAlign = 'left'; x.fillStyle = '#7fe9ff'; x.fillText('PONTOS', 6, 9); x.fillStyle = '#ffffff'; x.font = '700 10px monospace'; x.fillText(String(score).padStart(5, '0'), 6, 18);
+    x.textAlign = 'center'; x.font = '700 9px monospace'; x.fillStyle = '#ffc56b'; x.fillText('RECORDE', W / 2, 9); x.fillStyle = '#ffffff'; x.font = '700 10px monospace'; x.fillText(String(Math.max(best, score)).padStart(5, '0'), W / 2, 18);
+    x.textAlign = 'right'; x.font = '700 9px monospace'; x.fillStyle = '#3ee0b5'; x.fillText(`FASE ${level}`, W - 6, 9);
+    for (let k = 0; k < 3; k++) { x.fillStyle = k < lives ? '#ff4f6d' : 'rgba(255,255,255,.18)'; const hx = W - 40 + k * 12, hy = 12; x.fillRect(hx, hy + 1, 3, 3); x.fillRect(hx + 4, hy + 1, 3, 3); x.fillRect(hx + 1, hy + 3, 5, 3); x.fillRect(hx + 2, hy + 6, 3, 1); }
+    // Blocos com relevo (luz em cima e à esquerda, sombra embaixo), brilho correndo, rachadura nos duros já batidos.
     for (const b of bricks) {
       if (b.hp <= 0) continue;
-      x.fillStyle = b.c; x.fillRect(b.x, b.y, BW, BH);
-      x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(b.x, b.y, BW, 2);
-      if (b.hp > 1) { x.strokeStyle = '#ffffff'; x.lineWidth = 1; x.strokeRect(b.x + 0.5, b.y + 0.5, BW - 1, BH - 1); }
-      if (b.gold) { x.fillStyle = '#ffffff'; x.fillRect(b.x + BW / 2 - 2, b.y + 3, 4, 4); }
+      const pop = Math.min(1, Math.max(0, (now - b.born) / 0.25)); if (pop <= 0) continue;
+      const bh = BH * pop, by = b.y + (BH - bh) / 2;
+      x.fillStyle = b.c; x.fillRect(b.x, by, BW, bh);
+      x.fillStyle = 'rgba(255,255,255,.45)'; x.fillRect(b.x, by, BW, 2); x.fillRect(b.x, by, 2, bh);
+      x.fillStyle = 'rgba(0,0,0,.35)'; x.fillRect(b.x, by + bh - 2, BW, 2); x.fillRect(b.x + BW - 2, by, 2, bh);
+      const sh = ((now * 40 + b.x * 0.7 + b.y) % 160) - 20; if (sh > 0 && sh < BW) { x.fillStyle = 'rgba(255,255,255,.35)'; x.fillRect(b.x + sh, by + 2, 3, bh - 4); }
+      if (b.max > 1) { x.strokeStyle = '#ffffff'; x.lineWidth = 1; x.strokeRect(b.x + 0.5, by + 0.5, BW - 1, bh - 1); if (b.hp < b.max) { x.strokeStyle = 'rgba(10,6,24,.8)'; x.beginPath(); x.moveTo(b.x + 8, by + 1); x.lineTo(b.x + 13, by + 5); x.lineTo(b.x + 10, by + bh - 1); x.moveTo(b.x + 24, by + 1); x.lineTo(b.x + 21, by + 6); x.stroke(); } }
+      if (b.gold) { const tw = 0.5 + 0.5 * Math.sin(now * 8 + b.x); x.fillStyle = `rgba(255,255,255,${0.6 + tw * 0.4})`; x.fillRect(b.x + BW / 2 - 2, by + 3, 4, 4); x.fillRect(b.x + BW / 2 - 4, by + 4, 8, 2); }
     }
-    x.fillStyle = '#7fe9ff'; x.fillRect(px - pw / 2, 220, pw, 6); x.fillStyle = '#ffffff'; x.fillRect(px - pw / 2, 220, pw, 2);
-    if (!over) { x.fillStyle = '#ffffff'; x.fillRect(ball.x - 3, ball.y - 3, 6, 6); }
-    sparks = sparks.filter(s => (s.t -= 1 / 60) > 0);
-    for (const s of sparks) { s.x += s.vx / 60; s.y += s.vy / 60; x.fillStyle = s.c; x.globalAlpha = s.t * 2; x.fillRect(s.x, s.y, 3, 3); }
+    // Raquete neon com brilho (acende ao rebater); larga, fica dourada.
+    const wide = pw > 48; padFlash = Math.max(0, padFlash - dt * 4);
+    x.shadowColor = wide ? '#ffd23f' : '#7fe9ff'; x.shadowBlur = 8 + padFlash * 10;
+    x.fillStyle = wide ? '#ffd23f' : '#7fe9ff'; x.fillRect(px - pw / 2, 220, pw, 6); x.shadowBlur = 0;
+    x.fillStyle = `rgba(255,255,255,${0.7 + padFlash * 0.3})`; x.fillRect(px - pw / 2, 220, pw, 2);
+    x.fillStyle = '#ff4fd8'; x.fillRect(px - pw / 2, 222, 3, 4); x.fillRect(px + pw / 2 - 3, 222, 3, 4);
+    // Bola com rastro.
+    if (!over) {
+      trail.push({ x: ball.x, y: ball.y }); if (trail.length > 9) trail.shift();
+      trail.forEach((tp, k) => { const a = (k + 1) / trail.length; x.fillStyle = `rgba(127,233,255,${a * 0.35})`; const r = 1 + a * 2; x.fillRect(tp.x - r, tp.y - r, r * 2, r * 2); });
+      x.shadowColor = '#ffffff'; x.shadowBlur = 8; x.fillStyle = '#ffffff'; x.fillRect(ball.x - 3, ball.y - 3, 6, 6); x.shadowBlur = 0;
+    }
+    sparks = sparks.filter(sp => (sp.t -= dt) > 0);
+    for (const sp of sparks) { sp.vy += 260 * dt; sp.x += sp.vx * dt; sp.y += sp.vy * dt; x.fillStyle = sp.c; x.globalAlpha = Math.min(1, sp.t * 2); x.fillRect(sp.x, sp.y, 3, 3); }
     x.globalAlpha = 1;
+    pops = pops.filter(pp => (pp.t -= dt) > 0);
+    for (const pp of pops) { x.globalAlpha = Math.min(1, pp.t * 2); x.font = pp.big ? '700 16px monospace' : '700 9px monospace'; x.textAlign = 'center'; x.fillStyle = '#0b0618'; x.fillText(pp.s, pp.x + 1, pp.y + 1 - (pp.big ? 0 : (0.9 - pp.t) * 26)); x.fillStyle = pp.c; x.fillText(pp.s, pp.x, pp.y - (pp.big ? 0 : (0.9 - pp.t) * 26)); }
+    x.globalAlpha = 1;
+    // Título na espera do primeiro lançamento e as mensagens (fase, pausa, fim).
+    if (ball.stuck && level === 1 && score === 0 && !over) {
+      x.textAlign = 'center'; x.font = '700 26px monospace';
+      const bob = Math.sin(now * 2) * 2; x.fillStyle = '#ff4fd8'; x.fillText('QUEBRA-PIXEL', W / 2 + 2, 132 + bob + 2); x.fillStyle = '#ffc56b'; x.fillText('QUEBRA-PIXEL', W / 2, 132 + bob);
+    }
     const m = over ? 'FIM DE JOGO' : paused ? 'PAUSA · CLIQUE PARA VOLTAR' : now < msgUntil ? msg : ball.stuck ? 'CLIQUE PARA LANÇAR' : '';
-    if (m) { x.font = '700 18px monospace'; x.textAlign = 'center'; x.fillStyle = '#ffc56b'; x.fillText(m, W / 2, 150); }
+    if (m && (over || paused || now < msgUntil || Math.sin(now * 5) > -0.3)) { x.font = '700 14px monospace'; x.textAlign = 'center'; x.fillStyle = '#0b0618'; x.fillText(m, W / 2 + 1, 161); x.fillStyle = over ? '#ff4f6d' : '#7fe9ff'; x.fillText(m, W / 2, 160); }
+    if (over) { x.font = '700 10px monospace'; x.fillStyle = '#ffffff'; x.fillText(`${score} PONTOS · RECORDE ${best}`, W / 2, 178); }
+    if (flash > 0) { x.fillStyle = `rgba(255,255,255,${flash})`; x.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt * 1.8); }
+    x.drawImage(vig, 0, 0);
+    x.restore();
   }
   function frame(t) {
     if (!open) return;

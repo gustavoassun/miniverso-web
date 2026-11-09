@@ -131,6 +131,20 @@ function kartGeo(color) {
   piece(L, new THREE.SphereGeometry(0.0039, 12, 8), color, -0.0024, 0.0158, 0);
   piece(L, new THREE.SphereGeometry(0.0034, 10, 6, -0.9, 1.8, 1.05, 0.75), '#141428', -0.0019, 0.0156, 0);
   piece(L, new THREE.TorusGeometry(0.0039, 0.0006, 4, 16), '#f6f6f6', -0.0024, 0.0158, 0, Math.PI / 2, 0, 0);
+  // Acabamento: faixa branca nas laterais, número nos dois lados, para-choques na frente e atrás, barras laterais
+  // cromadas, faróis de LED, lanterna vermelha no aerofólio, encosto do banco e espelhos.
+  for (const s of [-1, 1]) {
+    piece(L, Bx(0.0155, 0.0006, 0.0016), '#f6f6f6', -0.001, 0.0087, s * 0.0088);
+    piece(L, Cy(0.0019, 0.0004, 12), '#f6f6f6', -0.002, 0.0058, s * 0.0115, 0, Math.PI / 2);
+    piece(L, Cy(0.0009, 0.0005, 8), '#15161c', -0.002, 0.0058, s * 0.0117, 0, Math.PI / 2);
+    piece(L, Cy(0.0007, 0.014, 6), '#c9d0de', 0.0005, 0.0034, s * 0.0124, 0, 0, Math.PI / 2);
+    piece(L, Bx(0.0008, 0.0011, 0.0035), '#fff1b8', 0.0164, 0.0066, s * 0.0045);
+    piece(L, Bx(0.0011, 0.0011, 0.0016), '#15161c', 0.0018, 0.0128, s * 0.0068);
+  }
+  piece(L, Bx(0.0016, 0.0016, 0.019), '#15161c', 0.0197, 0.0034, 0);
+  piece(L, Bx(0.0016, 0.0018, 0.02), '#15161c', -0.0206, 0.0044, 0);
+  piece(L, Bx(0.0006, 0.0012, 0.008), '#ff3b3b', -0.0182, 0.0145, 0);
+  piece(L, Bx(0.0014, 0.0062, 0.0078), '#15161c', -0.0058, 0.0102, 0);
   return mergeGeometries(L);
 }
 function kartWheels() { const L = []; for (const s of [-1, 1]) wheel(L, 0, s * 0.0092, 0.0038); return mergeGeometries(L); }
@@ -331,11 +345,11 @@ function buildGames(g, zi) {
     for (let k = 0; k < 5; k++) { lights.setMatrixAt(k, _m.makeTranslation(x0 - 0.0085, beamY - 0.021, z0 - 0.02 + k * 0.01)); lights.setColorAt(k, _c.set('#3a1414')); }
     piece(S, Bx(0.004, 0.009, 0.056), '#15161c', x0 - 0.0068, beamY - 0.021, z0, ry);
     lights.userData.keep = true; g.add(lights); race.lights = lights;
-    race.party = confetti(g, x0, beamY, z0);
+    race.party = confetti(g, x0, beamY, z0, { up: 0.07, spread: 0.12, grav: 0.05, floor: -(beamY - y0) + 0.002, size: 0.005, n: 48 });
     // Confete espalhado pela reta principal e saindo da arquibancada: a cada volta a reta ganha uma chuva de confete;
     // na vitória, todos disparam em sequência, várias vezes.
-    const along = [-0.2, -0.08, 0.04, 0.16].map(x => confetti(g, x, sag(x, -0.4) + 0.05, -0.4));
-    const stands = [-0.14, -0.05, 0.05, 0.14].map(x => confetti(g, x, sag(x, -0.5) + 0.07, -0.48));
+    const along = [-0.2, -0.08, 0.04, 0.16].map(x => confetti(g, x, sag(x, -0.4) + 0.03, -0.4, { up: 0.03, spread: 0.11, grav: 0.04, floor: -0.024, size: 0.0045, n: 44 }));
+    const stands = [-0.14, -0.05, 0.05, 0.14].map(x => confetti(g, x, sag(x, -0.5) + 0.06, -0.48, { up: 0.04, spread: 0.12, grav: 0.05, floor: -0.06, size: 0.0045 }));
     race.burst = (big) => {
       const now = rt.clock, list = big ? [race.party, ...along, ...stands] : [race.party, ...along];
       list.forEach((c, k) => { c.userData.at = now + k * 0.12; });
@@ -381,14 +395,20 @@ function buildGames(g, zi) {
     fans.forEach((_, i) => { flags.setColorAt(i, new THREE.Color(cc[(i * 3 + 2) % 8])); flags.setMatrixAt(i, ZERO); });
     flags.userData.detail = true; flags.frustumCulled = false;
     const ph = fans.map(() => R() * TAU);
+    // A fase do pulo é somada quadro a quadro: antes o ritmo mudava multiplicado pelo relógio inteiro e a torcida
+    // tremia rápido demais. Agora é um pulinho sutil e no mesmo compasso, mais alto só na comemoração.
+    let beat = 0, last = 0, cheerS = 0;
     f.host.userData.anim = t => {
-      const lapCheer = Math.max(0, 1 - (t - (race.cheerAt ?? -9)) / 3), winCheer = Math.max(0, 1 - (t - (race.winAt ?? -99)) / 7);
+      const dt = Math.min(0.05, Math.max(0, t - last)); last = t;
+      const lapCheer = Math.max(0, 1 - (t - (race.cheerAt ?? -9)) / 3.5), winCheer = Math.max(0, 1 - (t - (race.winAt ?? -99)) / 7);
       const cheer = Math.max(lapCheer, winCheer), live = race.state !== 'off' ? 1 : 0;
-      const speed = 2 + live * 2.2 + cheer * 2.5, amp = 0.0005 + live * 0.0013 + cheer * 0.003;
+      cheerS += (cheer - cheerS) * Math.min(1, dt * 4);
+      beat += dt * (2.2 + cheerS * 1.6);
+      const amp = live * 0.0003 + cheerS * 0.0016;
       fans.forEach(([x, y, z], i) => {
-        const jump = Math.max(0, Math.sin(t * speed + ph[i])) * amp;
-        f.place(i, x, y - 0.0014 + jump, z, Math.sin(t * 0.7 + ph[i]) * 0.25, 0, Math.min(1, cheer * 1.2) * (0.75 + 0.25 * Math.sin(t * speed + ph[i])));
-        flags.setMatrixAt(i, i % 3 ? ZERO : _m.makeRotationX(Math.sin(t * (3 + cheer * 3) + ph[i]) * 0.6).setPosition(x + 0.0045, y + 0.0145 + jump, z));
+        const jump = Math.max(0, Math.sin(beat + ph[i])) * amp;
+        f.place(i, x, y - 0.0014 + jump, z, Math.sin(t * 0.7 + ph[i]) * 0.25, 0, Math.min(1, cheerS * 1.3) * (0.8 + 0.2 * Math.sin(beat + ph[i])));
+        flags.setMatrixAt(i, i % 3 ? ZERO : _m.makeRotationX(Math.sin(t * 2.5 + ph[i]) * (0.3 + cheerS * 0.4)).setPosition(x + 0.0045, y + 0.0145 + jump, z));
       });
       f.done(); flags.instanceMatrix.needsUpdate = true;
     };
@@ -662,7 +682,40 @@ function buildGames(g, zi) {
   }
   // Gente: na calçada dos fliperamas, na plateia do Reciclaverso e assistindo à arena (só em cima das ilhas).
   const ppl = ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6', '#7a5cff'];
-  crowd(g, [[-0.27, 0.245], [-0.24, 0.25], [-0.17, 0.25], [-0.14, 0.245], [0.1, -0.1], [-0.09, -0.04], [0.17, 0.19], [0.035, 0.06], [-0.035, 0.005]].map(([x, z]) => [x, z, sag(x, z) + FLOOR]), zi, ppl);
+  crowd(g, [[0.1, -0.1], [-0.09, -0.04], [0.17, 0.19], [0.035, 0.06], [-0.035, 0.005]].map(([x, z]) => [x, z, sag(x, z) + FLOOR]), zi, ppl);
+
+  // Calçada dos fliperamas: um jogador em cada máquina (mãos no painel, apertando os botões, balançando o corpo e
+  // comemorando de vez em quando) e uma turminha atrás assistindo, que vibra, dança e põe a mão na cabeça. Com o
+  // Quebra-pixel aberto, todos reagem às suas jogadas (arcade.hitAt / hypeAt / sadAt, marcados pelo jogo).
+  {
+    const MX = [-0.27, -0.24, -0.17, -0.14], mz = 0.165 + 0.085 / 2 + 0.018;
+    const spots = [
+      ...MX.map(x => ({ x, z: mz + 0.024, rot: Math.PI, player: true })),
+      ...[[-0.285, 0.29], [-0.255, 0.288], [-0.225, 0.292], [-0.19, 0.287], [-0.155, 0.291], [-0.125, 0.286]].map(([x, z]) => ({ x, z, rot: Math.PI, player: false }))
+    ];
+    spots.forEach((p, k) => { p.y = sag(p.x, p.z) + FLOOR; p.ph = k * 1.9 + R() * 2; p.next = 3 + R() * 8; p.win = -99; });
+    const f = figures(g, spots.length, spots.map((_, k) => ppl[(k * 3 + 1) % ppl.length]));
+    f.host.userData.anim = t => {
+      const hit = Math.max(0, 1 - (t - (arcade.hitAt ?? -99)) / 0.6), hype = Math.max(0, 1 - (t - (arcade.hypeAt ?? -99)) / 2.5), sad = Math.max(0, 1 - (t - (arcade.sadAt ?? -99)) / 1.6);
+      spots.forEach((p, k) => {
+        if (t > p.next) { p.win = t; p.next = t + 6 + R() * 9; }                                   // comemoração por conta própria
+        const own = Math.max(0, 1 - (t - p.win) / 1.8), party = Math.max(own, hype, p.player ? 0 : hit * 0.6);
+        const hop = Math.max(0, Math.sin(t * 7 + p.ph)) * 0.0022 * party;
+        if (p.player) {
+          // Jogando: corpo para os lados com o jogo, braços à frente batendo nos botões; na festa, braços para o alto.
+          const mash = Math.sin(t * 13 + p.ph) * (1 - party), lean = Math.sin(t * 1.7 + p.ph) * 0.18;
+          f.place(k, p.x, p.y + hop, p.z, p.rot + lean, 0.35 + mash * 0.25, party > 0.05 ? party : 0.22 + 0.06 * mash, lean * 0.15);
+        } else {
+          // Assistindo: dançam de leve, torcem nas jogadas e põem as mãos na cabeça quando a bola cai.
+          const sway = Math.sin(t * 2.4 + p.ph), look = Math.sin(t * 0.5 + p.ph) * 0.35;
+          const arms = Math.max(party, sad * 0.85), step = Math.sin(t * 4.8 + p.ph) * 0.35 * (0.3 + party);
+          f.place(k, p.x + sway * 0.0012, p.y + hop, p.z, p.rot + look, step, arms, sway * 0.06);
+        }
+      });
+      f.done();
+    };
+    animated.push(f.host);
+  }
 
   // Fora da corrida, os karts dão voltas sozinhos pela pista.
   const wheelsGeo = kartWheels();

@@ -32,11 +32,13 @@ function waveFlag(g, x, z, h, tex, w = 0.12) {
   g.add(flag); animated.push(flag);
 }
 // Confete colorido (comemorações).
-function confetti(g, x, y, z) {
+// opts: up (força para cima), spread, grav, floor (até onde cai, abaixo do ponto), size, n.
+function confetti(g, x, y, z, opts = {}) {
   // Miudeza: só aparece com a área aberta (nível de detalhe do motor).
-  const n = 40, m = new THREE.InstancedMesh(new THREE.BoxGeometry(0.008, 0.008, 0.002), new THREE.MeshBasicMaterial({ toneMapped: false }), n);
+  const { up = 0.22, spread = 0.3, grav = 0.16, floor = -9, size = 0.008, n = 40 } = opts;
+  const m = new THREE.InstancedMesh(new THREE.BoxGeometry(size, size, size / 4), new THREE.MeshBasicMaterial({ toneMapped: false, side: THREE.DoubleSide }), n);
   const cols = [C.coral, C.amber, C.teal, C.violet, '#ffffff', '#00b7e3'].map(h => new THREE.Color(h));
-  const vel = Array.from({ length: n }, () => new THREE.Vector3((R() - 0.5) * 0.3, 0.22 + R() * 0.25, (R() - 0.5) * 0.3));
+  const vel = Array.from({ length: n }, () => new THREE.Vector3((R() - 0.5) * spread, up * (1 + R() * 1.1), (R() - 0.5) * spread));
   const o = new THREE.Object3D(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
   for (let i = 0; i < n; i++) { m.setColorAt(i, cols[i % cols.length]); m.setMatrixAt(i, zero); }
   m.position.set(x, y, z); m.frustumCulled = false; m.userData.at = -1; m.userData.detail = true;
@@ -44,7 +46,7 @@ function confetti(g, x, y, z) {
     const age = m.userData.at < 0 ? -1 : t - m.userData.at;
     if (age < 0 || age > 2.6) { if (m.userData.live) { for (let i = 0; i < n; i++) m.setMatrixAt(i, zero); m.instanceMatrix.needsUpdate = true; m.userData.live = false; } return; }
     m.userData.live = true;
-    for (let i = 0; i < n; i++) { const v = vel[i]; o.position.set(v.x * age, v.y * age - 0.16 * age * age, v.z * age); o.rotation.set(age * 8 + i, age * 6, i); o.scale.setScalar(1 - age / 2.6); o.updateMatrix(); m.setMatrixAt(i, o.matrix); }
+    for (let i = 0; i < n; i++) { const v = vel[i]; o.position.set(v.x * age + (floor > -9 ? Math.sin(age * 5 + i) * 0.004 : 0), Math.max(floor, v.y * age - grav * age * age), v.z * age); o.rotation.set(age * 8 + i, age * 6, i); o.scale.setScalar(1 - age / 2.6); o.updateMatrix(); m.setMatrixAt(i, o.matrix); }
     m.instanceMatrix.needsUpdate = true;
   };
   g.add(m); animated.push(m);
