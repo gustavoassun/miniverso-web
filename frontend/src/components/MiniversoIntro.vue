@@ -27,6 +27,11 @@
         <div class="capa-bottom">
           <h1 id="intro-title">O mundo real é só <span>o começo.</span></h1>
           <p>Realidade virtual, aumentada e conteúdo 3D. Experiências que levam sua ideia além da tela.</p>
+          <!-- Da segunda visita em diante: atalhos claros na capa, sem precisar passar pela abertura. -->
+          <div class="capa-cta" hidden>
+            <button type="button" class="cta-site">Explorar o site <i aria-hidden="true">→</i></button>
+            <button type="button" class="cta-planet"><i class="mini-orb" aria-hidden="true"><PlanetIcon :moon="false" :animated="false" /></i>Ver o planeta</button>
+          </div>
         </div>
         <div class="capa-bar">
           <span class="enter">Role para entrar <i aria-hidden="true">↓</i></span>
@@ -41,7 +46,10 @@
         </div>
       </div>
       <!-- Da segunda visita em diante: pular a abertura enquanto ela roda (leva ao planeta pronto). -->
-      <button class="skip-intro" type="button" tabindex="-1">Pular animação <i aria-hidden="true">»</i></button>
+      <div class="skip-intro">
+        <button class="skip-site" type="button" tabindex="-1">Explorar o site <i aria-hidden="true">→</i></button>
+        <button class="skip-go" type="button" tabindex="-1">Pular animação <i aria-hidden="true">»</i></button>
+      </div>
       <div class="labels">
         <button v-for="(name, i) in ZONE_NAMES" :key="name" type="button" class="zone-label" :style="{ '--c': ZONE_COLORS[i] }">
           <span class="tag"><i class="dot"></i><span class="name">{{ name }}</span><span class="go">ver área ›</span></span>
@@ -243,10 +251,24 @@ onUnmounted(() => {
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
 
 /* Pular animação: pílula de vidro discreta embaixo, só enquanto a abertura roda (a partir da segunda visita). */
-.stage > .skip-intro { position: absolute; z-index: 30; left: 50%; bottom: max(7vh, calc(env(safe-area-inset-bottom) + 24px)); display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border: 1px solid #9bcede40; border-radius: 99px; background: #0c1b29cc; backdrop-filter: blur(14px); color: #dff4fb; font: 600 13px var(--font-body); letter-spacing: .02em; cursor: pointer; opacity: 0; visibility: hidden; transform: translate(-50%, 10px); transition: opacity .5s, transform .5s, visibility 0s .5s, border-color .25s, background .25s; pointer-events: auto; }
-.stage > .skip-intro.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .6s .8s, transform .6s .8s, visibility 0s .8s, border-color .25s, background .25s; }
-.stage > .skip-intro:hover { border-color: var(--cyan); background: #0f2a3dd9; }
+.stage > .skip-intro { position: absolute; z-index: 30; left: 50%; bottom: max(7vh, calc(env(safe-area-inset-bottom) + 24px)); display: flex; gap: 10px; opacity: 0; visibility: hidden; transform: translate(-50%, 10px); transition: opacity .5s, transform .5s, visibility 0s .5s; pointer-events: auto; }
+.stage > .skip-intro.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .6s .8s, transform .6s .8s, visibility 0s .8s; }
+.skip-intro button { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border: 1px solid #9bcede40; border-radius: 99px; background: #0c1b29cc; backdrop-filter: blur(14px); color: #dff4fb; font: 600 13px var(--font-body); letter-spacing: .02em; white-space: nowrap; cursor: pointer; transition: border-color .25s, background .25s; }
+.skip-intro button:hover { border-color: var(--cyan); background: #0f2a3dd9; }
+.skip-intro .skip-site { color: #fff; border-color: transparent; background: linear-gradient(110deg, #00b7e3, #1e5bb8 55%, #6a4bd6); }
 .skip-intro i { font-style: normal; font-size: 16px; line-height: 1; color: var(--cyan); }
+.skip-intro .skip-site i { color: #fff; }
+/* Atalhos da capa (a partir da segunda visita). */
+.capa-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.capa-cta[hidden] { display: none; }
+.capa-cta button { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px; font: 700 15px var(--font-body); cursor: pointer; white-space: nowrap; transition: transform .25s, box-shadow .25s, border-color .25s; }
+.capa-cta .cta-site { color: #fff; border: 0; background: linear-gradient(110deg, #00b7e3 0%, #1e5bb8 55%, #6a4bd6 100%); box-shadow: 0 12px 30px rgba(0, 0, 0, .4), 0 0 30px rgba(0, 183, 227, .35), inset 0 1px 0 rgba(255, 255, 255, .35); }
+.capa-cta .cta-site i { font-style: normal; transition: translate .25s; } .capa-cta .cta-site:hover i { translate: 4px 0; }
+.capa-cta .cta-planet { color: var(--ice); border: 1px solid rgba(127, 233, 255, .4); background: rgba(12, 27, 41, .7); backdrop-filter: blur(10px); }
+.capa-cta button:hover { transform: translateY(-2px); }
+.capa-cta .cta-planet:hover { border-color: var(--cyan); }
+.capa-cta .mini-orb { margin: -4px 0; }
+@media (max-width: 700px) { .capa-cta button { min-height: 44px; padding: 0 18px; font-size: 14px; } .stage > .skip-intro { flex-direction: column; align-items: stretch; } }
 
 /* mini + verso nas laterais do óculos; juntam-se e entram no visor. */
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
@@ -371,6 +393,8 @@ onUnmounted(() => {
 /* Atalho da capa para quem já conhece a abertura: um mini planeta ao lado do texto. */
 .planet-go { gap: 8px; }
 .planet-go[hidden] { display: none; }
+/* Com os atalhos grandes da capa, o chip "Ir ao planeta" da barra ficaria repetido. */
+.capa-bar .planet-go { display: none; }
 .mini-orb { position: relative; display: block; width: 22px; height: 22px; margin: -4px 0; }
 /* Portal entre capa, planeta e site: um círculo com borda ciana se abre a partir do botão clicado (fundo índigo com
    estrelas, mini planeta com anel e satélite, destino e linha de carregamento) e depois se fecha no centro. */
@@ -411,10 +435,11 @@ onUnmounted(() => {
 .capa-top span + span { animation-delay: .6s; }
 .capa-bottom h1 { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .9s both; }
 .capa-bottom p { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.05s both; }
+.capa-cta { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.15s both; }
 .capa-bar { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.25s both; }
 @keyframes intro-fade { from { opacity: 0; transform: scale(1.04); } }
 .miniverso-intro:not(.booted) .scene-canvas, .miniverso-intro:not(.booted) .capa-top span, .miniverso-intro:not(.booted) .capa-bottom h1,
-.miniverso-intro:not(.booted) .capa-bottom p, .miniverso-intro:not(.booted) .capa-bar, .miniverso-intro:not(.booted) .mini,
+.miniverso-intro:not(.booted) .capa-bottom p, .miniverso-intro:not(.booted) .capa-cta, .miniverso-intro:not(.booted) .capa-bar, .miniverso-intro:not(.booted) .mini,
 .miniverso-intro:not(.booted) .verso { animation-play-state: paused; }
 /* Tela de carregamento */
 .boot { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 50% 55%, #141a3d, #0c0407 62%); transition: opacity .9s cubic-bezier(.4, 0, .2, 1), visibility 0s .9s; }

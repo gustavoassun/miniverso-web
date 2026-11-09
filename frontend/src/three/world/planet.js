@@ -299,12 +299,12 @@ await breathe();
     if (!o.material.map) g.deleteAttribute('uv');
     let tiny = false;
     if (zg && !o.userData.big) { if (!o.geometry.boundingBox) o.geometry.computeBoundingBox(); bb.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); tiny = bb.getSize(sz).length() < FINE; }
+    // Mesma conta para todos (posição relativa ao planeta); as miudezas só vão para outra lista, por área.
+    g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
     if (tiny) {
-      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(zoneGroups.get(zg), o.matrixWorld));
       if (!fine.has(zg)) fine.set(zg, new Map());
       const fm = fine.get(zg); if (!fm.has(o.material)) fm.set(o.material, []); fm.get(o.material).push(g);
     } else {
-      g.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld));
       if (!groups.has(o.material)) groups.set(o.material, []);
       groups.get(o.material).push(g);
     }
@@ -312,7 +312,7 @@ await breathe();
   });
   toRemove.forEach(o => o.parent.remove(o));
   for (const [m, list] of groups) planet.add(new THREE.Mesh(mergeGeometries(list), m));
-  for (const [zg, fm] of fine) for (const [m, list] of fm) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.userData.detail = true; zg.add(mesh); }
+  for (const [zg, fm] of fine) for (const [m, list] of fm) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.userData.detail = true; mesh.userData.detailZone = ZONES.findIndex(z => z.group === zg); planet.add(mesh); }
 }
 
 await breathe();

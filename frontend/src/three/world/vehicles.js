@@ -38,11 +38,32 @@ const carParts = () => [
   [bx(0.0094, 0.0031, 0.0074, -0.0012, 0.0058, 0), GLASS],
   [bx(0.0016, 0.0031, 0.0076, -0.0012, 0.0058, 0), '#ffffff'],
   [bx(0.0084, 0.0009, 0.0076, -0.0012, 0.0087, 0), '#ffffff'],
+  [bx(0.0008, 0.0014, 0.0086, 0.0083, 0.0016, 0), '#3a3f4a'], [bx(0.0008, 0.0014, 0.0086, -0.0083, 0.0016, 0), '#3a3f4a'],   // para-choques
+  [bx(0.0004, 0.0012, 0.0036, 0.0081, 0.0034, 0), '#1a1d24'],                                                         // grade
+  [bx(0.0003, 0.0007, 0.0024, 0.0088, 0.002, 0), '#f4f4f4'], [bx(0.0003, 0.0007, 0.0024, -0.0088, 0.002, 0), '#f4f4f4'], // placas
   ...[-1, 1].flatMap(s => [
     [bx(0.0006, 0.0011, 0.0022, 0.008, 0.0038, s * 0.0026), '#fff6c8'],
     [bx(0.0006, 0.0011, 0.002, -0.008, 0.0038, s * 0.0027), '#e8452f'],
+    [bx(0.0012, 0.0008, 0.0008, 0.0024, 0.0058, s * 0.0045), '#ffffff'],                                                  // retrovisores
     [wheelG(0.0019, 0.0015, 0.0051, 0.0019, s * 0.0037), TIRE], [wheelG(0.0019, 0.0015, -0.0051, 0.0019, s * 0.0037), TIRE],
     [wheelG(0.0009, 0.0016, 0.0051, 0.0019, s * 0.0037, 6), '#c9ced6'], [wheelG(0.0009, 0.0016, -0.0051, 0.0019, s * 0.0037, 6), '#c9ced6']])
+];
+// Utilitário (SUV): mais alto e quadrado, janelas largas, bagageiro no teto e estepe atrás.
+const suvParts = () => [
+  [bx(0.0166, 0.0016, 0.0088, 0, 0.0012, 0), '#2a2f38'],
+  [bx(0.0164, 0.0046, 0.0086, 0, 0.0024, 0), '#ffffff'],
+  [bx(0.0118, 0.0036, 0.008, -0.0016, 0.007, 0), GLASS],
+  [bx(0.0018, 0.0036, 0.0082, 0.0006, 0.007, 0), '#ffffff'], [bx(0.0016, 0.0036, 0.0082, -0.0068, 0.007, 0), '#ffffff'],
+  [bx(0.0124, 0.0009, 0.0082, -0.0016, 0.0106, 0), '#ffffff'],
+  [bx(0.0004, 0.0004, 0.0082, -0.0004, 0.0118, 0), '#2a2f38'], [bx(0.0004, 0.0004, 0.0082, -0.0058, 0.0118, 0), '#2a2f38'],   // bagageiro
+  [bx(0.0009, 0.0016, 0.009, 0.0086, 0.0016, 0), '#3a3f4a'], [bx(0.0009, 0.0016, 0.009, -0.0086, 0.0016, 0), '#3a3f4a'],
+  [new THREE.CylinderGeometry(0.0024, 0.0024, 0.0012, 10).rotateZ(Math.PI / 2).translate(-0.0091, 0.0046, 0), TIRE],     // estepe
+  ...[-1, 1].flatMap(s => [
+    [bx(0.0006, 0.0012, 0.0022, 0.0082, 0.0042, s * 0.0028), '#fff6c8'],
+    [bx(0.0006, 0.0012, 0.002, -0.0082, 0.0042, s * 0.0029), '#e8452f'],
+    [bx(0.0012, 0.0009, 0.0009, 0.0026, 0.0066, s * 0.0047), '#ffffff'],
+    [wheelG(0.0022, 0.0017, 0.0054, 0.0022, s * 0.0039), TIRE], [wheelG(0.0022, 0.0017, -0.0054, 0.0022, s * 0.0039), TIRE],
+    [wheelG(0.001, 0.0018, 0.0054, 0.0022, s * 0.0039, 6), '#c9ced6'], [wheelG(0.001, 0.0018, -0.0054, 0.0022, s * 0.0039, 6), '#c9ced6']])
 ];
 // Ônibus (urbano ou escolar): faixa de janelas, para-brisa, letreiro, teto claro e rodas com calota.
 const busParts = (L, W, H, body) => [
@@ -57,21 +78,26 @@ const busParts = (L, W, H, body) => [
     [wheelG(H * 0.17, W * 0.16, L * 0.32, H * 0.17, s * W * 0.42), TIRE], [wheelG(H * 0.17, W * 0.16, -L * 0.3, H * 0.17, s * W * 0.42), TIRE],
     [wheelG(H * 0.08, W * 0.17, L * 0.32, H * 0.17, s * W * 0.42, 6), '#c9ced6'], [wheelG(H * 0.08, W * 0.17, -L * 0.3, H * 0.17, s * W * 0.42, 6), '#c9ced6']])
 ];
-let carGeoC, busGeoC;
+let carGeoC, busGeoC, suvGeoC;
 const CAR_COLS = VEHICLES.cars, BUS_COLS = VEHICLES.buses;
 // Frota instanciada (carros e ônibus) para o trânsito: cada veículo da lista ganha malha e índice.
 function fleet(g, list) {
-  carGeoC ??= paintGeo(carParts()); busGeoC ??= paintGeo(busParts(0.028, 0.0095, 0.011, '#ffffff'));
-  const nb = list.filter(v => v.bus).length;
+  carGeoC ??= paintGeo(carParts()); busGeoC ??= paintGeo(busParts(0.028, 0.0095, 0.011, '#ffffff')); suvGeoC ??= paintGeo(suvParts());
+  // Um carro em cada três é utilitário (SUV): mais variedade no trânsito, ainda uma chamada de desenho por modelo.
+  let k0 = 0; list.forEach(v => { if (!v.bus) v.suv = (k0++ % 3) === 1; });
+  const nb = list.filter(v => v.bus).length, ns = list.filter(v => v.suv).length;
   const mk = (geo, n) => { const m = new THREE.InstancedMesh(geo, vehMat(), Math.max(1, n)); m.count = n; m.frustumCulled = false; m.userData.vehicle = true; m.userData.keep = true; m.userData.detail = true; g.add(m); return m; };
-  const cars = mk(carGeoC, list.length - nb), buses = mk(busGeoC, nb);
-  let ic = 0, ib = 0;
-  list.forEach(v => { v.mesh = v.bus ? buses : cars; v.idx = v.bus ? ib++ : ic++; v.mesh.setColorAt(v.idx, new THREE.Color(v.bus ? BUS_COLS[v.idx % BUS_COLS.length] : CAR_COLS[v.idx % CAR_COLS.length])); });
+  const cars = mk(carGeoC, list.length - nb - ns), buses = mk(busGeoC, nb), suvs = mk(suvGeoC, ns);
+  let ic = 0, ib = 0, is = 0;
+  list.forEach(v => {
+    v.mesh = v.bus ? buses : v.suv ? suvs : cars; v.idx = v.bus ? ib++ : v.suv ? is++ : ic++;
+    v.mesh.setColorAt(v.idx, new THREE.Color(v.bus ? BUS_COLS[v.idx % BUS_COLS.length] : CAR_COLS[(v.idx * (v.suv ? 5 : 1) + (v.suv ? 2 : 0)) % CAR_COLS.length]));
+  });
   const o = new THREE.Object3D();
   return {
     host: cars,
     place(v, x, y, z, ry) { o.position.set(x, y, z); o.rotation.set(0, ry, 0); o.updateMatrix(); v.mesh.setMatrixAt(v.idx, o.matrix); },
-    done() { cars.instanceMatrix.needsUpdate = buses.instanceMatrix.needsUpdate = true; }
+    done() { cars.instanceMatrix.needsUpdate = buses.instanceMatrix.needsUpdate = suvs.instanceMatrix.needsUpdate = true; }
   };
 }
 

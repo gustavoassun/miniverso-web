@@ -112,11 +112,11 @@ function buildEducation(g, zi) {
   for (const cx of [0.02, 0.2]) for (const cz of [-0.215, -0.17]) cyl(0.0018, 0.05, '#e9eef5', cx, Y(cx, cz), cz, g, 6);
   for (const cx of [0.05, 0.11, 0.17]) { box(0.024, 0.004, 0.007, '#a07a5a', cx, Y(cx, -0.192) + 0.005, -0.192, g); box(0.024, 0.006, 0.0015, '#a07a5a', cx, Y(cx, -0.196) + 0.007, -0.196, g); }
   // Mastros: Brasil (verde e amarelo), Maranhão e a bandeira da escola.
-  waveFlag(g, -0.075, -0.205, 0.08, plainFlag('#1f9d55', '#ffd23f'), 0.04);
-  waveFlag(g, -0.06, -0.205, 0.08, maranhaoTex(), 0.04);
-  waveFlag(g, -0.045, -0.205, 0.08, plainFlag('#1e4488', '#00b7e3'), 0.04);
+  // Alinhados à esquerda da entrada, com espaço entre eles (as bandeiras não se cruzam) e base de pedra.
+  box(0.07, 0.003, 0.014, '#d9cfbd', -0.145, Y(-0.145, -0.205) - 0.001, -0.205, g);
+  [plainFlag('#1f9d55', '#ffd23f'), maranhaoTex(), plainFlag('#1e4488', '#00b7e3')].forEach((tex, k) => { const fx0 = -0.17 + k * 0.025; waveFlag(g, fx0, -0.205, 0.09, tex, 0.036); cyl(0.0035, 0.004, '#c9c2b4', fx0, Y(fx0, -0.205) + 0.001, -0.205, g, 10); });
   // Amarelinha pintada no pátio.
-  decal(g, 0.025, 0.07, -0.11, -0.175, FLOOR + 0.0006, new THREE.MeshStandardMaterial({ roughness: 0.9, alphaTest: 0.5, map: canvasTex(48, 128, (x, w, h) => {
+  decal(g, 0.025, 0.07, -0.07, -0.172, FLOOR + 0.0006, new THREE.MeshStandardMaterial({ roughness: 0.9, alphaTest: 0.5, map: canvasTex(48, 128, (x, w, h) => {
     const cs = ['#ffd23f', '#ff7bb0', '#00b7e3', '#3ee07a', '#ff8a2a', '#b07cff'];
     const sq = (cx, cy, n) => { x.fillStyle = cs[n % cs.length]; x.fillRect(cx - 9, cy - 9, 18, 18); x.strokeStyle = '#fff'; x.lineWidth = 2; x.strokeRect(cx - 9, cy - 9, 18, 18); x.fillStyle = '#fff'; x.font = 'bold 11px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(n + 1), cx, cy + 1); };
     sq(24, 116, 0); sq(24, 96, 1); sq(14, 76, 2); sq(34, 76, 3); sq(24, 56, 4); sq(14, 36, 5); sq(34, 36, 6); x.fillStyle = '#ffffff'; x.beginPath(); x.arc(24, 14, 10, Math.PI, 0); x.fill();
@@ -171,24 +171,48 @@ function buildEducation(g, zi) {
     beams.forEach(b => { b.material.opacity = 0.08 + vr * 0.22; });
   });
 
-  // ── 4. Universidade: prédio com colunas e frontão, escadaria, gramado com estudantes e o palco da formatura.
-  const UX = -0.3, UZ = -0.27;
-  const uTop = building(g, 0.16, 0.07, 0.085, windowsMat('#efe9dc', '#5a8fc4', '#ffffff', 2, 7), UX, UZ);
-  box(0.172, 0.006, 0.097, '#ffffff', UX, uTop - 0.001, UZ, g);
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.006, 3), mat('#f6f1e6')); ped.rotation.set(Math.PI / 2, 0, Math.PI / 2); ped.scale.set(0.45, 1, 1.45);
-  ped.position.set(UX, uTop + 0.017, UZ + 0.05); g.add(ped);
-  box(0.1, 0.005, 0.03, '#f6f1e6', UX, uTop + 0.002, UZ + 0.05, g);
-  for (let i = 0; i < 6; i++) { const x = UX - 0.045 + i * 0.018; cyl(0.0035, uTop - Y(x, UZ + 0.058), '#ffffff', x, Y(x, UZ + 0.058) + 0.004, UZ + 0.058, g, 10); }
-  for (let s = 0; s < 3; s++) box(0.11 - s * 0.006, 0.0025, 0.012, '#e6ddcc', UX, Y(UX, UZ + 0.07 + s * 0.008) - 0.001 + (2 - s) * 0.0022, UZ + 0.07 - s * 0.004, g);
-  const signU = new THREE.Mesh(new THREE.PlaneGeometry(0.07, 0.009), label('UNIVERSIDADE', '#f6f1e6', '#2a3446', 220, 28, 'bold 18px serif')); signU.position.set(UX, uTop + 0.0115, UZ + 0.066); g.add(signU);
-  const dome = new THREE.Mesh(new THREE.SphereGeometry(0.022, 16, 8, 0, TAU, 0, Math.PI / 2), mat('#3f7fc4', { metalness: 0.3, roughness: 0.4 })); dome.position.set(UX, uTop + 0.004, UZ - 0.01); g.add(dome);
+  // ── 4. UNDB (Centro Universitário Dom Bosco, São Luís), a universidade do campus: prédio moderno branco com
+  // faixas de janelas, pórtico magenta na entrada com a marca (os quatro quadrados U N D B em degradê do vermelho ao
+  // magenta e "Centro Universitário"), portas de vidro, marquise, escadaria, totem com a marca no gramado e os
+  // mastros do Brasil, do Maranhão e da UNDB. Representação estilizada (não é a planta real do prédio).
+  const UX = -0.3, UZ = -0.27, MAG = '#cf004e', MAG_D = '#770131';
+  const undbLogo = (w, h, sub = true) => canvasTex(w, h, (x, ww, hh) => {
+    x.clearRect(0, 0, ww, hh);
+    const tiles = ['#ef3e4a', '#e2366b', '#d23a86', '#bf44a0'], letters = 'UNDB', sz = Math.min(ww / 4.4, hh * (sub ? 0.68 : 0.9)), gap = sz * 0.1, x0 = (ww - (sz * 4 + gap * 3)) / 2, y0 = sub ? hh * 0.04 : (hh - sz) / 2;
+    tiles.forEach((c, k) => { x.fillStyle = c; x.beginPath(); x.roundRect(x0 + k * (sz + gap), y0, sz, sz, sz * 0.12); x.fill(); x.fillStyle = '#ffffff'; x.font = `bold ${Math.round(sz * 0.72)}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(letters[k], x0 + k * (sz + gap) + sz / 2, y0 + sz * 0.54); });
+    if (sub) { x.fillStyle = '#ffffff'; x.font = `bold ${Math.round(hh * 0.17)}px sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('CENTRO UNIVERSITÁRIO', ww / 2, hh * 0.86); }
+  });
+  const uTop = building(g, 0.17, 0.08, 0.08, windowsMat('#f4f6f8', '#2c4a6e', '#ffffff', 3, 9), UX, UZ);
+  box(0.176, 0.004, 0.086, '#ffffff', UX, uTop - 0.0005, UZ, g);
+  box(0.172, 0.006, 0.004, MAG, UX, Y(UX, UZ) + 0.026, UZ + 0.0405, g);                              // faixa magenta na fachada
+  // Pórtico de entrada: dois pilares e a viga magenta com a marca na frente, portas de vidro e marquise.
+  const PZ = UZ + 0.058, py0 = baseY(UX, PZ, 0.13, 0.02), ph = Y(UX, PZ) - py0 + 0.07;
+  const magGlow = { emissive: MAG, emissiveIntensity: 0.35 };
+  for (const s0 of [-1, 1]) box(0.014, ph, 0.02, MAG, UX + s0 * 0.058, py0, PZ, g, magGlow);
+  box(0.13, 0.026, 0.022, MAG, UX, py0 + ph - 0.004, PZ, g, magGlow);
+  box(0.132, 0.003, 0.024, MAG_D, UX, py0 + ph + 0.022, PZ, g);
+  const logoFront = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 0.024), new THREE.MeshBasicMaterial({ map: undbLogo(512, 124), transparent: true, toneMapped: false }));
+  logoFront.position.set(UX, py0 + ph + 0.009, PZ + 0.0115); g.add(logoFront);
+  const glassDoors = new THREE.Mesh(new THREE.BoxGeometry(0.098, 0.04, 0.003), new THREE.MeshStandardMaterial({ color: '#9fd6ef', transparent: true, opacity: 0.55, roughness: 0.1, metalness: 0.3, depthWrite: false }));
+  glassDoors.position.set(UX, Y(UX, PZ - 0.004) + 0.02, PZ - 0.004); glassDoors.userData.big = true; g.add(glassDoors);
+  for (const dx of [-0.033, 0, 0.033]) box(0.0016, 0.04, 0.0035, '#d9dde5', UX + dx, Y(UX, PZ - 0.004), PZ - 0.004, g);
+  box(0.11, 0.003, 0.03, '#ffffff', UX, Y(UX, PZ) + 0.043, PZ + 0.012, g);                          // marquise
+  for (let st = 0; st < 3; st++) box(0.1 - st * 0.008, 0.0024, 0.012, '#e6e2da', UX, Y(UX, PZ + 0.026 - st * 0.006) - 0.001 + (2 - st) * 0.0022, PZ + 0.026 - st * 0.006, g);
+  // Totem com a marca no gramado em frente.
+  const TTX = UX + 0.075, TTZ = UZ + 0.11, tty = Y(TTX, TTZ);
+  box(0.034, 0.03, 0.006, '#ffffff', TTX, tty, TTZ, g);
+  const logoTotem = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.009), new THREE.MeshBasicMaterial({ map: undbLogo(256, 80, false), transparent: true, toneMapped: false }));
+  logoTotem.position.set(TTX, tty + 0.021, TTZ + 0.0031); g.add(logoTotem);
+  box(0.03, 0.003, 0.0004, MAG, TTX, tty + 0.008, TTZ + 0.0032, g);
+  // Mastros alinhados ao lado do pórtico: Brasil, Maranhão e UNDB.
+  [[plainFlag('#1f9d55', '#ffd23f')], [maranhaoTex()], [plainFlag(MAG, '#ffffff')]].forEach(([tex], k) => { const fx0 = UX - 0.1 + k * 0.018; waveFlag(g, fx0, UZ + 0.08, 0.085, tex, 0.034); cyl(0.004, 0.003, '#d9d9d9', fx0, Y(fx0, UZ + 0.08) - 0.001, UZ + 0.08, g, 10); });
   // Gramado: estudantes sentados em rodas e o palco da formatura com formandos de beca.
   const sit = [[-0.4, -0.15], [-0.39, -0.135], [-0.41, -0.13], [-0.25, -0.1], [-0.24, -0.085], [-0.26, -0.08]].map(([x, z]) => [x, z, Y(x, z) - 0.004]);
   crowd(g, sit, zi, ['#ffc56b', '#ffffff', '#3ee07a', '#ff7bb0', '#00b7e3', '#b07cff']);
   for (const [x, z] of [[-0.4, -0.142], [-0.25, -0.09]]) { const bk = new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.0012, 0.004), mat(C.coral)); bk.position.set(x + 0.007, Y(x, z) + 0.001, z); g.add(bk); }
   const stX = -0.345, stZ = -0.12;
   box(0.07, 0.006, 0.03, '#ffffff', stX, Y(stX, stZ), stZ, g);
-  box(0.07, 0.03, 0.003, '#1e4488', stX, Y(stX, stZ - 0.015), stZ - 0.015, g);
+  box(0.07, 0.03, 0.003, MAG, stX, Y(stX, stZ - 0.015), stZ - 0.015, g);
   const grads = Array.from({ length: 5 }, (_, k) => [stX - 0.028 + k * 0.014, stZ + 0.004, Y(stX, stZ) + 0.006]);
   crowd(g, grads, zi, ['#1a1d24'], { fx: fxT4 });
   const caps = new THREE.InstancedMesh(paintGeo([[bx(0.0075, 0.0007, 0.0075, 0, 0.0016, 0), '#1a1d24'], [new THREE.CylinderGeometry(0.0026, 0.0026, 0.0016, 8).translate(0, 0.0008, 0), '#1a1d24'], [bx(0.0006, 0.003, 0.0006, 0.0033, -0.0008, 0), '#ffd23f']]), vehMat(), grads.length);

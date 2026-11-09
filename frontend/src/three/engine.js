@@ -40,6 +40,8 @@ export function createMiniverso(rootEl, opts = {}) {
     const zoneOf = o => { for (let a = o; a; a = a.parent) { const i = ZONES.findIndex(z => z.group === a); if (i >= 0) return i; } return -1; };
     const box = new THREE.Box3(), size = new THREE.Vector3();
     ZONES.forEach((z, i) => z.group.traverse(o => { if (o.userData.detail) details.push([o, i]); }));
+    // Miudezas paradas de cada área, mescladas no planeta (planet.js): marcadas com a área a que pertencem.
+    for (const o of planet.children) if (o.userData.detailZone >= 0) details.push([o, o.userData.detailZone]);
     const small = o => { box.setFromObject(o); return !box.isEmpty() && box.getSize(size).length() < 0.06; };
     for (const a of animated) {
       if (a.userData.detail) continue;
@@ -378,15 +380,17 @@ export function createMiniverso(rootEl, opts = {}) {
   try { visited = localStorage.getItem(VISIT_KEY) === '1'; } catch {}
   // Para apresentar: abrir o site com ?abertura no endereço mostra de novo a abertura completa de primeira visita.
   if (new URLSearchParams(location.search).has('abertura')) { visited = false; try { localStorage.removeItem(VISIT_KEY); } catch {} }
-  const planetGo = $('.planet-go');
+  const planetGo = $('.planet-go'), capaCta = $('.capa-cta');
   function markVisited() {
     if (visited) return; visited = true;
     try { localStorage.setItem(VISIT_KEY, '1'); } catch {}
     if (planetGo) planetGo.hidden = false;
+    if (capaCta) capaCta.hidden = false;
   }
   if (planetGo) planetGo.hidden = !visited;
-  const skipBtn = $('.skip-intro');
-  const showSkip = v => { if (!skipBtn) return; skipBtn.classList.toggle('show', v); skipBtn.tabIndex = v ? 0 : -1; };
+  if (capaCta) capaCta.hidden = !visited;
+  const skipBox = $('.skip-intro'), skipBtn = $('.skip-go'), skipSite = $('.skip-site');
+  const showSkip = v => { if (!skipBox) return; skipBox.classList.toggle('show', v); skipBtn.tabIndex = skipSite.tabIndex = v ? 0 : -1; };
   function startAuto() {
     const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
     auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
@@ -457,6 +461,10 @@ export function createMiniverso(rootEl, opts = {}) {
   on(backBtn, 'click', () => travelTo(introEnd, 'Voltando ao planeta', 'planet', backBtn));
   on(planetGo, 'click', () => travelTo(introEnd, 'Indo ao planeta', 'planet', planetGo));
   on(skipBtn, 'click', () => travelTo(introEnd, 'Indo ao planeta', 'planet', skipBtn));
+  // Explorar o site direto (na capa e durante a abertura), sem passar pelo planeta.
+  on(skipSite, 'click', () => travelTo(siteTop, 'Explorando o site', 'site', skipSite));
+  on($('.cta-site'), 'click', e => travelTo(siteTop, 'Explorando o site', 'site', e.currentTarget));
+  on($('.cta-planet'), 'click', e => travelTo(introEnd, 'Indo ao planeta', 'planet', e.currentTarget));
   offs.push(() => clearTimeout(bpHint));
   on(document, 'click', e => {
     const a = e.target.closest?.('a'); if (!a || !a.href) return;
