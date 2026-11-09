@@ -1,0 +1,332 @@
+// Trilha do planeta, gerada por código (Web Audio), sem arquivo de áudio: uma base ambiente estilo arcade em loop
+// (pad suave, baixo, arpejo de onda quadrada com eco e brilhos de sino) e a camada de algumas áreas, que entra e sai
+// com suavidade quando a área abre ou fecha:
+//   boi   (Centro)   matraca e zabumba no ritmo do boi; ao chamar o boi, a percussão cresce e entra uma toada;
+//   porto (Porto)    ondas e, de vez em quando, a buzina de um navio;
+//   trem  (Ferrovia) o "ta-dum" das rodas nas juntas dos trilhos e o ronco da locomotiva;
+//   mangue (Ecologia) água correndo, passarinhos, uma kalimba tranquila, chocalho leve e, às vezes, um sapo;
+//   escola (Educação) caixinha de música e xilofone brincalhões, tique de bloco de madeira e, às vezes, o sino da escola;
+//   negocios (Negócios) piano elétrico suave com tremolo, batida lo-fi bem baixa e o zumbido distante da cidade;
+//   dunas (Lençóis) vento sobre a areia e, de vez em quando, gaivotas ao longe;
+//   cabine (cabine do trem) um reggae tranquilo (São Luís é a capital brasileira do reggae): baixo, acordes no
+//   contratempo, bateria "one drop" e o ta-dum dos trilhos bem de leve por baixo.
+// Tudo sutil: cada camada tem seu próprio volume (o Porto ficou mais baixo).
+// Efeitos da formação do planeta: um som que sobe junto com a barra de carregamento, um bipe a cada 5% e um acorde
+// de chegada com um grave quando o planeta fica pronto.
+// Efeitos dos minigames (sfx): bipes, acertos, erros, a largada, o motor do kart (que sobe com a velocidade) e uma
+// fanfarra de vitória. Tudo sintetizado na hora e curto; a música abaixa um pouco enquanto um jogo está rolando.
+// O navegador só libera som depois de um clique, toque ou tecla (rolar não conta). Por isso a capa tem o botão
+// "Entrar com som", e o primeiro gesto em qualquer lugar já prepara o áudio, para a formação soar desde o início.
+// Vem ligada: começa bem baixinho quando o planeta se forma e cresce devagar. O botão desliga, e a escolha fica
+// guardada no navegador. Só toca com o planeta na tela e a aba à vista.
+
+const KEY = 'miniverso-musica';
+const BPM = 84, STEP = 60 / BPM / 4, VOL = 0.95;
+const mtof = m => 440 * 2 ** ((m - 69) / 12);
+// Lá menor: Am9 – Fmaj7 – Cmaj7 – G6, dois compassos cada (notas MIDI).
+const CHORDS = [
+  { root: 45, pad: [57, 60, 64, 71], arp: [69, 72, 76, 79, 83] },
+  { root: 41, pad: [53, 57, 60, 64], arp: [65, 69, 72, 76, 81] },
+  { root: 48, pad: [55, 60, 64, 71], arp: [67, 71, 72, 76, 79] },
+  { root: 43, pad: [55, 59, 62, 64], arp: [67, 71, 74, 76, 79] }
+];
+// Arpejos por trecho de 8 compassos (índice da nota do acorde; null = pausa); o terceiro trecho respira sem arpejo.
+const ARPS = [
+  [0, null, 2, 1, null, 3, 2, null, 4, null, 3, 2, null, 1, 2, null],
+  [0, 2, 1, 3, 2, 4, 3, 1, 0, 2, 1, 3, 4, 3, 2, 1],
+  null
+];
+const MATRACA = [1, .45, 0, .8, 1, .45, 0, .8, 1, .45, 0, .8, 1, .45, .8, .55];
+// Toada do boi (lá menor pentatônica, cabe em todos os acordes): frase de dois compassos.
+const PENTA = [69, 72, 74, 76, 79, 81, 84, 86, 88, 91];                                       // bipes do carregamento, subindo
+// Kalimba do mangue (lá menor pentatônica), frase de quatro compassos que respira.
+const KALIMBA = [69, 0, 72, 0, 76, 0, 0, 74, 72, 0, 0, 0, 69, 0, 67, 0, 64, 0, 67, 0, 69, 0, 0, 72, 74, 0, 72, 0, 0, 0, 0, 0,
+  76, 0, 79, 0, 76, 0, 74, 0, 72, 0, 0, 74, 76, 0, 0, 0, 72, 0, 69, 0, 67, 0, 69, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+// Caixinha de música da Educação (frase de quatro compassos, notas do arpejo do acorde; null = pausa).
+const ESCOLA = [0, null, 2, null, 4, null, 3, 2, null, null, 1, null, 2, null, null, null, 4, null, 3, null, 2, null, 4, null, 3, null, 2, null, 1, null, null, null];
+// Nível de cada camada quando a área está aberta.
+const LEVEL = { boi: 1.3, porto: 0.62, trem: 1, mangue: 1.2, escola: 1, negocios: 0.9, dunas: 0.85, cabine: 1.15 };
+const LAYERS = Object.keys(LEVEL);
+const TOADA = [76, 0, 0, 74, 72, 0, 69, 0, 72, 0, 74, 0, 76, 0, 0, 0, 79, 0, 76, 0, 74, 0, 72, 0, 74, 0, 72, 69, 0, 0, 0, 0];
+
+export function createMusic() {
+  let want = true, active = false, gestured = false, zone = null, boost = false;
+  try { want = localStorage.getItem(KEY) !== '0'; } catch { /* sem armazenamento: fica ligada */ }
+  // No iPhone (Safari 17+), áudio "ambiente" respeita a chave de silencioso e não interrompe outra música tocando.
+  try { if (navigator.audioSession) navigator.audioSession.type = 'ambient'; } catch { /* navegador sem suporte */ }
+  let ctx = null, master, noiseBuf, timer = 0, sus = 0, step = 0, nextT = 0, nextHorn = 0, load = 1, riser = null, duck = false, motor = null;
+  const buses = {}, offAt = {};
+
+  function ensure() {
+    if (ctx) return;
+    ctx = new AudioContext();
+    master = ctx.createGain(); master.gain.value = 0;
+    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
+    master.connect(comp).connect(ctx.destination);
+    // Ruído branco reaproveitado pela percussão, pelas ondas e pelo ronco do trem.
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    // Reverberação (resposta de impulso gerada) e eco no tempo da música.
+    const rev = ctx.createConvolver(), ir = ctx.createBuffer(2, ctx.sampleRate * 2.6, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3; }
+    rev.buffer = ir; const revOut = ctx.createGain(); revOut.gain.value = 0.55; rev.connect(revOut).connect(master);
+    // Efeitos vão direto para a saída (não esperam a música subir), com reverberação própria.
+    buses.sfx = ctx.createGain(); buses.sfx.gain.value = 0; buses.sfx.connect(comp);
+    const sRev = ctx.createConvolver(); sRev.buffer = ir; sRev.connect(buses.sfx);
+    buses.sfxRev = ctx.createGain(); buses.sfxRev.connect(buses.sfx); const sSend = ctx.createGain(); sSend.gain.value = 0.8; buses.sfxRev.connect(sSend).connect(sRev);
+    const delay = ctx.createDelay(1), fb = ctx.createGain(), dTone = ctx.createBiquadFilter();
+    delay.delayTime.value = STEP * 3; fb.gain.value = 0.38; dTone.type = 'lowpass'; dTone.frequency.value = 2200;
+    delay.connect(dTone).connect(fb).connect(delay); dTone.connect(master);
+    const bus = (dry, toRev, toDelay) => { const g = ctx.createGain(); g.gain.value = dry; g.connect(master);
+      if (toRev) { const s = ctx.createGain(); s.gain.value = toRev; g.connect(s).connect(rev); }
+      if (toDelay) { const s = ctx.createGain(); s.gain.value = toDelay; g.connect(s).connect(delay); }
+      return g; };
+    buses.base = bus(1, 0.25); buses.arp = bus(1, 0.3, 0.45); buses.bell = bus(1, 0.7, 0.35); buses.lead = bus(1, 0.35, 0.3);
+    // Pad passa por um filtro que abre e fecha devagar.
+    buses.padF = ctx.createBiquadFilter(); buses.padF.type = 'lowpass'; buses.padF.frequency.value = 900;
+    const lfo = ctx.createOscillator(), lfoG = ctx.createGain(); lfo.frequency.value = 0.05; lfoG.gain.value = 350;
+    lfo.connect(lfoG).connect(buses.padF.frequency); lfo.start();
+    buses.padF.connect(bus(1, 0.6));
+    for (const k of ['boi', 'porto', 'trem', 'cabine']) { buses[k] = bus(0, 0.2); offAt[k] = -1e9; }
+    buses.mangue = bus(0, 0.45, 0.25); offAt.mangue = -1e9;
+    buses.escola = bus(0, 0.5, 0.3); offAt.escola = -1e9;
+    buses.negocios = bus(0, 0.45, 0.2); offAt.negocios = -1e9;
+    buses.dunas = bus(0, 0.6); offAt.dunas = -1e9;
+    // Fundo contínuo das áreas: ondas do Porto (sobem e descem) e ronco grave do trem.
+    loopNoise('lowpass', 480, 0.26, buses.porto, 0.11, 0.16);                                   // ondas (mais baixas)
+    loopNoise('lowpass', 130, 0.5, buses.trem, 0.4, 0.15);
+    loopNoise('bandpass', 1400, 0.12, buses.mangue, 0.23, 0.04);                                  // água correndo (cachoeira e rio)
+    loopNoise('lowpass', 260, 0.07, buses.negocios, 0.07, 0.02);                                 // zumbido distante da cidade
+    loopNoise('bandpass', 650, 0.16, buses.dunas, 0.09, 0.12);                                   // vento nas dunas
+    loopNoise('lowpass', 120, 0.12, buses.cabine, 0.4, 0.04);                                    // ronco do trem, bem baixo, por baixo do reggae
+    timer = setInterval(schedule, 25);
+    mixZone();
+  }
+  function loopNoise(type, freq, gain, out, lfoHz, depth) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+    const g = ctx.createGain(); g.gain.value = gain;
+    const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = lfoHz; lg.gain.value = depth; l.connect(lg).connect(g.gain); l.start();
+    s.connect(f).connect(g).connect(out); s.start();
+  }
+  function tone(t, type, freq, dur, gain, out, { attack = 0.006, freqEnd, filter, detune = 0 } = {}) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t); o.detune.value = detune;
+    if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + attack); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    let n = o; if (filter) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filter; o.connect(f); n = f; }
+    n.connect(g).connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(t, dur, type, freq, q, gain, out) {
+    const s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(gain, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f).connect(g).connect(out); s.start(t, Math.random() * 1.5); s.stop(t + dur + 0.02);
+  }
+  function pad(t, notes, dur) {
+    for (const m of notes) for (const det of [-8, 8]) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = mtof(m); o.detune.value = det;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.018, t + 1.8); g.gain.setValueAtTime(0.018, t + dur - 0.3); g.gain.linearRampToValueAtTime(0, t + dur + 1.4);
+      o.connect(g).connect(buses.padF); o.start(t); o.stop(t + dur + 1.5);
+    }
+  }
+  function horn(t) {
+    for (const [f, d] of [[73.4, -6], [92.5, 6]]) {
+      const o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; lp.type = 'lowpass'; lp.frequency.value = 420;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.045, t + 0.35); g.gain.setValueAtTime(0.045, t + 2.1); g.gain.linearRampToValueAtTime(0, t + 3);
+      o.connect(lp).connect(g).connect(buses.porto); o.start(t); o.stop(t + 3.1);
+    }
+  }
+
+  // Formação do planeta: ruído filtrado e duas ondas serrilhadas que sobem de tom e abrem o filtro com a barra.
+  function riserStart() {
+    const t = ctx.currentTime, n = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), ng = ctx.createGain(), lp = ctx.createBiquadFilter(), sg = ctx.createGain();
+    n.buffer = noiseBuf; n.loop = true; bp.type = 'bandpass'; bp.Q.value = 1.4; bp.frequency.value = 300; ng.gain.value = 0;
+    lp.type = 'lowpass'; lp.frequency.value = 250; lp.Q.value = 4; sg.gain.value = 0;
+    const oscs = [-12, 12].map(d => { const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = 110; o.detune.value = d; o.connect(lp); o.start(t); return o; });
+    n.connect(bp).connect(ng).connect(buses.sfxRev); lp.connect(sg).connect(buses.sfx); n.start(t);
+    riser = { n, bp, ng, lp, sg, oscs };
+  }
+  function riserSet(k) {
+    const r = riser, n = ctx.currentTime, tc = 0.12;
+    r.bp.frequency.setTargetAtTime(300 + 3800 * k * k, n, tc); r.ng.gain.setTargetAtTime(0.025 + 0.1 * k, n, tc);
+    r.lp.frequency.setTargetAtTime(250 + 2200 * k, n, tc); r.sg.gain.setTargetAtTime(0.045 * Math.min(1, k * 4), n, tc);
+    for (const o of r.oscs) o.frequency.setTargetAtTime(110 * 2 ** k, n, tc);
+  }
+  function riserStop(fade = 0.4) {
+    const r = riser; riser = null;
+    ramp(r.ng.gain, 0, fade / 3); ramp(r.sg.gain, 0, fade / 3);
+    const end = ctx.currentTime + fade * 2; r.n.stop(end); for (const o of r.oscs) o.stop(end);
+  }
+  // Planeta pronto: uma explosãozinha sutil (sopro grave que abafa, algumas faíscas) e um acorde de sinos em cascata.
+  function arrive() {
+    const t = ctx.currentTime + 0.02;
+    const s = ctx.createBufferSource(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    s.buffer = noiseBuf; lp.type = 'lowpass'; lp.frequency.setValueAtTime(2200, t); lp.frequency.exponentialRampToValueAtTime(110, t + 1.3);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11, t + 0.04); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.5);
+    s.connect(lp).connect(g).connect(buses.sfxRev); s.start(t); s.stop(t + 1.6);
+    tone(t, 'sine', 80, 1.4, 0.16, buses.sfx, { freqEnd: 32, attack: 0.03 });
+    for (let k = 0; k < 5; k++) noise(t + 0.08 + Math.random() * 0.5, 0.02, 'highpass', 4000 + Math.random() * 3000, 0.8, 0.015 + Math.random() * 0.015, buses.sfxRev);
+    [69, 72, 76, 81, 84].forEach((m, k) => { const at = t + 0.12 + k * 0.07; tone(at, 'triangle', mtof(m), 2.4, 0.04, buses.sfxRev); tone(at, 'sine', mtof(m + 12), 1.6, 0.018, buses.sfxRev); });
+  }
+
+  const playing = k => k === zone || ctx.currentTime < offAt[k] + 2.5;   // a camada ainda soa enquanto desaparece
+  function schedule() {
+    if (!ctx || ctx.state !== 'running') return;
+    if (nextT < ctx.currentTime) nextT = ctx.currentTime + 0.05;
+    while (nextT < ctx.currentTime + 0.15) { playStep(step, nextT); nextT += STEP; step++; }
+  }
+  function playStep(s, t) {
+    const bar = Math.floor(s / 16), i = s % 16, ch = CHORDS[Math.floor(bar / 2) % CHORDS.length];
+    if (i === 0 && bar % 2 === 0) pad(t, ch.pad, STEP * 32);
+    if (i === 0 || i === 6 || i === 10) tone(t, 'triangle', mtof(ch.root + (i === 10 ? 12 : 0)), STEP * 3.5, 0.13, buses.base, { attack: 0.01 });
+    const arp = bar >= 2 ? ARPS[Math.floor(bar / 8) % ARPS.length] : null, a = arp?.[i];
+    if (a != null) tone(t, 'square', mtof(ch.arp[a]), STEP * 1.7, 0.02, buses.arp, { filter: 2600 });
+    if (i % 4 === 2 && Math.random() < 0.2) tone(t, 'sine', mtof(ch.arp[(Math.random() * 5) | 0] + 12), 1.8, 0.03, buses.bell, { attack: 0.008 });
+    if (bar >= 4 && i % 4 === 2) noise(t, 0.035, 'highpass', 7500, 0.7, 0.012, buses.base);                    // chiadinho no contratempo
+    if (playing('boi')) {
+      const n = boost && TOADA[s % 32];
+      if (n) { tone(t, 'square', mtof(n), STEP * 2.4, 0.03, buses.lead, { filter: 3200 }); tone(t, 'triangle', mtof(n - 12), STEP * 2.4, 0.06, buses.lead); }
+      if (boost && (i === 3 || i === 11)) tone(t, 'sine', 110, 0.3, 0.3, buses.boi, { freqEnd: 45 });                     // zabumba dobrada na apresentação
+      if (MATRACA[i]) noise(t, 0.03, 'bandpass', 2300 + Math.random() * 500, 3, 0.14 * MATRACA[i], buses.boi);
+      if (i === 0 || i === 7 || i === 10 || (i === 13 && bar % 2)) tone(t, 'sine', 140, 0.34, 0.32, buses.boi, { freqEnd: 48 });
+      if (i === 4 || i === 12) noise(t, 0.09, 'bandpass', 850, 1.3, 0.09, buses.boi);
+    }
+    if (playing('trem')) {
+      if (i === 0 || i === 2 || i === 8 || i === 10) { tone(t, 'sine', 78, 0.14, 0.26, buses.trem, { freqEnd: 44 }); noise(t, 0.05, 'lowpass', 500, 0.7, 0.1, buses.trem); }
+      if (i % 4 === 2) noise(t, 0.06, 'highpass', 3200, 0.7, 0.03, buses.trem);
+    }
+    if (playing('mangue')) {
+      const k = KALIMBA[s % 64];
+      if (k) { tone(t, 'triangle', mtof(k), 1.1, 0.05, buses.mangue, { attack: 0.004 }); tone(t, 'sine', mtof(k + 12), 0.5, 0.02, buses.mangue, { attack: 0.003 }); }
+      if (i % 2 === 1) noise(t, 0.04, 'highpass', 6500, 0.8, i % 4 === 3 ? 0.03 : 0.016, buses.mangue);              // chocalho
+      if (i % 4 === 0 && Math.random() < 0.18) { const f = 2400 + Math.random() * 1600; for (let c = 0; c < 2 + (Math.random() * 3 | 0); c++) tone(t + c * 0.09, 'sine', f, 0.07, 0.025, buses.mangue, { freqEnd: f * 1.5, attack: 0.004 }); }   // passarinho
+      if (i === 8 && bar % 4 === 3 && Math.random() < 0.6) for (let c = 0; c < 2; c++) tone(t + c * 0.16, 'square', 120, 0.1, 0.02, buses.mangue, { filter: 500, freqEnd: 90 });   // sapo
+    }
+    if (playing('escola')) {
+      const e = ESCOLA[s % 32];
+      if (e != null) { tone(t, 'sine', mtof(ch.arp[e] + 12), 0.9, 0.035, buses.escola, { attack: 0.003 }); tone(t, 'triangle', mtof(ch.arp[e]), 0.4, 0.02, buses.escola, { attack: 0.003 }); }
+      if (i === 0 || i === 8) noise(t, 0.025, 'bandpass', 1900, 6, 0.05, buses.escola);                       // bloco de madeira
+      if (i === 4 && bar % 2 === 1) tone(t, 'triangle', mtof(ch.arp[(bar >> 1) % 5]), 0.25, 0.025, buses.escola);   // xilofone
+      if (i === 0 && bar % 16 === 15) [88, 84].forEach((m, k) => tone(t + k * 0.55, 'sine', mtof(m), 1.6, 0.03, buses.escola));   // sino da escola
+    }
+    if (playing('negocios')) {
+      if (i === 0 && bar % 2 === 0) for (const m of ch.pad) { tone(t, 'sine', mtof(m), STEP * 30, 0.022, buses.negocios, { attack: 0.02 }); tone(t, 'triangle', mtof(m), STEP * 20, 0.008, buses.negocios, { attack: 0.02, detune: 6 }); }
+      if (i === 8 && bar % 2 === 1) for (const m of ch.pad.slice(1)) tone(t, 'sine', mtof(m + 12), STEP * 6, 0.012, buses.negocios, { attack: 0.01 });
+      if (i === 0 || i === 10) tone(t, 'sine', 70, 0.22, 0.12, buses.negocios, { freqEnd: 42 });                    // bumbo lo-fi
+      if (i === 4 || i === 12) noise(t, 0.08, 'bandpass', 1500, 0.9, 0.035, buses.negocios);                         // caixa abafada
+      if (i % 2 === 0) noise(t, 0.02, 'highpass', 8000, 0.7, 0.008, buses.negocios);
+      if (i === 6 && Math.random() < 0.06) tone(t, 'sine', 1568, 0.18, 0.02, buses.negocios, { attack: 0.003 });    // notificação ao longe
+    }
+    if (playing('dunas') && i % 8 === 0 && Math.random() < 0.08) { const f = 1800 + Math.random() * 500; for (let c = 0; c < 2; c++) tone(t + c * 0.22, 'sine', f, 0.28, 0.014, buses.dunas, { freqEnd: f * 0.7, attack: 0.02 }); }   // gaivota
+    if (playing('cabine')) {
+      // Reggae: baixo (tônica e quinta), acorde curto no contratempo, bumbo e aro no 3º tempo (one drop), chimbal.
+      const bass = { 0: 0, 3: 0, 6: 7, 10: 0, 13: 5 }[i];
+      if (bass != null) tone(t, 'sine', mtof(ch.root - 12 + bass), STEP * 2.2, 0.16, buses.cabine, { attack: 0.01 });
+      if (i === 4 || i === 12) for (const m of ch.pad) tone(t, 'square', mtof(m), STEP * 0.8, 0.012, buses.cabine, { filter: 1800, attack: 0.004 });
+      if (i === 8) { tone(t, 'sine', 90, 0.2, 0.18, buses.cabine, { freqEnd: 48 }); noise(t, 0.04, 'bandpass', 2600, 4, 0.06, buses.cabine); }
+      if (i % 2 === 0) noise(t, 0.022, 'highpass', 7000, 0.7, i % 4 === 2 ? 0.02 : 0.01, buses.cabine);
+      if (i === 0 || i === 2) tone(t, 'sine', 78, 0.1, 0.05, buses.cabine, { freqEnd: 44 });                          // ta-dum dos trilhos
+      const lead = bar % 4 >= 2 && [0, null, null, 2, null, null, 3, null, 4, null, 3, null, 2, null, null, null][i];
+      if (lead != null && lead !== false) tone(t, 'triangle', mtof(ch.arp[lead]), STEP * 1.8, 0.03, buses.cabine, { attack: 0.01 });   // melodia
+    }
+    if (playing('porto') && t >= nextHorn) { if (zone === 'porto') horn(t); nextHorn = t + 22 + Math.random() * 10; }
+  }
+
+  const isOn = () => want && active && !document.hidden;
+  function apply() {
+    if (isOn()) {
+      // O navegador só deixa tocar depois de um toque, clique ou tecla na página (rolar não conta).
+      if (!ctx && !gestured && !navigator.userActivation?.hasBeenActive) return;
+      ensure(); clearTimeout(sus);
+      if (ctx.state !== 'running') ctx.resume().catch(() => {});
+      ramp(master.gain, duck ? VOL * 0.45 : VOL, master.gain.value < 0.05 ? 2.5 : 0.9); // do silêncio, entra bem devagar
+      ramp(buses.sfx.gain, 1, 0.05);
+    } else if (ctx) {
+      ramp(master.gain, 0, 0.25); ramp(buses.sfx.gain, 0, 0.1); clearTimeout(sus);
+      sus = setTimeout(() => { if (!isOn()) ctx.suspend(); }, 1600);
+    }
+  }
+  // Camada da área aberta sobe; a base abaixa um pouco para dar espaço.
+  function mixZone() {
+    if (!ctx) return;
+    const show = boost && zone === 'boi';
+    for (const z of LAYERS) ramp(buses[z].gain, z === zone ? (show ? 1.8 : LEVEL[z]) : 0, 0.7);
+    const quiet = show || zone === 'cabine';
+    ramp(buses.base.gain, quiet ? 0.55 : zone ? 0.8 : 1, 1); ramp(buses.arp.gain, quiet ? 0.25 : zone ? 0.75 : 1, 1);
+  }
+  // Efeitos dos jogos. at: atraso em segundos; arg: altura extra (o tijolo do fliperama, por exemplo).
+  const SFX = {
+    tap: t => tone(t, 'triangle', 1200, 0.05, 0.05, buses.sfx),
+    hit: (t, a = 0) => { tone(t, 'square', mtof(76 + a), 0.08, 0.05, buses.sfx, { filter: 4000 }); tone(t, 'sine', mtof(88 + a), 0.12, 0.03, buses.sfxRev); },
+    good: t => { tone(t, 'square', mtof(83), 0.07, 0.045, buses.sfx, { filter: 4500 }); tone(t + 0.07, 'square', mtof(88), 0.18, 0.05, buses.sfx, { filter: 4500 }); },
+    bonus: t => [76, 79, 83, 88, 91].forEach((m, k) => tone(t + k * 0.045, 'square', mtof(m), 0.12, 0.04, buses.sfxRev, { filter: 5000 })),
+    bad: t => { tone(t, 'sawtooth', 165, 0.28, 0.07, buses.sfx, { freqEnd: 98, filter: 900 }); tone(t, 'square', 82, 0.28, 0.04, buses.sfx, { filter: 500 }); },
+    tick: t => tone(t, 'square', 660, 0.14, 0.05, buses.sfx, { filter: 3000 }),
+    go: t => { tone(t, 'square', 1320, 0.45, 0.06, buses.sfx, { filter: 4000 }); tone(t, 'square', 660, 0.45, 0.04, buses.sfx, { filter: 2500 }); },
+    boost: t => { noise(t, 0.45, 'bandpass', 1800, 1.2, 0.12, buses.sfxRev); tone(t, 'sawtooth', 220, 0.45, 0.04, buses.sfx, { freqEnd: 880, filter: 2400 }); },
+    bump: t => { tone(t, 'sine', 95, 0.18, 0.2, buses.sfx, { freqEnd: 45 }); noise(t, 0.08, 'lowpass', 600, 0.8, 0.12, buses.sfx); },
+    whoosh: t => noise(t, 0.3, 'bandpass', 1200, 1.5, 0.08, buses.sfxRev),
+    paddle: t => tone(t, 'square', 440, 0.06, 0.05, buses.sfx, { filter: 2400 }),
+    lap: t => { tone(t, 'triangle', mtof(81), 0.14, 0.07, buses.sfx); tone(t + 0.1, 'triangle', mtof(88), 0.3, 0.07, buses.sfxRev); },
+    lose: t => [72, 69, 65, 60].forEach((m, k) => tone(t + k * 0.16, 'square', mtof(m), 0.2, 0.045, buses.sfx, { filter: 1800 })),
+    win: t => {
+      // Fanfarra curtinha: subida de arpejo, acorde final com brilho de sino e um grave.
+      [72, 76, 79].forEach((m, k) => tone(t + k * 0.11, 'square', mtof(m), 0.16, 0.05, buses.sfx, { filter: 4000 }));
+      [72, 76, 79, 84].forEach(m => { tone(t + 0.36, 'square', mtof(m), 1.1, 0.035, buses.sfxRev, { filter: 3500 }); tone(t + 0.36, 'triangle', mtof(m + 12), 1.4, 0.025, buses.sfxRev); });
+      tone(t + 0.36, 'sine', mtof(48), 0.9, 0.12, buses.sfx);
+    }
+  };
+  function ramp(p, v, tc) { const n = ctx.currentTime; p.cancelScheduledValues(n); p.setValueAtTime(p.value, n); p.setTargetAtTime(v, n, tc); }
+
+  return {
+    get enabled() { return want; },
+    setEnabled(v) { want = v; gestured = true; try { localStorage.setItem(KEY, v ? '1' : '0'); } catch { /* ignora */ } apply(); },
+    // Primeiro toque, clique ou tecla na página: já deixa o áudio montado e liberado (em silêncio até o planeta).
+    wake() { if (gestured) return; gestured = true; if (want) { ensure(); ctx.resume().catch(() => {}); } apply(); },
+    refresh: apply,
+    setActive(v) { if (v !== active) { active = v; apply(); } },
+    // Progresso da formação do planeta (0 a 1): o som sobe com a barra, bipa a cada 5% e chega com um acorde.
+    setLoad(k) {
+      const prev = load; load = k;
+      if (!ctx || ctx.state !== 'running' || !isOn()) { if (riser && ctx) riserStop(0.2); return; }
+      if (k > 0.001 && k < 0.999 && k >= prev) {
+        if (!riser) riserStart();
+        riserSet(k);
+        const b = Math.floor(k * 20); if (b > Math.floor(prev * 20)) tone(ctx.currentTime, 'square', mtof(PENTA[b >> 1]), 0.09, 0.022, buses.sfx, { filter: 3000 });
+      } else if (riser) { riserStop(); if (k >= 0.999 && prev < 0.999) arrive(); }
+    },
+    // Apresentação da área (o boi no palco): percussão mais forte e a toada por cima.
+    setBoost(v) { if (v !== boost) { boost = v; mixZone(); } },
+    setZone(k) {
+      k = k || null; if (k === zone) return;
+      if (ctx) { if (zone) offAt[zone] = ctx.currentTime; if (k === 'porto') nextHorn = ctx.currentTime + 2.5; }
+      zone = k; mixZone();
+    },
+    // Toca um efeito dos jogos (só com o som ligado e o áudio já liberado pelo navegador).
+    sfx(kind, arg, at = 0) { if (!ctx || ctx.state !== 'running' || !isOn() || !SFX[kind]) return; SFX[kind](ctx.currentTime + at, arg); },
+    // Música mais baixa enquanto um minigame está rolando.
+    setDuck(v) { if (v === duck) return; duck = v; if (ctx && isOn()) ramp(master.gain, duck ? VOL * 0.45 : VOL, 0.4); },
+    // Motor do kart: level de 0 (marcha lenta) a 1+ (turbo); null desliga. Dois osciladores com filtro e um leve tremor.
+    engine(level) {
+      if (level == null || !ctx || ctx.state !== 'running' || !isOn()) {
+        if (motor) { const m = motor; motor = null; ramp(m.g.gain, 0, 0.08); setTimeout(() => { m.a.stop(); m.b.stop(); m.l.stop(); }, 500); }
+        return;
+      }
+      if (!motor) {
+        const a = ctx.createOscillator(), b = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
+        a.type = 'sawtooth'; b.type = 'square'; b.detune.value = -1200 + 7; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
+        l.frequency.value = 18; lg.gain.value = 0.012; l.connect(lg).connect(g.gain);
+        a.connect(f); b.connect(f); f.connect(g).connect(buses.sfx); a.start(); b.start(); l.start();
+        motor = { a, b, f, g, l };
+      }
+      const n = ctx.currentTime, k = Math.max(0, Math.min(1.3, level));
+      motor.a.frequency.setTargetAtTime(48 + k * 120, n, 0.08); motor.b.frequency.setTargetAtTime(48 + k * 120, n, 0.08);
+      motor.f.frequency.setTargetAtTime(380 + k * 1500, n, 0.08); motor.g.gain.setTargetAtTime(0.03 + k * 0.025, n, 0.1);
+      motor.l.frequency.setTargetAtTime(14 + k * 30, n, 0.1);
+    },
+    dispose() { clearInterval(timer); clearTimeout(sus); ctx?.close(); ctx = null; }
+  };
+}

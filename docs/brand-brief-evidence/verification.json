@@ -1,0 +1,39 @@
+{
+  "checkedAt": "2026-09-14T20:43:01.017Z",
+  "pageErrors": [],
+  "warnings": [
+    "THREE.WebGLProgram: Program Info Log: (210,81-129): warning X4122: sum of 0.996094 and -2.98545e-017 cannot be represented accurately in double precision\n(209,37-61): warning X4122: sum of 1 and -1.49272e-017 cannot be represented accurately in double precision\n(210,82-106): warning X4122: sum of 1 and -1.49272e-017 cannot be represented accurately in double precision\n(209,37-61): warning X4122: sum of 1 and -1.66644e-018 cannot be represented accurately in double precision\n(210,82-106): warning X4122: sum of 1 and -1.66644e-018 cannot be represented accurately in double precision"
+  ],
+  "threeDLoaded": true,
+  "dragRotation": true,
+  "keyboardReset": true,
+  "namesJoin": true,
+  "originalWordmarkHalves": true,
+  "logoCentralAnchor": true,
+  "logoLifts": true,
+  "interactiveBrandArtifact": true,
+  "cornerProximity": true,
+  "briefDialog": true,
+  "briefValidation": true,
+  "briefCopy": true,
+  "briefMobile": true,
+  "floatingProjectImagesRemoved": true,
+  "cursorDelayed": true,
+  "cursorKeyboardFallback": true,
+  "navigation": true,
+  "galleryMouseAndTouch": true,
+  "widths": [
+    320,
+    390,
+    760,
+    1280
+  ],
+  "reducedMotion": true,
+  "status": "passed",
+  "limits": [
+    "Physical-device performance and full shader equivalence not claimed",
+    "Instagram posts not imported; only user-supplied profile links",
+    "Visual VR framing only; not a WebXR application",
+    "Brief prepares text locally; no server delivery or automatic sending"
+  ]
+}

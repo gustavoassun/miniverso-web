@@ -1,6 +1,8 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router'; // Importa o arquivo que acabamos de criar
+import './assets/styles/fonts.css';
+import './assets/styles/global.css';
 
 // Se você tiver um arquivo de CSS global, a importação fica aqui. 
 // Exemplo: import './assets/styles/global.css';
