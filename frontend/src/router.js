@@ -6,6 +6,7 @@ import Login from './views/Login.vue';
 import Dashboard from './views/Dashboard.vue';
 import Projects from './views/Projects.vue';
 import ProjectDetail from './views/ProjectDetail.vue';
+import Accessibility from './views/Accessibility.vue';
 import { hasAdminSession } from './utils/projectStore.js';
 
 const routes = [
@@ -23,6 +24,11 @@ const routes = [
     path: '/projetos/:id',
     name: 'Project',
     component: ProjectDetail
+  },
+  {
+    path: '/acessibilidade',
+    name: 'Accessibility',
+    component: Accessibility
   },
   {
     path: '/login',

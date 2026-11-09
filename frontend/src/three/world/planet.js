@@ -306,13 +306,14 @@ await breathe();
       if (!fine.has(zg)) fine.set(zg, new Map());
       const fm = fine.get(zg); if (!fm.has(o.material)) fm.set(o.material, []); fm.get(o.material).push(g);
     } else {
-      if (!groups.has(o.material)) groups.set(o.material, []);
-      groups.get(o.material).push(g);
+      const key = zg || planet;
+      if (!groups.has(key)) groups.set(key, new Map());
+      const gm = groups.get(key); if (!gm.has(o.material)) gm.set(o.material, []); gm.get(o.material).push(g);
     }
     toRemove.push(o);
   });
   toRemove.forEach(o => o.parent.remove(o));
-  for (const [m, list] of groups) planet.add(new THREE.Mesh(mergeGeometries(list), m));
+  for (const [key, gm] of groups) for (const [m, list] of gm) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.userData.zoneMesh = key === planet ? -1 : ZONES.findIndex(z => z.group === key); planet.add(mesh); }
   for (const [zg, fm] of fine) for (const [m, list] of fm) { const mesh = new THREE.Mesh(mergeGeometries(list), m); mesh.userData.detail = true; mesh.userData.detailZone = ZONES.findIndex(z => z.group === zg); planet.add(mesh); }
 }
 

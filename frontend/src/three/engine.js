@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { R, TAU, UP, clamp, easeOut, mix, smooth, smoother } from './core/math.js';
-import { dpr } from './core/quality.js';
-import { DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, displayUniforms, dustUniforms, frontAt, glowM, introScene, ledBase, ledM, lensRims, lensWindows, rig, rimGroup, rimScene, rimUniforms, shadow, strapFade, strapGroup, underglow } from './intro/headset.js';
+import { antialias, dpr, small as smallDevice } from './core/quality.js';
+import { DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, displayUniforms, dustUniforms, frontAt, glowM, introScene, ledBase, ledM, lensRims, lensWindows, rig, rimGroup, rimScene, rimUniforms, shadow, strapFade, strapGroup, underglow, pad } from './intro/headset.js';
 import { atmoUniforms, atmosphere, balloons, cloudM, clouds, formPts, formUniforms, islands, orbit, planet, tilt, worldStencil, zoneMarks } from './world/planet.js';
 import { cabin, updateCabin } from './world/cabin.js';
 import { railPt, railTan } from './world/rail.js';
@@ -54,9 +54,21 @@ export function createMiniverso(rootEl, opts = {}) {
     // Peças soltas pequenas que uma máquina movimenta (minério na correia, poeira, jatos d'água...).
     ZONES.forEach((z, i) => { for (const o of z.group.children) if (!o.userData.detail && !o.userData.anim && small(o)) { o.userData.detail = true; details.push([o, i]); } });
   }
+  // Economia: cada peça animada sabe de que área é. Com uma área aberta só ela anima (e as áreas do outro lado do
+  // planeta nem são desenhadas); na vista do planeta animam só as áreas viradas para a câmera, em quadros alternados.
+  const zoneOfObj = o => { for (let a = o; a; a = a.parent) { const i = ZONES.findIndex(z => z.group === a); if (i >= 0) return i; } return -1; };
+  const zoneMeshes = planet.children.filter(o => o.userData.zoneMesh >= 0);
+  const zoneWorldDir = ZONES.map(() => new THREE.Vector3()), facing = ZONES.map(() => true), camDirW = new THREE.Vector3();
+  let farHidden = -2, frameNo = 0;
+  function hideFar(fi) {
+    if (fi === farHidden) return; farHidden = fi;
+    const near = i => fi < 0 || i === fi || ZONES[i].dir.angleTo(ZONES[fi].dir) < 0.95;
+    ZONES.forEach((z, i) => { z.group.visible = near(i); });
+    for (const m of zoneMeshes) m.visible = near(m.userData.zoneMesh);
+  }
   let detailZone = null;
   const showDetails = zi => { if (zi === detailZone) return; detailZone = zi; for (const [o, i] of details) o.visible = i === zi; };
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias, stencil: true, powerPreference: smallDevice ? 'default' : 'high-performance' });
   renderer.setPixelRatio(dpr);
   renderer.setClearColor(0x0c0407, 1);
   renderer.autoClear = false;
@@ -349,6 +361,8 @@ export function createMiniverso(rootEl, opts = {}) {
     motionBtn.setAttribute('aria-pressed', String(v));
   };
   on(motionBtn, 'click', () => { setReduced(!reduced); if (reduced) auto = null; });
+  // Painel de acessibilidade (Menos movimento) também desliga as animações do planeta.
+  on(window, 'miniverso:reduced', e => { if (e.detail !== reduced) { setReduced(!!e.detail); if (reduced) auto = null; } });
   setReduced(reduced);
 
   const HALF_W = 1.83, HALF_H = 0.95;
@@ -382,7 +396,7 @@ export function createMiniverso(rootEl, opts = {}) {
   }
   on(autoBtn, 'click', () => setAutoOn(!autoOn, true));
   setAutoOn(autoOn, false);
-  const introEnd = () => intro.offsetTop + intro.offsetHeight - innerHeight;
+  const introEnd = () => Math.max(1, intro.offsetTop + intro.offsetHeight - innerHeight);
   let lastProgress = clamp(scrollY / introEnd());
   // Dois trechos: o óculos vem até o rosto e entra pelo visor (~4,6 s, com calma para a entrada não parecer uma
   // explosão) e o planeta se forma (~7,4 s). Total de ~12 s, só na primeira visita.
@@ -425,12 +439,23 @@ export function createMiniverso(rootEl, opts = {}) {
   let place = 'capa', maxY = 0, freeUntil = 0, travelling = false;
   const free = () => travelling || performance.now() < freeUntil;
   let bpHint = 0;
+  // No site, a abertura é recolhida (altura zero) e a página começa nas seções: rolar para cima simplesmente para no
+  // topo, sem a trava ficar puxando a tela de volta (no celular a rolagem por inércia brigava com ela e a tela
+  // tremia). Os botões e links que voltam ao planeta ou à capa reabrem a abertura antes de ir.
+  let collapsed = false;
+  function collapse(on) {
+    if (on === collapsed) return;
+    const h = intro.offsetHeight;
+    collapsed = on; rootEl.classList.toggle('collapsed', on);
+    scrollTo({ top: Math.max(0, scrollY + (on ? -h : intro.offsetHeight)), behavior: 'instant' });
+  }
   function setPlace(p) {
     if (p !== 'capa') markVisited();
     // Ao chegar no site, o botão do planeta mostra o nome por alguns segundos e depois vira só o planetinha.
     if (backBtn && p === 'site' && place !== 'site') { backBtn.classList.add('bp-named'); clearTimeout(bpHint); bpHint = setTimeout(() => backBtn.classList.remove('bp-named'), 4200); }
     place = p; if (p === 'capa') maxY = scrollY;
     rootEl.classList.toggle('away', p === 'site');
+    if (p === 'site') collapse(true);
     if (backBtn) { backBtn.classList.toggle('show', p === 'site'); backBtn.tabIndex = p === 'site' ? 0 : -1; }
   }
   const nudge = () => { if (!exitBtn) return; exitBtn.classList.remove('nudge'); void exitBtn.offsetWidth; exitBtn.classList.add('nudge'); };
@@ -449,6 +474,7 @@ export function createMiniverso(rootEl, opts = {}) {
     // fecha nesse mesmo ponto), em vez de sumir no meio e o botão aparecer depois noutro lugar.
     const toCorner = dest === 'site' && backBtn && !reduced;
     setTimeout(() => {
+      if (dest !== 'site') collapse(false);
       const top = typeof y === 'function' ? y() : y;
       rootEl.classList.remove('away');
       if (toCorner) backBtn.classList.add('arriving');
@@ -487,8 +513,10 @@ export function createMiniverso(rootEl, opts = {}) {
     if (url.origin !== location.origin || url.pathname !== '/') return;
     if (travelling) { e.preventDefault(); return; }
     if (url.hash) {
-      if (place === 'site') return;                                                         // já no site: o roteador rola até a seção
       const id = url.hash.slice(1), el = document.getElementById(id); if (!el) return;
+      // Já no site: rola até a seção mesmo que o endereço já tenha essa âncora (o roteador não fazia nada quando a
+      // pessoa tinha rolado na mão depois de clicar e clicava no mesmo item de novo).
+      if (place === 'site') { e.preventDefault(); scrollTo({ top: el.getBoundingClientRect().top + scrollY - 24, behavior: reduced ? 'instant' : 'smooth' }); opts.setHash?.(url.hash); return; }
       e.preventDefault();
       travelTo(() => el.getBoundingClientRect().top + scrollY - 24, `Indo para ${SECTIONS[id] || 'o site'}`, 'site', a, () => opts.setHash?.(url.hash));
     } else if (place !== 'capa' || scrollY > 2) { e.preventDefault(); travelTo(0, 'Voltando ao início', 'capa', a); }  // logo
@@ -539,7 +567,7 @@ export function createMiniverso(rootEl, opts = {}) {
   const FRAME = 1000 / 60;
   // Qualidade adaptativa: se o aparelho não sustenta ~45 quadros por segundo, a resolução baixa um degrau (até 75%);
   // com folga por um bom tempo, volta a subir até a resolução normal. Só mede com a cena na tela.
-  const Q_MIN = 0.75; let q = dpr, qN = 0, qSum = 0, qSlow = 0, qFast = 0;
+  const Q_MIN = smallDevice ? 0.6 : 0.75; let q = dpr, qN = 0, qSum = 0, qSlow = 0, qFast = 0;
   function adapt(ms) {
     qSum += ms; if (++qN < 90) return;
     const avg = qSum / qN; qN = qSum = 0;
@@ -571,8 +599,9 @@ export function createMiniverso(rootEl, opts = {}) {
     if (gameExit.hidden === exitable()) gameExit.hidden = !exitable();
     if (disposed) return;
     raf = requestAnimationFrame(tick);
+    const frameStep = smallDevice && !drag && !playing() && !auto ? FRAME * 2 : FRAME;
     if (now < nextFrame - 1) return;
-    nextFrame = Math.max(nextFrame + FRAME, now);
+    nextFrame = Math.max(nextFrame + frameStep, now);
     const frameMs = now - last, dt = Math.min(0.05, frameMs / 1000); last = now;
     if (auto) {
       const el = now - auto.start;
@@ -588,7 +617,7 @@ export function createMiniverso(rootEl, opts = {}) {
       if (gone !== sentPassed) { sentPassed = gone; opts.onFrame?.({ progress: clamp(scrollY / introEnd()), reduced, passed: gone }); }
       music.setActive(false); return;
     }
-    if (frameMs < 250) adapt(frameMs);
+    if (frameMs < 250) adapt(frameMs * (smallDevice && !drag && !playing() && !auto ? 0.5 : 1));
     if (!reduced) clock += dt;
     rt.clock = clock;
     const alive = reduced ? 0 : 1;
@@ -654,8 +683,10 @@ export function createMiniverso(rootEl, opts = {}) {
     shadow.position.set(rig.position.x, rig.position.y - 1.15 * rig.scale.x, -0.5 * rig.scale.x);
     underglow.position.set(rig.position.x, rig.position.y - 1.14 * rig.scale.x, 0.1);
     shadow.scale.setScalar(rig.scale.x); underglow.scale.setScalar(rig.scale.x);
-    shadow.material.opacity = ground; underglow.material.opacity = 0.16 * ground;
-    shadow.visible = underglow.visible = ground > 0.01;
+    shadow.material.opacity = ground * 0.45; underglow.material.opacity = 0.11 * ground;
+    shadow.visible = underglow.visible = pad.visible = ground > 0.01;
+    pad.position.set(rig.position.x, rig.position.y - 1.08 * rig.scale.x, 0.05);
+    { const br = 1 + Math.sin(clock * 1.1) * 0.025; pad.scale.set(rig.scale.x * br, rig.scale.x * br, rig.scale.x * br); pad.children.forEach((r, i) => { r.material.opacity = r.userData.op * ground * (0.75 + 0.25 * Math.sin(clock * 1.1 + i * 1.4)); }); }
     rig.visible = merge < 0.999;
     renderer.toneMappingExposure = mix(0.05, 1, enter);
 
@@ -717,7 +748,19 @@ export function createMiniverso(rootEl, opts = {}) {
     const edge = revealEdge(reveal);
     formPts.visible = form > 0.001 && scatter < 0.999;
     showDetails(focusT > 0.05 ? lastFocus : -1);
-    for (const a of animated) if (a.visible || !a.userData.detail) a.userData.anim(clock);
+    // Quem está de frente para a câmera (para animar só o que se vê na vista do planeta).
+    frameNo++;
+    const zoneMode = focusT > 0.6 && cabT < 0.01 && !(raceW > 0.01);                      // área aberta (fora do trem e da corrida)
+    if (focusT <= 0.05) { camDirW.copy(camPos).normalize(); ZONES.forEach((z, i) => { zoneWorldDir[i].copy(z.dir).transformDirection(planet.matrixWorld); facing[i] = zoneWorldDir[i].dot(camDirW) > 0.12; }); }
+    for (const a of animated) {
+      if (!a.visible && a.userData.detail) continue;
+      const zi = a.userData.zi ??= zoneOfObj(a);
+      if (zi >= 0) {
+        if (zoneMode ? zi !== lastFocus : focusT <= 0.05 && (!facing[zi] || (frameNo & 1))) continue;
+      }
+      a.userData.anim(clock);
+    }
+    hideFar(zoneMode && focusT > 0.85 ? lastFocus : -1);
     const wd = mix(portrait ? 7 : 4.1, portrait ? 16.5 : 9.6, arrive);                // planeta inteiro com folga (um pouco mais afastado), anéis e órbita à vista
     camPos.set(mx * 0.25 * arrive, 0.25 - my * 0.15 * arrive, wd); camLook.set(0, portrait ? -0.25 : -0.1, 0);
     fup.set(0, 1, 0);

@@ -208,10 +208,14 @@ for (const x of [-1.0, -0.82, 0.82, 1.0]) { const v = new THREE.Mesh(new Rounded
 
 // Sombra suave e brilho azul embaixo do óculos (só na capa).
 const radial = (inner, outer) => { const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d'); const gr = x.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, inner); gr.addColorStop(1, outer); x.fillStyle = gr; x.fillRect(0, 0, 128, 128); return new THREE.CanvasTexture(c); };
-const shadow = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.6), new THREE.MeshBasicMaterial({ map: radial('rgba(0,0,0,.7)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));
+const shadow = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.6), new THREE.MeshBasicMaterial({ map: radial('rgba(0,0,0,.7)', 'rgba(0,0,0,0)'), transparent: true, depthWrite: false }));
 const underglow = new THREE.Mesh(new THREE.PlaneGeometry(4, 2.4), new THREE.MeshBasicMaterial({ map: radial('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), color: '#00b7e3', transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
 shadow.rotation.x = underglow.rotation.x = -Math.PI / 2;
 introScene.add(shadow, underglow);
+// Pedestal holográfico no lugar da mancha escura: dois anéis finos de luz ciano no chão, que respiram devagar, como
+// se o óculos flutuasse sobre um projetor.
+const padRing = (r, w, op) => { const m = new THREE.Mesh(new THREE.RingGeometry(r - w, r, 96), new THREE.MeshBasicMaterial({ color: '#4fdcff', transparent: true, opacity: op, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })); m.rotation.x = -Math.PI / 2 + 0.2; m.userData.op = op; return m; };
+const pad = new THREE.Group(); pad.add(padRing(0.95, 0.026, 0.6), padRing(1.18, 0.014, 0.26)); pad.scale.set(1, 1, 1); introScene.add(pad);
 
 // Tela do visor: luz sob o vidro (brilho no ponteiro, pixels, onda, varredura de entrada) e o nome Miniverso.
 const DS = { x: 0.97, y: 0.95 };
@@ -291,4 +295,4 @@ const lensRims = [-1, 1].map(side => {
   return m;
 });
 
-export { DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, displayUniforms, dustUniforms, frontAt, glowM, introScene, ledBase, ledM, lensRims, lensWindows, rig, rimGroup, rimScene, rimUniforms, shadow, strapFade, strapGroup, underglow };
+export { pad, DS, LENS_R, LENS_X, LENS_Z, NAME, W, camera, cosmosUniforms, display, displayUniforms, dustUniforms, frontAt, glowM, introScene, ledBase, ledM, lensRims, lensWindows, rig, rimGroup, rimScene, rimUniforms, shadow, strapFade, strapGroup, underglow };

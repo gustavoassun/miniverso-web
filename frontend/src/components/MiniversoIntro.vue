@@ -28,11 +28,11 @@
           <h1 id="intro-title">O mundo real é só <span>o começo.</span></h1>
           <p>Realidade virtual, aumentada e conteúdo 3D. Experiências que levam sua ideia além da tela.</p>
         </div>
-        <!-- Da segunda visita em diante: um atalho discreto no centro, logo abaixo do nome (o título continua sendo o
-             destaque), e um link pequeno para ver o planeta. -->
+        <!-- Da segunda visita em diante: dois atalhos lado a lado logo abaixo do nome (o título continua sendo o destaque):
+             Explorar o site (principal) e Ver o planeta (secundário, com o planetinha), os dois bem legíveis. -->
         <div class="capa-cta" hidden>
           <button type="button" class="cta-site">Explorar o site <i aria-hidden="true">→</i></button>
-          <button type="button" class="cta-planet">ou veja o planeta</button>
+          <button type="button" class="cta-planet"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="5.2" /><ellipse cx="12" cy="12" rx="10" ry="3.4" transform="rotate(-18 12 12)" /></svg>Ver o planeta</button>
         </div>
         <div class="capa-bar">
           <span class="enter">Role para entrar <i aria-hidden="true">↓</i></span>
@@ -248,7 +248,7 @@ onUnmounted(() => {
 .scene-canvas.orbiting { touch-action: none; }
 /* Cursor do universo: mira de VR (anel ciano com ponto branco, contorno escuro para ler em qualquer fundo).
    Apontando algo clicável, o anel abre e acende; arrastando, fecha com as setinhas de girar. */
-.stage { --cur: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='9' fill='none' stroke='%237fe9ff' stroke-width='2'/><path d='M22.4 9.6a9 9 0 0 1 2.6 6.4' fill='none' stroke='%23ff4fd8' stroke-width='2.2' stroke-linecap='round'/><circle cx='16' cy='16' r='2.6' fill='%23ffffff' stroke='%23050a1c' stroke-width='1.2'/></svg>") 16 16, grab; --cur-drag: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><circle cx='16' cy='16' r='6' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='6' stroke='%237fe9ff' stroke-width='2'/><path d='M16 3.5l-2.6 2.8M16 3.5l2.6 2.8M16 28.5l-2.6-2.8M16 28.5l2.6-2.8M3.5 16l2.8-2.6M3.5 16l2.8 2.6M28.5 16l-2.8-2.6M28.5 16l-2.8 2.6' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4'/><path d='M16 3.5l-2.6 2.8M16 3.5l2.6 2.8M16 28.5l-2.6-2.8M16 28.5l2.6-2.8M3.5 16l2.8-2.6M3.5 16l2.8 2.6M28.5 16l-2.8-2.6M28.5 16l-2.8 2.6' stroke='%23ffffff' stroke-width='1.8'/></g><circle cx='16' cy='16' r='2.2' fill='%23ff4fd8'/></svg>") 16 16, grabbing; --cur-point: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><circle cx='16' cy='16' r='11.5' fill='%237fe9ff' fill-opacity='.22' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='11.5' fill='none' stroke='%237fe9ff' stroke-width='2.2'/><circle cx='16' cy='16' r='3.4' fill='%23ff4fd8' stroke='%23ffffff' stroke-width='1.4'/></svg>") 16 16, pointer; }
+/* As variáveis do cursor (--cur, --cur-drag, --cur-point) ficam no App.vue, valendo para o site inteiro. */
 .scene-canvas { cursor: var(--cur); }
 .scene-canvas.dragging { cursor: var(--cur-drag); }
 .scene-canvas.pointing { cursor: var(--cur-point); }
@@ -266,14 +266,19 @@ onUnmounted(() => {
 .skip-intro i { font-style: normal; font-size: 16px; line-height: 1; color: var(--cyan); }
 .skip-intro .skip-site i { color: #fff; }
 /* Atalho da capa (a partir da segunda visita): pequeno, centralizado logo abaixo do nome e da dica de arrastar. */
-.capa-cta { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px) + 34px); translate: -50% 0; display: grid; justify-items: center; gap: 6px; }
+.capa-cta { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px) + 30px); translate: -50% 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .capa-cta[hidden] { display: none; }
-.capa-cta .cta-site { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 18px; border: 1px solid rgba(127, 233, 255, .45); border-radius: 999px; color: #fff; background: rgba(12, 27, 41, .55); backdrop-filter: blur(10px); font: 600 14px var(--font-body); letter-spacing: .02em; cursor: pointer; white-space: nowrap; transition: border-color .25s, background .25s, box-shadow .25s; }
-.capa-cta .cta-site:hover, .capa-cta .cta-site:focus-visible { border-color: var(--cyan); background: rgba(0, 183, 227, .16); box-shadow: 0 0 24px rgba(0, 183, 227, .3); }
-.capa-cta .cta-site i { font-style: normal; color: var(--cyan); transition: translate .25s; } .capa-cta .cta-site:hover i { translate: 3px 0; }
-.capa-cta .cta-planet { padding: 4px 6px; border: 0; background: none; color: var(--muted); font: 500 12px var(--font-body); letter-spacing: .04em; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(163, 188, 203, .4); text-underline-offset: 3px; }
-.capa-cta .cta-planet:hover { color: #fff; }
-@media (max-width: 700px) { .capa-cta { top: calc(50% + var(--hint-y, 150px) + 16px); gap: 0; } .capa-cta .cta-site { min-height: 36px; padding: 0 16px; font-size: 13px; } .capa-cta .cta-planet { font-size: 11px; } }
+.capa-cta button { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 999px; font: 600 14px/1 var(--font-body); letter-spacing: .02em; white-space: nowrap; cursor: pointer; transition: border-color .25s, background .25s, box-shadow .25s, transform .25s; }
+/* Principal: o mesmo degradê do Explorar o site do planeta, com brilho na borda de cima. */
+.capa-cta .cta-site { position: relative; isolation: isolate; overflow: hidden; border: 0; color: #fff; background: linear-gradient(110deg, #00b7e3 0%, #1e5bb8 55%, #6a4bd6 100%); box-shadow: 0 10px 26px rgba(0, 0, 0, .4), inset 0 1px 0 rgba(255, 255, 255, .35); }
+.capa-cta .cta-site:hover, .capa-cta .cta-site:focus-visible { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(0, 0, 0, .45), 0 0 30px rgba(0, 183, 227, .45), inset 0 1px 0 rgba(255, 255, 255, .4); }
+.capa-cta .cta-site i { font-style: normal; transition: translate .25s; } .capa-cta .cta-site:hover i { translate: 3px 0; }
+/* Secundário: vidro com borda clara e o planetinha com anel, texto claro (antes era um link pequeno e apagado). */
+.capa-cta .cta-planet { border: 1px solid rgba(233, 240, 255, .32); color: #eef3fb; background: rgba(14, 18, 38, .55); backdrop-filter: blur(10px); }
+.capa-cta .cta-planet:hover, .capa-cta .cta-planet:focus-visible { border-color: rgba(127, 233, 255, .7); background: rgba(0, 183, 227, .14); transform: translateY(-2px); }
+.capa-cta .cta-planet svg { width: 18px; height: 18px; fill: none; stroke: #7fe9ff; stroke-width: 1.7; }
+.capa-cta .cta-planet svg circle { fill: rgba(127, 233, 255, .25); }
+@media (max-width: 700px) { .capa-cta { top: calc(50% + var(--hint-y, 150px) + 14px); gap: 8px; } .capa-cta button { height: 38px; padding: 0 14px; font-size: 13px; } }
 
 /* mini + verso nas laterais do óculos; juntam-se e entram no visor. */
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
@@ -308,7 +313,7 @@ onUnmounted(() => {
 /* Capa: rótulos no topo, frase e descrição embaixo, barra de navegação da abertura. */
 .capa { position: absolute; inset: 0; opacity: var(--capa, 1); }
 .capa-top, .capa-bottom, .capa-bar { position: absolute; left: max(16px, 4vw); right: max(16px, 4vw); }
-.capa-top { top: calc(110px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; gap: 16px; font: 11px var(--font-mono); letter-spacing: .2em; text-transform: uppercase; color: var(--muted); }
+.capa-top { top: calc(110px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; gap: 16px; font: 11px var(--font-mono); letter-spacing: .2em; text-transform: uppercase; color: #c9d1e4; }  /* mais contraste (antes quase sumia) */
 .capa-bottom { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
 .capa-bottom h1 { margin: 0; max-width: 14ch; font: 500 clamp(32px, 3.8vw, 52px)/1 var(--font-title); letter-spacing: .01em; }
 .capa-bottom h1 span { color: var(--cyan); }
@@ -367,7 +372,7 @@ onUnmounted(() => {
 .planet-home.live, .planet-exit.live { pointer-events: auto; }
 .planet-home { padding: 0 22px 0 8px; background: linear-gradient(#0b1230, #0b1230) padding-box, linear-gradient(120deg, rgba(0, 183, 227, .9), rgba(143, 107, 255, .9)) border-box;
   border: 1.5px solid transparent; box-shadow: 0 10px 28px rgba(0, 0, 0, .45); }
-.planet-exit { padding: 0 8px 0 24px; background: linear-gradient(110deg, #00b7e3 0%, #1e5bb8 55%, #6a4bd6 100%);
+.planet-exit { isolation: isolate; overflow: hidden; padding: 0 8px 0 24px; background: linear-gradient(110deg, #00b7e3 0%, #1e5bb8 55%, #6a4bd6 100%);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .45), 0 0 30px rgba(0, 183, 227, .35), inset 0 1px 0 rgba(255, 255, 255, .35); }
 .planet-exit::before { content: ""; position: absolute; inset: 0 0 50% 0; z-index: -1; border-radius: inherit; background: linear-gradient(180deg, rgba(255, 255, 255, .22), transparent); }
 .planet-exit::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%; z-index: -1; background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .45), transparent); transform: skewX(-18deg); animation: exit-shine 3.8s ease-in-out infinite; }
@@ -434,6 +439,8 @@ onUnmounted(() => {
 .travel.on .travel-line::after { transform: scaleX(1); transition: transform 1s ease .3s; }
 /* No site, o palco do planeta nem é desenhado: subir além do topo das seções nunca mostra o planeta pela metade. */
 .miniverso-intro.away .stage { visibility: hidden; }
+/* No site a abertura fica recolhida: a página começa nas seções e não dá para "forçar" a volta rolando. */
+.miniverso-intro.collapsed { height: 0; overflow: hidden; }
 /* Apresentação ao abrir a página: o óculos surge com calma e a capa entra em sequência, sem tudo de uma vez. */
 .scene-canvas { animation: intro-fade 1.6s ease .1s both; }
 .capa-top span { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .45s both; }
@@ -711,8 +718,10 @@ onUnmounted(() => {
 .no-webgl .back-planet, .no-webgl .travel, .no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle, .no-webgl .capa-bar .sound-chip { display: none; }
 
 @media (max-width: 760px) {
-  .capa-top { top: calc(84px + env(safe-area-inset-top, 0px)); font-size: 9px; }
-  .capa-bottom { flex-direction: column; align-items: flex-start; gap: 10px; bottom: calc(88px + env(safe-area-inset-bottom, 0px)); }
+  .capa-top { top: calc(84px + env(safe-area-inset-top, 0px)); font-size: 10px; }
+  /* Os botões da barra quebram em duas linhas no celular: o texto da capa sobe para não ficar embaixo deles. */
+  .capa-bottom { flex-direction: column; align-items: flex-start; gap: 10px; bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
+  .capa-bottom p { display: none; }                                    /* no celular fica só o título, sem encostar no botão do meio */
   .capa-bar { grid-template-columns: 1fr; }
   .capa-bar .step, .capa-bar .enter { display: none; }
   .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
