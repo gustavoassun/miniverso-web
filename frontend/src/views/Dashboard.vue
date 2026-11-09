@@ -27,6 +27,7 @@
         </div>
         <button v-if="tab === 'projects'" class="primary" type="button" @click="newProject"><span aria-hidden="true">+</span> Novo projeto</button>
         <button v-else-if="tab === 'clients'" class="primary" type="button" @click="newClient"><span aria-hidden="true">+</span> Novo projeto de cliente</button>
+        <button v-else-if="tab === 'news'" class="primary" type="button" @click="newNews"><span aria-hidden="true">+</span> Nova novidade</button>
       </header>
 
       <Transition name="swap" mode="out-in">
@@ -71,6 +72,14 @@
                 <span class="badge" :class="dueClass(client)">{{ dueText(client) }}</span>
               </button>
             </article>
+            <article class="panel">
+              <div class="panel-head"><h2>Mais vistos no site</h2><button class="link" type="button" @click="tab = 'projects'">Portfólio</button></div>
+              <div v-for="r in topViewed" :key="r.p.id" class="row static">
+                <span class="row-name"><b>{{ r.p.titulo }}</b><small>{{ r.views }} {{ r.views === 1 ? 'visita' : 'visitas' }} · {{ r.leads }} {{ r.leads === 1 ? 'contato' : 'contatos' }}</small></span>
+                <span class="bar-mini" aria-hidden="true"><i :style="{ width: (topViewed[0].views ? r.views / topViewed[0].views * 100 : 0) + '%' }" /></span>
+              </div>
+              <p v-if="!topViewed.length || !topViewed[0].views" class="empty small">As visitas às páginas dos projetos aparecem aqui.</p>
+            </article>
             <article class="panel feed">
               <div class="panel-head"><h2>Atividade recente</h2></div>
               <TransitionGroup tag="ol" name="feed">
@@ -91,16 +100,20 @@
               <button v-for="s in sectorFilters" :key="s" type="button" :class="{ on: sector === s }" @click="sector = s">{{ s }}</button>
             </div>
           </div>
+          <p class="tip">Arraste os cartões (ou use as setas) para mudar a ordem em que aparecem no site.</p>
           <TransitionGroup tag="div" name="list" class="project-grid">
-            <article v-for="project in filteredProjects" :key="project.id" class="project" :class="{ draft: !project.publicado }">
+            <article v-for="project in filteredProjects" :key="project.id" class="project" :class="{ draft: !project.publicado, dragging: dragId === project.id, over: overId === project.id }"
+              draggable="true" @dragstart="dragStart(project, $event)" @dragover.prevent="overId = project.id" @dragleave="overId === project.id && (overId = null)" @drop.prevent="dropOn(project)" @dragend="dragId = overId = null">
               <button class="thumb" type="button" :aria-label="`Editar ${project.titulo}`" @click="editProject(project)">
                 <img :src="project.url_imagem" alt="" loading="lazy">
-                <span class="state" :class="{ live: project.publicado }">{{ project.publicado ? 'No site' : 'Rascunho' }}</span>
+                <span class="state" :class="{ live: isLive(project), sched: project.publicado && !isLive(project) }">{{ stateText(project) }}</span>
+                <span v-if="project.vitrine === false" class="state off-home">Fora da página inicial</span>
                 <span class="edit-hint" aria-hidden="true">Editar</span>
               </button>
               <div class="project-body">
-                <span class="kicker">{{ project.setor }}</span>
+                <span class="kicker">{{ project.setor }}<template v-if="project.tags?.length"> · {{ project.tags.slice(0, 2).join(' · ') }}</template></span>
                 <h3>{{ project.titulo }}</h3>
+                <p class="p-stats"><span title="Visitas à página do projeto">👁 {{ stats[project.id]?.views || 0 }}</span><span title="Cliques em Conte sua ideia">✉ {{ stats[project.id]?.leads || 0 }}</span><span v-if="project.galeria?.length" title="Itens na galeria">🖼 {{ project.galeria.length }}</span></p>
                 <div class="project-actions">
                   <label class="switch" :title="project.publicado ? 'Tirar do site' : 'Publicar no site'">
                     <input v-model="project.publicado" type="checkbox" @change="togglePublish(project)"><span class="knob" aria-hidden="true" />{{ project.publicado ? 'Publicado' : 'Publicar' }}
@@ -111,11 +124,29 @@
                   <button class="icon-btn" type="button" title="Editar" :aria-label="`Editar ${project.titulo}`" @click="editProject(project)">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" /></svg>
                   </button>
+                  <span class="order-btns">
+                    <button class="icon-btn" type="button" title="Mover para antes" :aria-label="`Mover ${project.titulo} para antes`" @click="move(project, -1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></button>
+                    <button class="icon-btn" type="button" title="Mover para depois" :aria-label="`Mover ${project.titulo} para depois`" @click="move(project, 1)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></button>
+                  </span>
                 </div>
               </div>
             </article>
           </TransitionGroup>
           <p v-if="!filteredProjects.length" class="empty">Nenhum projeto encontrado.</p>
+        </section>
+
+        <!-- Novidades: avisos curtos numa faixa da página inicial -->
+        <section v-else-if="tab === 'news'" key="news">
+          <p class="tip">Avisos curtos que passam numa faixa da página inicial (sem virar blog). Arraste para mudar a ordem.</p>
+          <TransitionGroup tag="div" name="list" class="news-list">
+            <article v-for="n in news" :key="n.id" class="news-item" :class="{ draft: !n.publicado }" draggable="true" @dragstart="newsDrag = n" @dragover.prevent @drop.prevent="dropNews(n)">
+              <span class="news-date">{{ formatDate(n.data) }}</span>
+              <p class="news-text">{{ n.texto }}<a v-if="n.link" class="news-link" :href="n.link" target="_blank" rel="noopener">{{ n.link }}</a></p>
+              <label class="switch"><input v-model="n.publicado" type="checkbox" @change="saveNewsAndToast(n)"><span class="knob" aria-hidden="true" />{{ n.publicado ? 'No site' : 'Oculta' }}</label>
+              <button class="icon-btn" type="button" title="Editar" @click="editNews(n)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" /></svg></button>
+            </article>
+          </TransitionGroup>
+          <p v-if="!news.length" class="empty">Nenhuma novidade ainda. Toque em Nova novidade.</p>
         </section>
 
         <!-- Projetos de clientes -->
@@ -175,27 +206,101 @@
       </Transition>
 
       <div class="demo-foot">
-        <span><i /> Modo demonstração: as mudanças ficam salvas neste navegador.</span>
-        <button class="link" type="button" @click="resetAll">Restaurar dados de exemplo</button>
+        <span v-if="!cloudOn"><i /> Modo demonstração: as mudanças ficam salvas neste navegador. Ligue a nuvem (docs/SUPABASE.md) para todo mundo ver.</span>
+        <span v-else :class="['cloud', sync.state]"><i /> {{ ({ loading: 'Conectando à nuvem…', ok: 'Salvo na nuvem: o site mostra para todo mundo.', saving: 'Salvando na nuvem…', error: 'Não consegui falar com a nuvem. As mudanças estão neste navegador; tente de novo.' })[sync.state] || '' }}</span>
+        <button v-if="!cloudOn" class="link" type="button" @click="resetAll">Restaurar dados de exemplo</button>
       </div>
     </main>
 
-    <!-- Gaveta de edição: projeto do portfólio -->
-    <dialog ref="projectDialog" class="drawer" @close="editingProject = null" @click.self="projectDialog.close()">
+    <!-- Gaveta de edição: projeto do portfólio (abas: básico, página, galeria, resultados e publicação) -->
+    <dialog ref="projectDialog" class="drawer wide" @close="editingProject = null" @click.self="projectDialog.close()">
       <form @submit.prevent="saveProject">
         <header><h2>{{ editingProject?.id ? 'Editar projeto' : 'Novo projeto' }}</h2><button type="button" class="close" aria-label="Fechar" @click="projectDialog.close()">×</button></header>
-        <div class="preview"><img :src="projectDraft.url_imagem" alt="" @error="$event.target.style.opacity = .15" @load="$event.target.style.opacity = 1"></div>
-        <label>Título<input v-model="projectDraft.titulo" required placeholder="Nome do projeto"></label>
-        <div class="fields"><label>Setor<input v-model="projectDraft.setor" required list="sector-list" placeholder="Ex.: Educação"></label><label>Categoria<input v-model="projectDraft.categoria" required placeholder="Ex.: Realidade virtual"></label></div>
-        <datalist id="sector-list"><option v-for="s in sectorFilters.slice(1)" :key="s" :value="s" /></datalist>
-        <label>Descrição<textarea v-model="projectDraft.descricao" required rows="3" placeholder="Uma frase sobre o projeto" /></label>
-        <label>Imagem<input v-model="projectDraft.url_imagem" required></label>
-        <label>Link do projeto<input v-model="projectDraft.url" placeholder="https://"></label>
-        <div class="toggles">
-          <label class="switch"><input v-model="projectDraft.publicado" type="checkbox"><span class="knob" aria-hidden="true" />Mostrar no site</label>
-          <label class="switch"><input v-model="projectDraft.destaque" type="checkbox"><span class="knob" aria-hidden="true" />Destaque</label>
+        <nav class="d-tabs" role="tablist">
+          <button v-for="t in DRAWER_TABS" :key="t.id" type="button" role="tab" :aria-selected="dtab === t.id" :class="{ on: dtab === t.id }" @click="dtab = t.id">{{ t.label }}</button>
+        </nav>
+
+        <div v-show="dtab === 'basic'" class="d-pane">
+          <div class="preview"><img :src="projectDraft.url_imagem" alt="" @error="$event.target.style.opacity = .15" @load="$event.target.style.opacity = 1"></div>
+          <label>Título<input v-model="projectDraft.titulo" required placeholder="Nome do projeto"></label>
+          <div class="fields"><label>Setor<input v-model="projectDraft.setor" required list="sector-list" placeholder="Ex.: Educação"></label><label>Categoria<input v-model="projectDraft.categoria" required placeholder="Ex.: Realidade virtual"></label></div>
+          <datalist id="sector-list"><option v-for="s in sectorFilters.slice(1)" :key="s" :value="s" /></datalist>
+          <label>Descrição<textarea v-model="projectDraft.descricao" required rows="3" placeholder="Uma frase sobre o projeto" /></label>
+          <div class="img-pick">
+            <label>Imagem de capa<input v-model="projectDraft.url_imagem" required placeholder="Link da imagem ou envie um arquivo"></label>
+            <label class="file-btn">Enviar imagem<input type="file" accept="image/*" @change="pickCover"></label>
+          </div>
+          <label>Link do projeto<input v-model="projectDraft.url" placeholder="https://"></label>
+          <label>Categorias (tags)<input v-model="tagsText" placeholder="Realidade virtual, Educação, Gamificação"><small class="hint">Separe por vírgula. Viram filtros na página de projetos.</small></label>
+          <div class="tag-suggest"><button v-for="t in tagSuggestions" :key="t" type="button" @click="addTag(t)">+ {{ t }}</button></div>
         </div>
+
+        <div v-show="dtab === 'page'" class="d-pane">
+          <p class="hint">O que aparece na página do projeto no site.</p>
+          <div class="fields"><label>Cliente<input v-model="detailDraft.cliente" placeholder="Ex.: SEBRAE-Maranhão"></label><label>Onde / quando<input v-model="detailDraft.ocasiao" placeholder="Ex.: Feira do Empreendedor 2024"></label></div>
+          <label>Tecnologia<input v-model="detailDraft.plataforma" placeholder="Ex.: Realidade virtual"></label>
+          <label>Resumo<textarea v-model="detailDraft.resumo" rows="3" placeholder="Duas ou três frases contando o projeto" /></label>
+          <label>O desafio (título)<input v-model="detailDraft.desafio.titulo"></label>
+          <label>O desafio (texto)<textarea v-model="detailDraft.desafio.texto" rows="3" /></label>
+          <label>A solução (título)<input v-model="detailDraft.solucao.titulo"></label>
+          <label>A solução (texto)<textarea v-model="detailDraft.solucao.texto" rows="3" /></label>
+          <span class="sub-h">Destaques (número e legenda)</span>
+          <div v-for="(d, k) in detailDraft.destaques" :key="k" class="fields pair"><input v-model="d[0]" placeholder="Ex.: 12" aria-label="Número"><input v-model="d[1]" placeholder="Ex.: paradas na trilha" aria-label="Legenda"></div>
+        </div>
+
+        <div v-show="dtab === 'gallery'" class="d-pane">
+          <p class="hint">Fotos e vídeos da página do projeto. Arraste arquivos aqui ou cole um link (imagem, YouTube ou vídeo).</p>
+          <label class="dropzone" :class="{ over: dropOver }" @dragover.prevent="dropOver = true" @dragleave="dropOver = false" @drop.prevent="dropFiles">
+            <input type="file" accept="image/*,video/*" multiple @change="pickFiles($event.target.files)">
+            <span>{{ uploading ? 'Enviando…' : 'Arraste fotos ou vídeos aqui, ou toque para escolher' }}</span>
+          </label>
+          <div class="img-pick"><input v-model="galleryLink" placeholder="https://youtube.com/watch?v=… ou link de imagem"><button type="button" class="ghost-btn" @click="addLink">Adicionar</button></div>
+          <ul class="gal-grid">
+            <li v-for="(m, k) in projectDraft.galeria" :key="m.url + k" :class="{ cover: m.url === projectDraft.url_imagem }">
+              <img v-if="m.type === 'img'" :src="m.url" alt="">
+              <span v-else class="vid">▶ {{ m.type === 'youtube' ? 'YouTube' : 'Vídeo' }}</span>
+              <div class="gal-acts">
+                <button v-if="m.type === 'img'" type="button" title="Usar como capa" @click="projectDraft.url_imagem = m.url">★</button>
+                <button type="button" title="Mover para antes" @click="moveMedia(k, -1)">‹</button>
+                <button type="button" title="Mover para depois" @click="moveMedia(k, 1)">›</button>
+                <button type="button" title="Remover" @click="projectDraft.galeria.splice(k, 1)">×</button>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <div v-show="dtab === 'results'" class="d-pane">
+          <span class="sub-h">Resultados em números</span>
+          <div v-for="(r, k) in projectDraft.resultados" :key="k" class="fields pair"><input v-model="r[0]" placeholder="Ex.: 3.200" aria-label="Número"><input v-model="r[1]" placeholder="Ex.: pessoas jogaram" aria-label="O quê"><button type="button" class="ghost-btn" aria-label="Remover" @click="projectDraft.resultados.splice(k, 1)">×</button></div>
+          <button type="button" class="ghost-btn" @click="projectDraft.resultados.push(['', ''])">+ Resultado</button>
+          <span class="sub-h">Depoimento do cliente</span>
+          <label>Frase<textarea v-model="projectDraft.depoimento.texto" rows="3" placeholder="O que o cliente disse sobre o projeto" /></label>
+          <div class="fields"><label>Nome<input v-model="projectDraft.depoimento.autor"></label><label>Cargo e empresa<input v-model="projectDraft.depoimento.cargo"></label></div>
+        </div>
+
+        <div v-show="dtab === 'publish'" class="d-pane">
+          <div class="toggles col">
+            <label class="switch"><input v-model="projectDraft.publicado" type="checkbox"><span class="knob" aria-hidden="true" />Mostrar no site</label>
+            <label class="switch"><input v-model="projectDraft.vitrine" type="checkbox"><span class="knob" aria-hidden="true" />Aparecer na página inicial (carrossel e portais)</label>
+            <label class="switch"><input v-model="projectDraft.destaque" type="checkbox"><span class="knob" aria-hidden="true" />Destaque</label>
+          </div>
+          <label>Entrar no ar em (opcional)<input v-model="projectDraft.publicarEm" type="datetime-local"><small class="hint">Com data, o projeto publicado só aparece no site a partir dela.</small></label>
+          <button type="button" class="ghost-btn wide" @click="preview">Pré-visualizar a página do projeto ↗</button>
+        </div>
+
         <div class="drawer-actions"><HoldButton v-if="editingProject?.id" @confirm="removeProject" /><button class="primary" type="submit">Salvar</button></div>
+      </form>
+    </dialog>
+
+    <!-- Gaveta: novidade -->
+    <dialog ref="newsDialog" class="drawer" @close="editingNews = null" @click.self="newsDialog.close()">
+      <form @submit.prevent="saveOneNews">
+        <header><h2>{{ editingNews?.id ? 'Editar novidade' : 'Nova novidade' }}</h2><button type="button" class="close" aria-label="Fechar" @click="newsDialog.close()">×</button></header>
+        <label>Texto <small class="hint">({{ newsDraft.texto.length }}/140)</small><textarea v-model="newsDraft.texto" required maxlength="140" rows="3" placeholder="Ex.: Acabamos de entregar o simulador do Projeto Horizonte!" /></label>
+        <label>Link (opcional)<input v-model="newsDraft.link" placeholder="/projetos/reciclaverso ou https://"></label>
+        <label>Data<input v-model="newsDraft.data" type="date" required></label>
+        <label class="switch"><input v-model="newsDraft.publicado" type="checkbox"><span class="knob" aria-hidden="true" />Mostrar no site</label>
+        <div class="drawer-actions"><HoldButton v-if="editingNews?.id" @confirm="removeNews" /><button class="primary" type="submit">Salvar</button></div>
       </form>
     </dialog>
 
@@ -230,7 +335,8 @@
 import { computed, defineComponent, h, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import HoldButton from '../components/HoldButton.vue';
-import { SESSION_KEY, STAGES, stageIndex, useProjectStore } from '../utils/projectStore.js';
+import { SESSION_KEY, STAGES, detailOf, emptyDetail, isLive, normalizeProject, stageIndex, useProjectStore } from '../utils/projectStore.js';
+import { cloud, cloudOn } from '../utils/cloud.js';
 
 const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -251,30 +357,34 @@ const CountUp = defineComponent({
 });
 
 const router = useRouter();
-const { projects, clients, activity, saveProjects, saveClients, log, resetDemo } = useProjectStore();
+const { projects, clients, activity, news, stats, sync, saveProjects, deleteProject, saveNews, deleteNews, saveClients, log, resetDemo, loadStats } = useProjectStore();
+loadStats();
 const tab = ref('overview');
 const STATUSES = ['Planejamento', 'Em produção', 'Em validação', 'Concluído'];
 // Progresso e status de cada etapa quando o projeto é movido para ela.
 const STAGE_PROGRESS = [5, 25, 50, 80, 100];
 const STAGE_STATUS = ['Planejamento', 'Planejamento', 'Em produção', 'Em validação', 'Concluído'];
 
-const publishedCount = computed(() => projects.value.filter(p => p.publicado).length);
+const publishedCount = computed(() => projects.value.filter(p => isLive(p)).length);
+const topViewed = computed(() => projects.value.map(p => ({ p, views: stats.value[p.id]?.views || 0, leads: stats.value[p.id]?.leads || 0 })).sort((a, b) => b.views - a.views).slice(0, 4));
 const activeClients = computed(() => clients.value.filter(c => c.status !== 'Concluído'));
 const averageProgress = computed(() => { const list = activeClients.value; return list.length ? Math.round(list.reduce((s, c) => s + Number(c.progresso || 0), 0) / list.length) : 0; });
 
 const nav = [
   { id: 'overview', label: 'Visão geral', icon: 'M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z' },
   { id: 'projects', label: 'Portfólio', icon: 'M4 6h16v12H4zM4 14l4.5-4 4 3.5 2.5-2 5 4.5' },
-  { id: 'clients', label: 'Clientes', icon: 'M5 19V9M12 19V5M19 19v-7' }
+  { id: 'clients', label: 'Clientes', icon: 'M5 19V9M12 19V5M19 19v-7' },
+  { id: 'news', label: 'Novidades', icon: 'M4 10v4h3l6 4V6L7 10zM16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11' }
 ];
-const currentTitle = computed(() => ({ overview: 'Visão geral', projects: 'Portfólio', clients: 'Projetos de clientes' })[tab.value]);
+const currentTitle = computed(() => ({ overview: 'Visão geral', projects: 'Portfólio', clients: 'Projetos de clientes', news: 'Novidades' })[tab.value]);
 const hour = new Date().getHours();
 const greeting = hour < 12 ? 'Bom dia, equipe.' : hour < 18 ? 'Boa tarde, equipe.' : 'Boa noite, equipe.';
 const today = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
 const lede = computed(() => ({
   overview: 'Um resumo do estúdio hoje.',
   projects: 'O que estiver publicado aparece na seção Projetos do site.',
-  clients: 'Cada projeto passa por cinco etapas, do briefing à entrega.'
+  clients: 'Cada projeto passa por cinco etapas, do briefing à entrega.',
+  news: 'Avisos curtos que aparecem numa faixa da página inicial.'
 })[tab.value]);
 
 // Datas e prazos
@@ -310,21 +420,92 @@ const toasts = ref([]);
 const toast = (icon, text) => { const id = Date.now() + Math.random(); toasts.value.push({ id, icon, text }); setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 2800); };
 
 // Portfólio
-const togglePublish = (p) => { saveProjects(); log(p.publicado ? 'publish' : 'unpublish', p.publicado ? `${p.titulo} foi publicado no site` : `${p.titulo} saiu do site`); toast(p.publicado ? '↗' : '↘', p.publicado ? `${p.titulo} agora aparece no site` : `${p.titulo} saiu do site`); };
+const stateText = (p) => (!p.publicado ? 'Rascunho' : isLive(p) ? 'No site' : `Agendado · ${new Date(p.publicarEm).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`);
+const togglePublish = (p) => { saveProjects(); log(p.publicado ? 'publish' : 'unpublish', p.publicado ? `${p.titulo} foi publicado no site` : `${p.titulo} saiu do site`); toast(p.publicado ? '↗' : '↘', p.publicado ? (isLive(p) ? `${p.titulo} agora aparece no site` : `${p.titulo} entra no ar na data marcada`) : `${p.titulo} saiu do site`); };
 const toggleFeature = (p) => { p.destaque = !p.destaque; saveProjects(); if (p.destaque) { log('star', `${p.titulo} entrou nos destaques`); toast('★', `${p.titulo} está em destaque`); } else toast('☆', `${p.titulo} saiu dos destaques`); };
-const projectDialog = ref(); const clientDialog = ref(); const editingProject = ref(null); const editingClient = ref(null);
-const emptyProject = () => ({ titulo: '', setor: '', categoria: '', descricao: '', url_imagem: '/images/miniverso-logo.png', url: '', publicado: false, destaque: false });
+// Ordem do site: arrastar um cartão sobre outro ou usar as setas.
+const dragId = ref(null), overId = ref(null);
+const dragStart = (p, e) => { dragId.value = p.id; e.dataTransfer.effectAllowed = 'move'; };
+const reorder = (from, to) => { if (from < 0 || to < 0 || from === to) return; const list = [...projects.value]; const [it] = list.splice(from, 1); list.splice(to, 0, it); projects.value = list; saveProjects(); toast('↕', 'Ordem do site atualizada'); };
+const dropOn = (target) => { const ids = projects.value.map(p => p.id); reorder(ids.indexOf(dragId.value), ids.indexOf(target.id)); dragId.value = overId.value = null; };
+const move = (p, d) => { const i = projects.value.indexOf(p); reorder(i, Math.max(0, Math.min(projects.value.length - 1, i + d))); };
+const projectDialog = ref(); const clientDialog = ref(); const newsDialog = ref(); const editingProject = ref(null); const editingClient = ref(null); const editingNews = ref(null);
+const DRAWER_TABS = [{ id: 'basic', label: 'Básico' }, { id: 'page', label: 'Página' }, { id: 'gallery', label: 'Galeria' }, { id: 'results', label: 'Resultados' }, { id: 'publish', label: 'Publicação' }];
+const dtab = ref('basic');
+const emptyProject = () => normalizeProject({ vitrine: true });
 const isoIn = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const emptyClient = () => ({ cliente: '', projeto: '', etapa: '', progresso: 5, prazo: isoIn(30), status: 'Planejamento' });
 const projectDraft = reactive(emptyProject()); const clientDraft = reactive(emptyClient());
-const newProject = () => { editingProject.value = {}; Object.assign(projectDraft, emptyProject()); projectDialog.value.showModal(); };
-const editProject = (project) => { editingProject.value = project; Object.assign(projectDraft, project); projectDialog.value.showModal(); };
+const detailDraft = reactive(emptyDetail());
+const tagsText = ref('');
+const tagSuggestions = computed(() => { const have = new Set(tagsText.value.split(',').map(t => t.trim().toLowerCase())); return [...new Set(projects.value.flatMap(p => p.tags || []))].filter(t => !have.has(t.toLowerCase())).slice(0, 8); });
+const addTag = (t) => { tagsText.value = [...tagsText.value.split(',').map(x => x.trim()).filter(Boolean), t].join(', '); };
+const fillDraft = (p) => {
+  const n = normalizeProject(structuredClone(toRawDeep(p)));
+  Object.assign(projectDraft, n);
+  const d = structuredClone(toRawDeep(detailOf(p) || emptyDetail()));
+  Object.assign(detailDraft, emptyDetail(), d, { desafio: { titulo: '', texto: '', ...(d.desafio || {}) }, solucao: { titulo: '', texto: '', ...(d.solucao || {}) }, destaques: [0, 1, 2].map(k => [...(d.destaques?.[k] || ['', ''])]) });
+  tagsText.value = (n.tags || []).join(', '); dtab.value = 'basic';
+};
+const toRawDeep = (o) => JSON.parse(JSON.stringify(o));
+const newProject = () => { editingProject.value = {}; fillDraft(emptyProject()); projectDialog.value.showModal(); };
+const editProject = (project) => { editingProject.value = project; fillDraft(project); projectDialog.value.showModal(); };
+const collect = () => {
+  const out = toRawDeep(projectDraft);
+  out.tags = tagsText.value.split(',').map(t => t.trim()).filter(Boolean);
+  out.resultados = (out.resultados || []).filter(r => r[0] || r[1]);
+  const d = toRawDeep(detailDraft); d.destaques = d.destaques.filter(x => x[0] || x[1]);
+  out.detail = d;
+  return out;
+};
 const saveProject = () => {
-  if (editingProject.value?.id) { Object.assign(editingProject.value, projectDraft); log('edit', `${projectDraft.titulo} foi atualizado`); toast('✎', 'Projeto salvo'); }
-  else { projects.value.unshift({ ...projectDraft, id: `project-${Date.now()}` }); log('add', `${projectDraft.titulo} entrou no portfólio`); toast('+', projectDraft.publicado ? 'Projeto criado e publicado no site' : 'Projeto criado como rascunho'); }
+  const data = collect();
+  if (editingProject.value?.id) { Object.assign(editingProject.value, data); log('edit', `${data.titulo} foi atualizado`); toast('✎', 'Projeto salvo'); }
+  else { projects.value.unshift({ ...data, id: `project-${Date.now()}` }); log('add', `${data.titulo} entrou no portfólio`); toast('+', data.publicado ? 'Projeto criado e publicado no site' : 'Projeto criado como rascunho'); }
   saveProjects(); projectDialog.value.close();
 };
-const removeProject = () => { const t = editingProject.value.titulo; projects.value = projects.value.filter(p => p.id !== editingProject.value.id); saveProjects(); log('remove', `${t} foi removido do portfólio`); toast('×', `${t} removido`); projectDialog.value.close(); };
+const removeProject = () => { const t = editingProject.value.titulo; deleteProject(editingProject.value.id); log('remove', `${t} foi removido do portfólio`); toast('×', `${t} removido`); projectDialog.value.close(); };
+// Pré-visualização: salva o rascunho temporário e abre a página do projeto como ela vai ficar.
+const preview = () => {
+  const data = collect(), id = editingProject.value?.id || 'previa';
+  try { sessionStorage.setItem('miniverso:preview', JSON.stringify({ ...data, id })); } catch { /* sem armazenamento */ }
+  window.open(`/projetos/${id}?previa=1`, '_blank', 'noopener');
+};
+// Imagens: com a nuvem, vão para o armazenamento do Supabase; no modo demonstração, viram uma imagem reduzida
+// guardada no navegador (até ~1200 px, JPEG), para não estourar o espaço.
+const uploading = ref(false), dropOver = ref(false), galleryLink = ref('');
+const shrink = (file) => new Promise((res, rej) => { const img = new Image(); img.onload = () => { const k = Math.min(1, 1200 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); res(c.toDataURL('image/jpeg', 0.82)); URL.revokeObjectURL(img.src); }; img.onerror = rej; img.src = URL.createObjectURL(file); });
+const storeFile = async (file) => {
+  if (cloudOn && cloud.signedIn()) return cloud.upload(file);
+  if (file.type.startsWith('video/')) { toast('!', 'Vídeos precisam da nuvem ligada; use um link do YouTube'); return null; }
+  return shrink(file);
+};
+const pickCover = async (e) => { const f = e.target.files?.[0]; if (!f) return; uploading.value = true; try { const url = await storeFile(f); if (url) projectDraft.url_imagem = url; } catch { toast('!', 'Não consegui enviar a imagem'); } uploading.value = false; e.target.value = ''; };
+const pickFiles = async (files) => {
+  uploading.value = true;
+  for (const f of [...files]) { try { const url = await storeFile(f); if (url) projectDraft.galeria.push({ type: f.type.startsWith('video/') ? 'video' : 'img', url }); } catch { toast('!', `Não consegui enviar ${f.name}`); } }
+  uploading.value = false;
+};
+const dropFiles = (e) => { dropOver.value = false; pickFiles(e.dataTransfer.files); };
+const ytId = (u) => (u.match(/(?:youtu\.be\/|v=|embed\/|shorts\/)([\w-]{11})/) || [])[1];
+const addLink = () => {
+  const u = galleryLink.value.trim(); if (!u) return;
+  projectDraft.galeria.push(ytId(u) ? { type: 'youtube', url: u } : /\.(mp4|webm|mov)(\?|$)/i.test(u) ? { type: 'video', url: u } : { type: 'img', url: u });
+  galleryLink.value = '';
+};
+const moveMedia = (k, d) => { const g = projectDraft.galeria, j = k + d; if (j < 0 || j >= g.length) return; [g[k], g[j]] = [g[j], g[k]]; };
+// Novidades
+const newsDraft = reactive({ texto: '', link: '', data: isoIn(0), publicado: true });
+const newNews = () => { editingNews.value = {}; Object.assign(newsDraft, { texto: '', link: '', data: isoIn(0), publicado: true }); newsDialog.value.showModal(); };
+const editNews = (n) => { editingNews.value = n; Object.assign(newsDraft, n); newsDialog.value.showModal(); };
+const saveOneNews = () => {
+  if (editingNews.value?.id) Object.assign(editingNews.value, toRawDeep(newsDraft)); else news.value.unshift({ ...toRawDeep(newsDraft), id: `n${Date.now()}` });
+  saveNews(); toast('📣', newsDraft.publicado ? 'Novidade no site' : 'Novidade salva (oculta)'); newsDialog.value.close();
+};
+const removeNews = () => { deleteNews(editingNews.value.id); toast('×', 'Novidade removida'); newsDialog.value.close(); };
+const saveNewsAndToast = (n) => { saveNews(); toast(n.publicado ? '↗' : '↘', n.publicado ? 'Novidade no site' : 'Novidade oculta'); };
+let newsDrag = null;
+const dropNews = (target) => { const list = [...news.value], a = list.indexOf(newsDrag), b = list.indexOf(target); if (a < 0 || b < 0 || a === b) return; const [it] = list.splice(a, 1); list.splice(b, 0, it); news.value = list; saveNews(); newsDrag = null; };
 
 // Clientes
 const announceStage = (c, before, wasDone) => {
@@ -355,7 +536,7 @@ const saveClient = () => {
 const removeClient = () => { const t = editingClient.value.cliente; clients.value = clients.value.filter(c => c.id !== editingClient.value.id); saveClients(); log('remove', `${t} foi removido`); toast('×', `${t} removido`); clientDialog.value.close(); };
 
 const resetAll = () => { resetDemo(); query.value = ''; sector.value = 'Todos'; status.value = 'Todos'; toast('↺', 'Dados de exemplo restaurados'); };
-const logout = () => { sessionStorage.removeItem(SESSION_KEY); router.push('/login'); };
+const logout = () => { sessionStorage.removeItem(SESSION_KEY); cloud.signOut(); router.push('/login'); };
 onUnmounted(() => clearInterval(clock));
 </script>
 
@@ -573,6 +754,56 @@ onUnmounted(() => clearInterval(clock));
 .drawer-actions>*{flex:1}
 .drawer-actions :deep(.hold-button){min-height:52px;border-radius:999px}
 .drawer-actions :deep(.hold-label){font-size:15px}
+/* Portfólio: editor com abas, galeria, ordem, estatísticas */
+.drawer.wide{width:min(640px,100vw)}
+.d-tabs{display:flex;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;background:#080d1c;overflow-x:auto}
+.d-tabs button{flex:1;min-height:40px;padding:0 12px;border:0;border-radius:10px;color:var(--muted);background:none;font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;transition:.2s}
+.d-tabs button:hover{color:#fff}
+.d-tabs button.on{color:#fff;background:linear-gradient(90deg,var(--cyan),var(--blue));font-weight:700}
+.d-pane{display:grid;gap:16px;align-content:start}
+.hint{color:var(--faint);font-size:13px;font-weight:400;margin:0}
+.sub-h{color:#fff;font-size:15px;font-weight:700;margin-top:6px}
+.fields.pair{grid-template-columns:110px 1fr auto;align-items:center}
+.fields.pair:not(:has(button)){grid-template-columns:110px 1fr}
+.img-pick{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:end}
+.file-btn,.ghost-btn{display:inline-flex;align-items:center;justify-content:center;min-height:52px;padding:0 18px;border:1px solid #00b7e366;border-radius:14px;color:#cfefff;background:#00b7e314;font:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s}
+.file-btn:hover,.ghost-btn:hover{border-color:var(--cyan);background:#00b7e324}
+.file-btn input,.dropzone input{position:absolute;opacity:0;width:1px;height:1px}
+.ghost-btn.wide{width:100%}
+.tag-suggest{display:flex;flex-wrap:wrap;gap:6px;margin-top:-6px}
+.tag-suggest button{padding:5px 11px;border:1px solid var(--line);border-radius:99px;color:var(--muted);background:none;font:inherit;font-size:12px;cursor:pointer}
+.tag-suggest button:hover{color:#fff;border-color:#00b7e366}
+.dropzone{position:relative;display:grid;place-items:center;min-height:110px;padding:18px;border:2px dashed #00b7e355;border-radius:18px;color:var(--muted);text-align:center;cursor:pointer;transition:.2s}
+.dropzone.over,.dropzone:hover{border-color:var(--cyan);background:#00b7e310;color:#fff}
+.gal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin:0;padding:0;list-style:none}
+.gal-grid li{position:relative;overflow:hidden;aspect-ratio:4/3;border:1px solid var(--line);border-radius:14px;background:#080d1c}
+.gal-grid li.cover{border-color:#ffd166;box-shadow:0 0 0 2px #ffd16655}
+.gal-grid img{width:100%;height:100%;object-fit:cover}
+.gal-grid .vid{display:grid;place-items:center;height:100%;color:#cfefff;font-weight:700}
+.gal-acts{position:absolute;left:6px;right:6px;bottom:6px;display:flex;gap:4px;justify-content:flex-end}
+.gal-acts button{width:28px;height:28px;border:0;border-radius:8px;color:#fff;background:#080d1ccc;cursor:pointer;font-size:14px}
+.gal-acts button:hover{background:var(--cyan)}
+.toggles.col{flex-direction:column;gap:14px}
+.state.sched{color:#ffd166}
+.state.off-home{top:auto;bottom:14px;font-size:12px;color:#c9d6dd}
+.project[draggable=true]{cursor:grab}
+.project.dragging{opacity:.4}
+.project.over{border-color:var(--cyan);box-shadow:0 0 0 2px #00b7e355}
+.p-stats{display:flex;gap:12px;margin:2px 0 0;color:var(--faint);font-size:13px}
+.order-btns{display:inline-flex;gap:4px}
+.row.static{cursor:default}
+.bar-mini{width:90px;height:6px;border-radius:99px;background:#ffffff12;overflow:hidden}
+.bar-mini i{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--cyan),#8f6bff)}
+.empty.small{font-size:14px;margin:8px 0 0}
+.news-list{display:grid;gap:12px}
+.news-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:16px;padding:18px 22px;border:1px solid var(--line);border-radius:18px;background:#0c1328;cursor:grab}
+.news-item.draft{opacity:.6}
+.news-date{color:var(--cyan);font-size:13px;font-weight:700;white-space:nowrap}
+.news-text{margin:0;color:var(--ink);font-size:15px;line-height:1.5;min-width:0}
+.news-link{display:block;color:var(--faint);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cloud.error i{background:#ff6b6b;box-shadow:0 0 10px #ff6b6b}
+.cloud.loading i,.cloud.saving i{background:#ffd166;box-shadow:0 0 10px #ffd166}
+@media(max-width:700px){.news-item{grid-template-columns:1fr auto;}.news-date{grid-column:1/-1}.fields.pair{grid-template-columns:90px 1fr auto}.img-pick{grid-template-columns:1fr}}
 /* Avisos */
 .toasts{position:fixed;z-index:50;left:50%;bottom:28px;transform:translateX(-50%);display:grid;gap:8px;justify-items:center;pointer-events:none;width:max-content;max-width:calc(100vw - 32px)}
 .toast{display:flex;align-items:center;gap:12px;margin:0;padding:14px 22px;border-radius:99px;background:#f3f8fb;color:#0a1124;font-size:15px;font-weight:500;box-shadow:0 18px 50px #000a}

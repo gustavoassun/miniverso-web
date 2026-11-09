@@ -539,7 +539,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     if (lap > me.lap && lap >= 1) {
       const t = n - me.lapAt; best = Math.min(best ?? Infinity, t); me.lapAt = n; me.lastLap = t;
       // A cada volta: fogos sobre a reta, confete no pórtico e a torcida vibra.
-      if (lap < LAPS) { race.fireworks(lap === LAPS - 1 ? 5 : 3, me.prog); race.party.userData.at = rt.clock; race.cheerAt = rt.clock; }
+      if (lap < LAPS) { race.fireworks(lap === LAPS - 1 ? 5 : 3, me.prog); if (race.burst) race.burst(false); else { race.party.userData.at = rt.clock; race.cheerAt = rt.clock; } }
       if (lap === LAPS - 1) { flash('ÚLTIMA VOLTA!', 'last', 1.8); sfx('lap'); buzz([30, 40, 30]); } else if (lap < LAPS) { flash(`Volta ${lap + 1}`, '', 1); sfx('lap'); }
     }
     me.lap = Math.max(me.lap, lap);
@@ -579,7 +579,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
         zoneStatus.textContent = 'Toque em Corrida de kart para correr de novo.';
         board('CHEGADA');
         race.fireworks(win ? 9 : 4, me.prog); race.cheerAt = rt.clock;
-        if (win) { race.party.userData.at = rt.clock; sfx('win'); buzz([30, 60, 30, 60, 80]); } else sfx(me.fin === 2 ? 'lap' : 'lose');
+        if (win) { if (race.burst) race.burst(true); else race.party.userData.at = rt.clock; sfx('win'); buzz([30, 60, 30, 60, 80]); } else sfx(me.fin === 2 ? 'lap' : 'lose');
       }
       return;
     }

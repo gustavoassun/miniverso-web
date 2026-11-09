@@ -3,7 +3,7 @@ import { TAU, mix, smooth } from '../../core/math.js';
 import { box, cyl, draped, mat, road, sag } from '../build.js';
 import { C } from '../palette.js';
 import { crowd, walkers } from '../people.js';
-import { confetti, lamp, palm, tree, waveFlag } from '../props.js';
+import { confetti, lamp, nightSky, palm, tree, waveFlag } from '../props.js';
 import { animated, fxT, fxT2, fxT3, rt, zoneFx } from '../runtime.js';
 import { canvasTex, glassMat, holoMat, plainFlag } from '../textures.js';
 import { sailboat, trafficLoop } from '../vehicles.js';
@@ -109,7 +109,8 @@ function buildBusiness(g, zi) {
     bench.position.set(bx0, by, bz0); bench.rotation.y = -a + Math.PI / 2; g.add(bench);
     for (const [w0, h0, d0, x0, y0, z0, c] of [[0.022, 0.0016, 0.006, 0, 0.0045, 0, '#b07a4a'], [0.022, 0.006, 0.0014, 0, 0.008, 0.0028, '#b07a4a'], [0.0014, 0.0045, 0.005, -0.009, 0.00225, 0, '#3a3f4a'], [0.0014, 0.0045, 0.005, 0.009, 0.00225, 0, '#3a3f4a']]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w0, h0, d0), mat(c)); m.position.set(x0, y0, z0); bench.add(m); }
   }
-  crowd(g, [0, 2, 4].map(k => { const a = k / 6 * TAU + 0.26; return [fx + Math.cos(a) * 0.066, fz + Math.sin(a) * 0.066, Y(fx + Math.cos(a) * 0.066, fz + Math.sin(a) * 0.066) - 0.003]; }), zi, ['#1e4488', '#ffc56b', '#eef4fb']);
+  // Sentados nos bancos da fonte, de frente para ela (antes ficavam em pé afundados no piso).
+  crowd(g, [0, 2, 4].map(k => { const a = k / 6 * TAU + 0.26, x = fx + Math.cos(a) * 0.0636, z = fz + Math.sin(a) * 0.0636; return [x, z, Y(x, z) - 0.0009, -a + Math.PI / 2 + Math.PI]; }), zi, ['#1e4488', '#ffc56b', '#eef4fb'], { sit: true });
   // Árvores copadas (três bolas de folhagem) nos gramados e em volta da praça.
   const leafy = ['#2f8f5e', '#3aa56d', '#2c7f52', '#46b07a'];
   const copa = (x, z, s0) => { const y = Y(x, z); cyl(0.0035 * s0, 0.028 * s0, C.trunk, x, y, z, g, 6); for (const [dx, dy, dz, r] of [[0, 0.04, 0, 0.019], [0.01, 0.034, 0.006, 0.014], [-0.009, 0.036, -0.006, 0.015]]) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s0, 1), mat(leafy[Math.floor((x * 97 + z * 61 + r * 1000) % 4 + 4) % 4], { flatShading: true })); b.position.set(x + dx * s0, y + dy * s0, z + dz * s0); g.add(b); } };
@@ -132,7 +133,7 @@ function buildBusiness(g, zi) {
     cyl(0.004, 0.0012, '#ffffff', tx, tyy + 0.006, tz, g, 10); cyl(0.0006, 0.006, '#3a3f4a', tx, tyy, tz, g, 4); cyl(0.0006, 0.022, '#e9eef5', tx, tyy, tz, g, 4);
     const um = new THREE.Mesh(new THREE.ConeGeometry(0.011, 0.005, 8), mat(c)); um.position.set(tx, tyy + 0.024, tz); g.add(um);
   }
-  crowd(g, [[KX - 0.027, KZ + 0.013], [KX + 0.004, KZ + 0.027], [KX + 0.027, KZ + 0.012]].map(([x, z]) => [x, z, Y(x, z) - 0.002]), zi, ['#ff8a6b', '#2a3446', '#ffffff']);
+  crowd(g, [[KX - 0.027, KZ + 0.013], [KX + 0.004, KZ + 0.027], [KX + 0.027, KZ + 0.012]].map(([x, z]) => [x, z, Y(x, z) + 0.0016]), zi, ['#ff8a6b', '#2a3446', '#ffffff']);
   // Bicicletas de aluguel na estação ao lado da praça.
   for (let i = 0; i < 4; i++) { const x = -0.2 + i * 0.008, z = 0.168; const w = new THREE.Mesh(new THREE.TorusGeometry(0.003, 0.0006, 4, 10), mat('#ff8a2a')); w.position.set(x, Y(x, z) + 0.0032, z); w.rotation.y = Math.PI / 2; g.add(w); }
   box(0.04, 0.012, 0.002, '#1e4488', -0.188, Y(-0.188, 0.172), 0.172, g);
@@ -156,8 +157,10 @@ function buildBusiness(g, zi) {
   const projector = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.002, 16), mat('#7fe9ff', { emissive: '#00b7e3', emissiveIntensity: 1.5 })); projector.position.set(mx0, my0 + 0.025, mz0); g.add(projector);
   crowd(g, Array.from({ length: 6 }, (_, k) => { const a = k / 6 * TAU + 0.3; return [mx0 + Math.cos(a) * 0.045, mz0 + Math.sin(a) * 0.045, my0 + 0.006]; }), zi, ['#1e4488', '#2a3446', '#eef4fb', '#1e1645', '#7f8fa3', '#00b7e3']);
   const holo = new THREE.Group(), hY = my0 + 0.03; holo.position.set(mx0, hY, mz0); holo.userData.keep = true; g.add(holo);
+  // Cor de holograma sem estourar para branco no dia claro (mistura normal, não aditiva).
+  const holoN = holoMat('#2fc4ee', 0.62); holoN.blending = THREE.NormalBlending; holoN.side = THREE.FrontSide;
   const model = [[0, 0, 0.05], [0.014, 0.008, 0.035], [-0.012, 0.01, 0.028], [0.006, -0.014, 0.042], [-0.014, -0.01, 0.02], [0.018, -0.008, 0.024]].map(([x, z, h]) => {
-    const b = new THREE.Mesh(new THREE.BoxGeometry(0.01, 1, 0.01), holoMat('#7fe9ff', 0.6)); b.geometry.translate(0, 0.5, 0); b.position.set(x, 0, z); b.userData.h = h; holo.add(b); return b;
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.01, 1, 0.01), holoN); b.geometry.translate(0, 0.5, 0); b.position.set(x, 0, z); b.userData.h = h; holo.add(b); return b;
   });
   const holoRing = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.0012, 6, 40), holoMat('#00b7e3', 0.8)); holoRing.rotation.x = Math.PI / 2; holo.add(holoRing);
   const cheer = confetti(g, mx0, my0 + 0.06, mz0);
@@ -196,6 +199,7 @@ function buildBusiness(g, zi) {
     return { d, props, k };
   });
   const heli = new THREE.Group(); heli.userData.keep = true; g.add(heli);
+  (rt.track ||= {}).heli = heli;                                                                   // a câmera do voo segue este
   const hb = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 8), mat('#e8452f')); hb.scale.set(1.4, 0.9, 0.9); hb.position.y = 0.012; heli.add(hb);
   const win = new THREE.Mesh(new THREE.SphereGeometry(0.009, 10, 6), mat('#9fe9ff', { emissive: '#3fbfe8', emissiveIntensity: 0.5 })); win.position.set(0.009, 0.014, 0); heli.add(win);
   box(0.03, 0.004, 0.004, '#e8452f', -0.025, 0.012, 0, heli); box(0.003, 0.012, 0.002, C.white, -0.04, 0.012, 0, heli);
@@ -204,6 +208,7 @@ function buildBusiness(g, zi) {
   for (const a of [0, Math.PI / 2]) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.001, 0.004), mat(C.dark)); bl.rotation.y = a; rotor.add(bl); }
 
   // ── Animações da área.
+  const night = nightSky(g, 0.05, Y(0.05, -0.05), -0.05, 0.7, [-0.3, 0.38, -0.12]);
   const BEACON_ON = new THREE.Color('#ff4d4d'), BEACON_OFF = new THREE.Color('#4a1515');
   const crownCols = ['#00b7e3', '#8f84ff', '#3ee0b5', '#ffc56b', '#ff4fd8'].map(h => new THREE.Color(h)), tmpC = new THREE.Color();
   panel.userData.anim = t => {
@@ -218,6 +223,7 @@ function buildBusiness(g, zi) {
     // Skyline: janelas mais acesas, coroa trocando de cor e fachos varrendo o céu.
     const sk = fxT3(zi), lit = sk < 0 ? 0 : smooth(0, 1.2, sk) * (1 - smooth(12, 14, sk));
     glass.emissiveIntensity = glass2.emissiveIntensity = 0.45 + lit * 0.9;
+    night.set(sk < 0 ? 0 : smooth(1.2, 2.6, sk) * (1 - smooth(11, 12.2, sk)), t);
     const ci = ((t * (0.3 + lit * 1.2)) % crownCols.length + crownCols.length) % crownCols.length || 0, i0 = Math.floor(ci) % crownCols.length, c0 = crownCols[i0], c1 = crownCols[(i0 + 1) % crownCols.length];
     tmpC.copy(c0).lerp(c1, ci % 1); crownM.color.copy(tmpC); crownM.emissive.copy(tmpC); crownM.emissiveIntensity = 1.4 + lit * 1.6;
     beams.forEach((b, i) => { b.material.opacity = lit * 0.16; b.rotation.set(Math.sin(t * 0.9 + i * 1.7) * 0.5 * lit, 0, Math.cos(t * 0.7 + i) * 0.5 * lit); });

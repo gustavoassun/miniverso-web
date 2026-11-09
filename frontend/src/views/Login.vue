@@ -36,7 +36,7 @@
         <span class="label">{{ phase === 'checking' ? 'Verificando…' : phase === 'granted' ? 'Acesso liberado' : 'Entrar no painel' }}</span>
       </button>
       <div class="card-foot">
-        <button class="text-btn" type="button" :disabled="busy" @click="fillDemo">Usar acesso de demonstração</button>
+        <button v-if="!cloudOn" class="text-btn" type="button" :disabled="busy" @click="fillDemo">Usar acesso de demonstração</button>
         <router-link class="text-btn" to="/">Voltar ao site</router-link>
       </div>
     </form>
@@ -56,6 +56,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { SESSION_KEY } from '../utils/projectStore.js';
+import { cloud, cloudOn } from '../utils/cloud.js';
 
 const router = useRouter(); const route = useRoute();
 const email = ref(''); const password = ref(''); const error = ref('');
@@ -79,15 +80,20 @@ const submit = () => {
   if (busy.value) return;
   if (!email.value || !password.value) { error.value = 'Preencha o e-mail e a senha.'; shake.value = true; return; }
   phase.value = 'checking';
+  const grant = () => {
+    phase.value = 'granted';
+    const to = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : '/dashboard';
+    later(() => router.push(to), 2400);
+  };
+  const deny = (msg = 'E-mail ou senha incorretos.') => { phase.value = 'idle'; error.value = msg; shake.value = true; };
+  // Com a nuvem ligada, o acesso é o login de verdade da equipe no Supabase; sem ela, o acesso de demonstração.
+  if (cloudOn) {
+    cloud.signIn(email.value, password.value).then(grant).catch(e => deny(/400|401|invalid/i.test(String(e.message)) ? 'E-mail ou senha incorretos.' : 'Não foi possível conectar. Tente de novo.'));
+    return;
+  }
   later(() => {
-    if (email.value === 'admin@demo.miniverso.local' && password.value === 'portal2026') {
-      phase.value = 'granted';
-      sessionStorage.setItem(SESSION_KEY, 'active');
-      const to = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') ? route.query.redirect : '/dashboard';
-      later(() => router.push(to), 2400);
-    } else {
-      phase.value = 'idle'; error.value = 'E-mail ou senha incorretos.'; shake.value = true;
-    }
+    if (email.value === 'admin@demo.miniverso.local' && password.value === 'portal2026') { sessionStorage.setItem(SESSION_KEY, 'active'); grant(); }
+    else deny();
   }, 900);
 };
 

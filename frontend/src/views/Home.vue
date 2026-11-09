@@ -80,6 +80,7 @@
         </div>
         <router-link v-reveal="160" to="/projetos" class="btn ghost">Portfólio completo <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg></router-link>
       </div>
+      <NewsTicker :items="news" :reduced="scene.reduced" />
       <p v-if="projetos.length === 0" class="empty-state">Estamos reunindo os primeiros projetos da Miniverso. Em breve, esta seleção estará aqui.</p>
       <ScrollExpand src="/images/reciclaverso.png" alt="Cena do Reciclaverso, projeto de realidade virtual e sustentabilidade" :reduced="scene.reduced" />
       <WorldCarousel v-if="projetos.length" :items="projetos" :reduced="scene.reduced" />
@@ -172,7 +173,8 @@ import WorldCarousel from '../components/WorldCarousel.vue';
 import AreaMarquee from '../components/AreaMarquee.vue';
 import ContactBrief from '../components/ContactBrief.vue';
 import LineSidebar from '../components/LineSidebar.vue';
-import { useProjectStore } from '../utils/projectStore.js';
+import { isLive, useProjectStore } from '../utils/projectStore.js';
+import NewsTicker from '../components/NewsTicker.vue';
 
 const contactBrief = ref(null);
 // Visual da seção Sobre: Planeta com anel. TESTE: /?teste=galaxia, portais (o antigo) ou oculos, solar, roda,
@@ -231,9 +233,9 @@ onMounted(() => {
 });
 onUnmounted(() => { footerObserver?.disconnect(); document.documentElement.classList.remove('at-footer'); revealObserver?.disconnect(); revealObserver = null; removeEventListener('scroll', onScroll); cancelAnimationFrame(pFrame); });
 
-// Projetos publicados no painel aparecem aqui.
-const { projects: storedProjects } = useProjectStore();
-const projetos = computed(() => storedProjects.value.filter(project => project.publicado));
+// Projetos publicados no painel (e no ar, se agendados) que estão na vitrine da página inicial, na ordem do painel.
+const { projects: storedProjects, news } = useProjectStore();
+const projetos = computed(() => storedProjects.value.filter(project => isLive(project) && project.vitrine !== false));
 
 const progressSections = [
   { id: 'sobre', label: 'Estúdio' }, { id: 'impacto', label: 'Impacto' }, { id: 'expertise', label: 'Criação' },

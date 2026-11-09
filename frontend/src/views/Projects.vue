@@ -6,7 +6,7 @@
       <p class="eyebrow">Portfólio completo</p>
       <h1>Mundos que<br><span class="grad">já criamos.</span></h1>
       <p class="lede">Realidade virtual, jogos, inteligência artificial e vídeo 360°: cada projeto nasceu de um desafio real. Escolha um mundo para conhecer a história.</p>
-      <div class="chips" role="group" aria-label="Filtrar por setor">
+      <div class="chips" role="group" aria-label="Filtrar por categoria">
         <button v-for="s in sectors" :key="s" type="button" :class="{ on: sector === s }" :aria-pressed="sector === s" @click="sector = s">{{ s }} <span>{{ count(s) }}</span></button>
       </div>
     </header>
@@ -37,16 +37,19 @@
 import { computed, ref } from 'vue';
 import SpaceSky from '../components/SpaceSky.vue';
 import ContactBrief from '../components/ContactBrief.vue';
-import { useProjectStore } from '../utils/projectStore.js';
+import { isLive, useProjectStore } from '../utils/projectStore.js';
 
 const brief = ref(null);
 const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const { projects } = useProjectStore();
-const list = computed(() => projects.value.filter(p => p.publicado));
+// Só o que está no ar (publicado e, se agendado, depois da data), na ordem do painel.
+const list = computed(() => projects.value.filter(p => isLive(p)));
+// Filtros: setores e categorias (tags) cadastrados no painel, sem repetir.
 const sector = ref('Todos');
-const sectors = computed(() => ['Todos', ...new Set(list.value.map(p => p.setor))]);
-const filtered = computed(() => list.value.filter(p => sector.value === 'Todos' || p.setor === sector.value));
-const count = (s) => (s === 'Todos' ? list.value.length : list.value.filter(p => p.setor === s).length);
+const has = (p, s) => p.setor === s || (p.tags || []).includes(s);
+const sectors = computed(() => ['Todos', ...new Set(list.value.flatMap(p => [p.setor, ...(p.tags || [])]).filter(Boolean))].filter(s => s === 'Todos' || list.value.filter(p => has(p, s)).length));
+const filtered = computed(() => list.value.filter(p => sector.value === 'Todos' || has(p, sector.value)));
+const count = (s) => (s === 'Todos' ? list.value.length : list.value.filter(p => has(p, s)).length);
 function light(e) { const el = e.currentTarget, b = el.getBoundingClientRect(); el.style.setProperty('--mx', `${e.clientX - b.left}px`); el.style.setProperty('--my', `${e.clientY - b.top}px`); }
 </script>
 

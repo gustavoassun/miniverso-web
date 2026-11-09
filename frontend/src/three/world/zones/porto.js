@@ -191,6 +191,7 @@ function buildPort(g, zi) {
   // ── Navio no berço, carregador de navios e rebocadores.
   const SX = 0.06, SZB = 0.525, HATCH = [-0.075, -0.031, 0.013, 0.057, 0.101];
   const ship = new THREE.Group(); ship.add(new THREE.Mesh(carrierGeo(), vehMat())); g.add(ship);
+  (rt.track ||= {}).ship = ship;                                                                   // a câmera do Zarpar acompanha este
   const loader = new THREE.Group(); g.add(loader);
   for (const x of [-0.016, 0.016]) for (const z of [0.437, 0.473]) box(0.004, 0.05, 0.004, C.amber, x, 0, z - 0.455, loader);
   box(0.04, 0.006, 0.042, C.amber, 0, 0.05, 0, loader); box(0.016, 0.03, 0.016, C.white, 0, 0.056, 0, loader);

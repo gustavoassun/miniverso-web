@@ -63,4 +63,20 @@ const lampiao = (g, x, z, y, h = 0.042) => {
 };
 const zebra =(g, x, z, alongX, n = 5, lift = 0) => { for (let i = 0; i < n; i++) { const o = (i - (n - 1) / 2) * 0.006; box(alongX ? 0.02 : 0.003, 0.0008, alongX ? 0.003 : 0.02, '#f4f4f4', x + (alongX ? 0 : o), sag(x, z) + lift + 0.0032, z + (alongX ? o : 0), g); } };
 
-export { confetti, lamp, lampiao, palm, tree, waveFlag, zebra };
+// Céu noturno de uma cena (Noite de estrelas, skyline aceso): cúpula escura com estrelas e lua em volta de um ponto.
+// Só aparece com a câmera já lá dentro (de fora seria uma bolha); set(k, t) liga de 0 a 1 e faz as estrelas piscarem.
+function nightSky(g, x, y, z, r = 0.5, moonAt = [-0.17, 0.33, -0.22]) {
+  const night = new THREE.Group(); night.position.set(x, y, z); night.visible = false; night.userData.keep = true; g.add(night);
+  const skyM = new THREE.MeshBasicMaterial({ color: '#070b26', side: THREE.BackSide, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false });
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(r, 24, 12), skyM); sky.renderOrder = -2; night.add(sky);
+  const pos = [];
+  for (let i = 0; i < 700; i++) { const u = R() * TAU, v = 0.08 + R() * 0.92, rr = r * 0.94; pos.push(Math.cos(u) * Math.sqrt(1 - v * v) * rr, v * rr, Math.sin(u) * Math.sqrt(1 - v * v) * rr); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const starM = new THREE.PointsMaterial({ color: '#fff6dc', size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, fog: false });
+  const stars = new THREE.Points(geo, starM); stars.renderOrder = -1; night.add(stars);
+  const moon = new THREE.Mesh(new THREE.SphereGeometry(r * 0.044, 16, 10), new THREE.MeshBasicMaterial({ color: '#fff3c4', toneMapped: false, transparent: true, opacity: 0, fog: false }));
+  moon.position.set(moonAt[0] * r / 0.5, moonAt[1] * r / 0.5, moonAt[2] * r / 0.5); moon.renderOrder = -1; night.add(moon);
+  return { set(k, t) { night.visible = k > 0.01; skyM.opacity = k * 0.97; starM.opacity = k * (0.75 + 0.25 * Math.sin(t * 2.3)); moon.material.opacity = k; } };
+}
+
+export { confetti, lamp, lampiao, nightSky, palm, tree, waveFlag, zebra };

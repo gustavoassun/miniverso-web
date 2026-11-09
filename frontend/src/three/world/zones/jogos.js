@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { R, TAU } from '../../core/math.js';
 import { sag } from '../build.js';
-import { crowd } from '../people.js';
+import { crowd, figures } from '../people.js';
 import { confetti } from '../props.js';
 import { animated, rt, toyKick, toys } from '../runtime.js';
 import { canvasTex, holoMat } from '../textures.js';
@@ -332,6 +332,16 @@ function buildGames(g, zi) {
     piece(S, Bx(0.004, 0.009, 0.056), '#15161c', x0 - 0.0068, beamY - 0.021, z0, ry);
     lights.userData.keep = true; g.add(lights); race.lights = lights;
     race.party = confetti(g, x0, beamY, z0);
+    // Confete espalhado pela reta principal e saindo da arquibancada: a cada volta a reta ganha uma chuva de confete;
+    // na vitória, todos disparam em sequência, várias vezes.
+    const along = [-0.2, -0.08, 0.04, 0.16].map(x => confetti(g, x, sag(x, -0.4) + 0.05, -0.4));
+    const stands = [-0.14, -0.05, 0.05, 0.14].map(x => confetti(g, x, sag(x, -0.5) + 0.07, -0.48));
+    race.burst = (big) => {
+      const now = rt.clock, list = big ? [race.party, ...along, ...stands] : [race.party, ...along];
+      list.forEach((c, k) => { c.userData.at = now + k * 0.12; });
+      if (big) setTimeout(() => stands.concat(along).forEach((c, k) => { c.userData.at = rt.clock + k * 0.1; }), 2200);
+      race.cheerAt = now; if (big) race.winAt = now;
+    };
   }
 
   // Arquibancada da reta principal: um bloco só, levemente curvado, com cinco degraus de assentos coloridos em faixas,
@@ -361,23 +371,28 @@ function buildGames(g, zi) {
     }));
     banner.position.set(0, ys, Zf - T * D + 0.0565); banner.rotation.x = -0.12; banner.userData.keep = true; g.add(banner);
   }
+  // Torcida: os mesmos bonequinhos do planeta (cabelo, braços e calça), com camisas coloridas e bandeirinhas.
+  // Parados, balançam de leve; com a corrida valendo, pulam devagar; a cada volta comemoram com os braços para cima
+  // (pulo calmo, sem tremedeira); na vitória, ficam vários segundos em festa.
   {
-    const cm = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.0024, 0.0038, 3, 6), new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), fans.length);
+    const cc = ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6', '#7a5cff'];
+    const f = figures(g, fans.length, fans.map((_, i) => cc[(i * 5) % 8]));
     const flags = new THREE.InstancedMesh(new THREE.BoxGeometry(0.0004, 0.004, 0.006).translate(0, 0.006, 0.003), new THREE.MeshBasicMaterial({ toneMapped: false }), fans.length);
-    const cc = ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6', '#7a5cff'].map(h => new THREE.Color(h));
-    fans.forEach(([x, y, z], i) => { cm.setMatrixAt(i, _m.makeTranslation(x, y + 0.005, z)); cm.setColorAt(i, cc[(i * 5) % 8]); flags.setColorAt(i, cc[(i * 3 + 2) % 8]); flags.setMatrixAt(i, ZERO); });
-    cm.userData.detail = true; cm.frustumCulled = false; flags.userData.detail = true; flags.frustumCulled = false;
+    fans.forEach((_, i) => { flags.setColorAt(i, new THREE.Color(cc[(i * 3 + 2) % 8])); flags.setMatrixAt(i, ZERO); });
+    flags.userData.detail = true; flags.frustumCulled = false;
     const ph = fans.map(() => R() * TAU);
-    cm.userData.anim = t => {
-      const cheer = Math.max(0, 1 - (t - (race.cheerAt ?? -9)) / 2.5), hype = race.state === 'off' ? 0.25 : 1 + cheer;
+    f.host.userData.anim = t => {
+      const lapCheer = Math.max(0, 1 - (t - (race.cheerAt ?? -9)) / 3), winCheer = Math.max(0, 1 - (t - (race.winAt ?? -99)) / 7);
+      const cheer = Math.max(lapCheer, winCheer), live = race.state !== 'off' ? 1 : 0;
+      const speed = 2 + live * 2.2 + cheer * 2.5, amp = 0.0005 + live * 0.0013 + cheer * 0.003;
       fans.forEach(([x, y, z], i) => {
-        const jump = Math.max(0, Math.sin(t * (5 + hype * 4) + ph[i])) * 0.0026 * hype;
-        cm.setMatrixAt(i, _m.makeTranslation(x, y + 0.005 + jump, z));
-        flags.setMatrixAt(i, i % 3 ? ZERO : _m.makeRotationX(Math.sin(t * 7 + ph[i]) * 0.6).setPosition(x + 0.002, y + 0.008 + jump, z));
+        const jump = Math.max(0, Math.sin(t * speed + ph[i])) * amp;
+        f.place(i, x, y - 0.0014 + jump, z, Math.sin(t * 0.7 + ph[i]) * 0.25, 0, Math.min(1, cheer * 1.2) * (0.75 + 0.25 * Math.sin(t * speed + ph[i])));
+        flags.setMatrixAt(i, i % 3 ? ZERO : _m.makeRotationX(Math.sin(t * (3 + cheer * 3) + ph[i]) * 0.6).setPosition(x + 0.0045, y + 0.0145 + jump, z));
       });
-      cm.instanceMatrix.needsUpdate = true; flags.instanceMatrix.needsUpdate = true;
+      f.done(); flags.instanceMatrix.needsUpdate = true;
     };
-    g.add(cm, flags); animated.push(cm);
+    g.add(flags); animated.push(f.host);
   }
   // Telão com a classificação ao vivo (redesenhado só quando muda a ordem ou a volta).
   {

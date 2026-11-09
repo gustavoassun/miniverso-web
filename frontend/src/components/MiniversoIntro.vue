@@ -27,11 +27,12 @@
         <div class="capa-bottom">
           <h1 id="intro-title">O mundo real é só <span>o começo.</span></h1>
           <p>Realidade virtual, aumentada e conteúdo 3D. Experiências que levam sua ideia além da tela.</p>
-          <!-- Da segunda visita em diante: atalhos claros na capa, sem precisar passar pela abertura. -->
-          <div class="capa-cta" hidden>
-            <button type="button" class="cta-site">Explorar o site <i aria-hidden="true">→</i></button>
-            <button type="button" class="cta-planet"><i class="mini-orb" aria-hidden="true"><PlanetIcon :moon="false" :animated="false" /></i>Ver o planeta</button>
-          </div>
+        </div>
+        <!-- Da segunda visita em diante: um atalho discreto no centro, logo abaixo do nome (o título continua sendo o
+             destaque), e um link pequeno para ver o planeta. -->
+        <div class="capa-cta" hidden>
+          <button type="button" class="cta-site">Explorar o site <i aria-hidden="true">→</i></button>
+          <button type="button" class="cta-planet">ou veja o planeta</button>
         </div>
         <div class="capa-bar">
           <span class="enter">Role para entrar <i aria-hidden="true">↓</i></span>
@@ -243,8 +244,12 @@ onUnmounted(() => {
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
 .scene-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; outline-offset: -4px; }
 .scene-canvas.orbiting { touch-action: none; }
-.scene-canvas.dragging { cursor: grabbing; }
-.scene-canvas.pointing { cursor: pointer; }
+/* Cursor do universo: mira de VR (anel ciano com ponto branco, contorno escuro para ler em qualquer fundo).
+   Apontando algo clicável, o anel abre e acende; arrastando, fecha com as setinhas de girar. */
+.stage { --cur: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><circle cx='16' cy='16' r='9' fill='none' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='9' fill='none' stroke='%237fe9ff' stroke-width='2'/><path d='M22.4 9.6a9 9 0 0 1 2.6 6.4' fill='none' stroke='%23ff4fd8' stroke-width='2.2' stroke-linecap='round'/><circle cx='16' cy='16' r='2.6' fill='%23ffffff' stroke='%23050a1c' stroke-width='1.2'/></svg>") 16 16, grab; --cur-drag: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><g fill='none' stroke-linecap='round' stroke-linejoin='round'><circle cx='16' cy='16' r='6' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='6' stroke='%237fe9ff' stroke-width='2'/><path d='M16 3.5l-2.6 2.8M16 3.5l2.6 2.8M16 28.5l-2.6-2.8M16 28.5l2.6-2.8M3.5 16l2.8-2.6M3.5 16l2.8 2.6M28.5 16l-2.8-2.6M28.5 16l-2.8 2.6' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4'/><path d='M16 3.5l-2.6 2.8M16 3.5l2.6 2.8M16 28.5l-2.6-2.8M16 28.5l2.6-2.8M3.5 16l2.8-2.6M3.5 16l2.8 2.6M28.5 16l-2.8-2.6M28.5 16l-2.8 2.6' stroke='%23ffffff' stroke-width='1.8'/></g><circle cx='16' cy='16' r='2.2' fill='%23ff4fd8'/></svg>") 16 16, grabbing; --cur-point: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'><circle cx='16' cy='16' r='11.5' fill='%237fe9ff' fill-opacity='.22' stroke='%23050a1c' stroke-opacity='.55' stroke-width='4.5'/><circle cx='16' cy='16' r='11.5' fill='none' stroke='%237fe9ff' stroke-width='2.2'/><circle cx='16' cy='16' r='3.4' fill='%23ff4fd8' stroke='%23ffffff' stroke-width='1.4'/></svg>") 16 16, pointer; }
+.scene-canvas { cursor: var(--cur); }
+.scene-canvas.dragging { cursor: var(--cur-drag); }
+.scene-canvas.pointing { cursor: var(--cur-point); }
 /* Acerte os blocos: o cursor vira um martelinho. */
 .scene-canvas.whacking, .scene-canvas.whacking.pointing { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><text x='2' y='30' font-size='28'>🔨</text></svg>") 6 6, pointer; }
 .stage > :not(canvas) { pointer-events: none; }
@@ -258,17 +263,15 @@ onUnmounted(() => {
 .skip-intro .skip-site { color: #fff; border-color: transparent; background: linear-gradient(110deg, #00b7e3, #1e5bb8 55%, #6a4bd6); }
 .skip-intro i { font-style: normal; font-size: 16px; line-height: 1; color: var(--cyan); }
 .skip-intro .skip-site i { color: #fff; }
-/* Atalhos da capa (a partir da segunda visita). */
-.capa-cta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+/* Atalho da capa (a partir da segunda visita): pequeno, centralizado logo abaixo do nome e da dica de arrastar. */
+.capa-cta { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px) + 34px); translate: -50% 0; display: grid; justify-items: center; gap: 6px; }
 .capa-cta[hidden] { display: none; }
-.capa-cta button { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: 999px; font: 700 15px var(--font-body); cursor: pointer; white-space: nowrap; transition: transform .25s, box-shadow .25s, border-color .25s; }
-.capa-cta .cta-site { color: #fff; border: 0; background: linear-gradient(110deg, #00b7e3 0%, #1e5bb8 55%, #6a4bd6 100%); box-shadow: 0 12px 30px rgba(0, 0, 0, .4), 0 0 30px rgba(0, 183, 227, .35), inset 0 1px 0 rgba(255, 255, 255, .35); }
-.capa-cta .cta-site i { font-style: normal; transition: translate .25s; } .capa-cta .cta-site:hover i { translate: 4px 0; }
-.capa-cta .cta-planet { color: var(--ice); border: 1px solid rgba(127, 233, 255, .4); background: rgba(12, 27, 41, .7); backdrop-filter: blur(10px); }
-.capa-cta button:hover { transform: translateY(-2px); }
-.capa-cta .cta-planet:hover { border-color: var(--cyan); }
-.capa-cta .mini-orb { margin: -4px 0; }
-@media (max-width: 700px) { .capa-cta button { min-height: 44px; padding: 0 18px; font-size: 14px; } .stage > .skip-intro { flex-direction: column; align-items: stretch; } }
+.capa-cta .cta-site { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 18px; border: 1px solid rgba(127, 233, 255, .45); border-radius: 999px; color: #fff; background: rgba(12, 27, 41, .55); backdrop-filter: blur(10px); font: 600 14px var(--font-body); letter-spacing: .02em; cursor: pointer; white-space: nowrap; transition: border-color .25s, background .25s, box-shadow .25s; }
+.capa-cta .cta-site:hover, .capa-cta .cta-site:focus-visible { border-color: var(--cyan); background: rgba(0, 183, 227, .16); box-shadow: 0 0 24px rgba(0, 183, 227, .3); }
+.capa-cta .cta-site i { font-style: normal; color: var(--cyan); transition: translate .25s; } .capa-cta .cta-site:hover i { translate: 3px 0; }
+.capa-cta .cta-planet { padding: 4px 6px; border: 0; background: none; color: var(--muted); font: 500 12px var(--font-body); letter-spacing: .04em; cursor: pointer; text-decoration: underline; text-decoration-color: rgba(163, 188, 203, .4); text-underline-offset: 3px; }
+.capa-cta .cta-planet:hover { color: #fff; }
+@media (max-width: 700px) { .capa-cta { top: calc(50% + var(--hint-y, 150px) + 16px); gap: 0; } .capa-cta .cta-site { min-height: 36px; padding: 0 16px; font-size: 13px; } .capa-cta .cta-planet { font-size: 11px; } }
 
 /* mini + verso nas laterais do óculos; juntam-se e entram no visor. */
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
@@ -477,7 +480,7 @@ onUnmounted(() => {
 .zone-label.on .tag, .zone-label.live:hover .tag { border-color: var(--c); transform: translateY(-2px);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .4), 0 0 18px color-mix(in srgb, var(--c) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .14); }
 .zone-label.on .go, .zone-label.live:hover .go { max-width: 80px; opacity: 1; }
-.zone-label.live { pointer-events: auto; cursor: pointer; }
+.zone-label.live { pointer-events: auto; cursor: var(--cur-point, pointer); }
 @keyframes label-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--c) 70%, transparent); } 100% { box-shadow: 0 0 0 9px transparent; } }
 /* Barra da área: fina, embaixo e no centro, para a cena ficar livre. Cabeçalho com número e nome, gaveta com o
    texto completo, legenda do ponto de interesse com setas e tour, e as ações da área. Some quase toda enquanto a
@@ -539,7 +542,7 @@ onUnmounted(() => {
 .race-hud:not([hidden]) ~ .sound-toggle { opacity: 0; pointer-events: none; }
 /* Marcadores numerados dos pontos de interesse: o nome aparece ao passar o mouse. */
 .pois { --c: var(--cyan); position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.pois :deep(.poi) { position: absolute; left: -15px; top: -15px; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #fff; cursor: pointer; opacity: 0; transition: opacity .3s; }
+.pois :deep(.poi) { position: absolute; left: -15px; top: -15px; display: flex; align-items: center; padding: 0; border: 0; background: none; color: #fff; cursor: var(--cur-point, pointer); opacity: 0; transition: opacity .3s; }
 .pois :deep(.poi.live) { pointer-events: auto; }
 .pois :deep(.poi b) { position: relative; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; font: 700 13px var(--font-display);
   background: rgba(10, 8, 24, .78); border: 1.5px solid var(--c); box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 0 14px color-mix(in srgb, var(--c) 45%, transparent);

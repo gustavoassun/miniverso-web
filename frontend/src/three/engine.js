@@ -16,6 +16,10 @@ import { createGames } from './games.js';
 import { createMusic } from './music.js';
 import { bendUniforms, revealEdge, revealUniforms } from './world/reveal.js';
 
+// Em desenvolvimento, qualquer peça do planeta que mudar recarrega a página inteira: o planeta é montado uma vez só
+// ao importar, e a troca parcial deixava dois mundos misturados (gente no chão, patos sem água, peças duplicadas).
+if (import.meta.hot) import.meta.hot.accept(() => location.reload());
+
 // Motor da abertura: capa com o óculos, entrada pelo visor e o planeta Miniverso.
 // createMiniverso(rootEl) liga tudo dentro do elemento do componente e devolve dispose() para desligar.
 export function createMiniverso(rootEl, opts = {}) {
@@ -85,6 +89,9 @@ export function createMiniverso(rootEl, opts = {}) {
   let zYaw = 0.06, zPitch = 0.36, zDist = ZD, zYawT = 0.06, zPitchT = 0.36, zDistT = ZD;
   // Apresentação de uma área (o boi no palco): a câmera vai até a plateia; arrastar, rolar ou as setas devolvem o controle.
   let show = false, showT = 0;
+  // Cena de cinema de uma interação (go/go2… com cam e look): a câmera desce até a ação, fica dur segundos e volta.
+  let shot = null, shotAt = 0;
+  const tv = new THREE.Vector3(), tp = new THREE.Vector3(), tfv = new THREE.Vector3(), tf = new THREE.Vector3(), tgL = new THREE.Vector3(), tgC = new THREE.Vector3(), trL = new THREE.Vector3(), trC = new THREE.Vector3();
   const showCam = new THREE.Vector3(), showLook = new THREE.Vector3();
   // Corrida de kart: a câmera desce para trás do seu kart (games.js diz onde e com que peso).
   const raceCamP = new THREE.Vector3(), raceLook = new THREE.Vector3(), raceUp = new THREE.Vector3();
@@ -164,7 +171,7 @@ export function createMiniverso(rootEl, opts = {}) {
     if (!worldLive) return;
     const fresh = focusZone !== i;
     if (fresh) stopGame();
-    if (fresh) show = false;
+    if (fresh) { show = false; shot = null; }
     if (fresh) { zYawT = ZONES[i].yaw ?? 0.06; zPitchT = ZONES[i].pitch ?? 0.36; zDistT = ZD; zFT.copy(zoneFocus(i)); if (focusZone < 0) { zYaw = zYawT; zPitch = zPitchT; zDist = zDistT; zF.copy(zFT); } }
     focusZone = lastFocus = i; canvas.classList.add('orbiting');
     if (fresh) { buildMarkers(i); tourStop(); infoOpen(false); poiSet(-1, false); }
@@ -180,23 +187,31 @@ export function createMiniverso(rootEl, opts = {}) {
   }
   // Na cabine a barra fica compacta (título, botões e status), para não tampar a vista.
   function cardCompact(on) { for (const el of [zoneMore, zoneInfo, zoneClose, zoneAct]) el.hidden = on; zoneTour.hidden = on || !poisOf(focusZone).length; zoneCard.classList.toggle('compact', on); if (on) { infoOpen(false); tourStop(); } }
-  function closeZone() { cardCompact(false); focusZone = -1; show = false; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); tourStop(); infoOpen(false); poi = -1; markers = []; poiLayer.replaceChildren(); }
+  function closeZone() { cardCompact(false); focusZone = -1; show = false; shot = null; canvas.classList.remove('orbiting'); cab = false; trainTip.hidden = true; zoneCard.hidden = true; stopGame(); tourStop(); infoOpen(false); poi = -1; markers = []; poiLayer.replaceChildren(); }
   on(zoneAct2, 'click', () => {
     const i = focusZone; if (i < 0) return;
     const kind = ZONES[i].kind2;
     if (kind === 'cab') { if (cab) exitCab(); else enterCab(0); }
     else if (kind === 'whack') startWhack();
     else if (kind === 'clean') startClean();
-    else { zoneFx2[i] = clock; zoneStatus.textContent = ZONES[i].done2; }
+    else { zoneFx2[i] = clock; zoneStatus.textContent = ZONES[i].done2; focusOn(i, 'go2'); }
   });
+  // Ao tocar uma interação, a câmera vai até onde ela acontece (quando a área define go, go2…).
+  // Com cam/look é uma cena de cinema (perto do chão, no meio da ação); depois dela a câmera fica em after (ou na vista geral).
+  function focusOn(i, key) {
+    const f = ZONES[i][key]; if (!f) return;
+    tourStop(); poi = -1; markers.forEach(m => m.classList.remove('on'));
+    if (f.cam || f.track) { aim(f.after || null); shot = { ...f }; shotAt = clock; show = true; } else aim(f);
+  }
+  if (import.meta.env.DEV) window.__miniShot = f => { if (focusZone >= 0) { aim(f.after || null); shot = { dur: 30, ...f }; shotAt = clock; show = true; } };
   // Terceira ação: nos Jogos é a corrida; nas outras áreas, uma interação simples (zoneFx3, texto done3).
-  on(zoneAct3, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startRace(); else { zoneFx3[i] = clock; zoneStatus.textContent = ZONES[i].done3 || ''; } });
-  on(zoneAct4, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startArcade(); else { zoneFx4[i] = clock; zoneStatus.textContent = ZONES[i].done4 || ''; } });
+  on(zoneAct3, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startRace(); else { zoneFx3[i] = clock; zoneStatus.textContent = ZONES[i].done3 || ''; focusOn(i, 'go3'); } });
+  on(zoneAct4, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startArcade(); else { zoneFx4[i] = clock; zoneStatus.textContent = ZONES[i].done4 || ''; focusOn(i, 'go4'); } });
   on(zoneClose, 'click', closeZone);
   // Pequena interação de cada área.
   on(zoneAct, 'click', () => {
     const i = focusZone; if (i < 0) return;
-    zoneFx[i] = clock; show = !!ZONES[i].show;
+    zoneFx[i] = clock; show = !!ZONES[i].show; if (show) shot = null; else focusOn(i, 'go');
     if (i === game.zi) startRecycle(); else if (ZONES[i].kind === 'ecotour') startEcoTour(); else zoneStatus.textContent = ZONES[i].done;
   });
   // Cabine de qualquer um dos trens (pelo botão da Ferrovia ou clicando no trem).
@@ -708,14 +723,34 @@ export function createMiniverso(rootEl, opts = {}) {
       // "Para cima" da câmera perpendicular à visão, para a vista de cima não virar.
       vc.set(-Math.sin(yaw) * sp, cp, -Math.cos(yaw) * sp).transformDirection(zg.matrixWorld);
       fup.lerp(vc, k).normalize();
-      const sh = ZONES[lastFocus].show;
-      if (show && (!sh || clock - zoneFx[lastFocus] > sh.dur)) show = false;
+      const sh = shot || ZONES[lastFocus].show, sh0 = shot ? shotAt : zoneFx[lastFocus];
+      if (show && (!sh || clock - sh0 > sh.dur)) show = false;
+      if (!show && shot && showT < 0.002) shot = null;
       showT += ((show ? 1 : 0) - showT) * (1 - Math.exp(-dt * (reduced ? 20 : 1.8)));
       if (sh && showT > 0.001) {
         const s = smoother(0, 1, showT) * k;
-        showLook.set(...sh.look); showCam.set(...sh.cam).sub(showLook).multiplyScalar(portrait ? 1.6 : 1).add(showLook);
+        // track: a câmera segue uma peça que anda (o 4x4 nas dunas), por trás e um pouco acima, suavizada.
+        const tob = sh.track && rt.track?.[sh.track];
+        if (tob) {
+          // Frente da peça: o eixo x dela (4x4) ou, com vel, a direção em que ela está andando (helicóptero).
+          if (sh.vel) { tv.copy(tob.position).sub(tp); tp.copy(tob.position); tv.y = 0; if (!sh.seen) tfv.set(0.6, 0, 0.8); else if (tv.lengthSq() > 1e-10) tfv.lerp(tv.normalize(), 1 - Math.exp(-dt * 2)).normalize(); tf.copy(tfv); }
+          else tf.set(1, 0, 0).applyQuaternion(tob.quaternion).setY(0).normalize();
+          const [bk, up, ah, ly = 0.008] = sh.offset || [0.09, 0.04, 0.05];   // atrás, acima, mira à frente, altura da mira
+          if (sh.cam) { tgC.fromArray(sh.cam); tgL.copy(tob.position); }                                   // câmera parada que vira para acompanhar
+          else if (sh.center) {
+            // Voo em volta de um centro: a câmera fica do lado de fora, com a peça na frente e o bairro ao fundo.
+            tv.fromArray(sh.center); tf.copy(tob.position).sub(tv).setY(0).normalize();
+            tgC.copy(tob.position).addScaledVector(tf, bk).setY(tob.position.y + up); tgL.copy(tob.position).lerp(tv, ah).setY(tob.position.y + ly);
+          } else { tgL.copy(tob.position).addScaledVector(tf, ah).setY(tob.position.y + ly); tgC.copy(tob.position).addScaledVector(tf, -bk).setY(tob.position.y + up); }
+          if (!sh.seen) { trL.copy(tgL); trC.copy(tgC); tp.copy(tob.position); sh.seen = true; }
+          const ez2 = 1 - Math.exp(-dt * 3); trL.lerp(tgL, ez2); trC.lerp(tgC, ez2); showLook.copy(trL); showCam.copy(trC);
+        } else { showLook.set(...sh.look); showCam.set(...sh.cam); }
+        const camLocal = vb.copy(showCam);
+        showCam.sub(showLook).multiplyScalar(portrait ? sh.pk ?? 1.6 : 1).add(showLook);
         zg.localToWorld(showCam); zg.localToWorld(showLook);
-        camPos.lerp(showCam, s); camLook.lerp(showLook, s); fup.lerp(fdir, s).normalize();
+        // Na cena de cinema o "para cima" é o do chão onde a câmera está (longe do centro da área o planeta inclina).
+        if (sh.cam || sh.track) vc.set(camLocal.x, Math.sqrt(Math.max(0, PR * PR - camLocal.x * camLocal.x - camLocal.z * camLocal.z)), camLocal.z).normalize().transformDirection(zg.matrixWorld); else vc.copy(fdir);
+        camPos.lerp(showCam, s); camLook.lerp(showLook, s); fup.lerp(vc, s).normalize();
       }
       raceW = raceCam(raceCamP, raceLook, raceUp, dt);
       if (raceW > 0.001) {
@@ -754,7 +789,7 @@ export function createMiniverso(rootEl, opts = {}) {
     // Plano de corte próximo acompanha a distância até o chão: de longe ele vai para bem longe da câmera e a precisão
     // de profundidade sobra para as peças finas (pisos, ruas e faixas a milímetros uma da outra não piscam/se cruzam).
     const fov = mix(mix(30, camFov(), smoother(0, 1, raceW)), 58, smoother(0, 0.7, cabT));
-    const near = cabT > 0.25 || raceW > 0.2 ? 0.004 : Math.round(clamp((camPos.length() - PR - 0.32) * 0.5, 0.05, 2.5) * 200) / 200;
+    const near = cabT > 0.25 || raceW > 0.2 || showT > 0.3 ? 0.004 : Math.round(clamp((camPos.length() - PR - 0.32) * 0.5, 0.05, 2.5) * 200) / 200;
     // Com uma área aberta, o centro da vista sobe para o meio do espaço livre acima da barra da área.
     if (!zoneCard.hidden) barH = zoneCard.offsetHeight + 18;
     const lift = Math.round(barH * 0.5 * smoother(0, 1, focusT) * (1 - smoother(0, 0.3, cabT)));

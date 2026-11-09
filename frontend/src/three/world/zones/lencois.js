@@ -4,7 +4,7 @@ import { box, cyl, mat, sag } from '../build.js';
 import { C } from '../palette.js';
 import { crowd, walkers } from '../people.js';
 import { palm } from '../props.js';
-import { animated, fxT } from '../runtime.js';
+import { animated, fxT, rt } from '../runtime.js';
 import { canvasTex } from '../textures.js';
 import { jeepGeo, vehMat } from '../vehicles.js';
 
@@ -114,6 +114,7 @@ function buildDunes(g, zi) {
   const parkedJeep = new THREE.Mesh(jeepGeo(), vehMat()); parkedJeep.position.set(0.3, sandY(0.3, 0.27) + 0.002, 0.27); parkedJeep.rotation.y = 2.2; g.add(parkedJeep);
   const jeep = new THREE.Group(); jeep.userData.keep = true; g.add(jeep);
   jeep.add(new THREE.Mesh(jeepGeo(), vehMat()));
+  (rt.track ||= {}).jeep = jeep;                                                                   // a câmera do passeio segue este
   const path = Array.from({ length: 161 }, (_, i) => { const a = i / 160 * TAU, x = Math.cos(a) * 0.34, z = Math.sin(a) * 0.26 - 0.02; return new THREE.Vector3(x, sandY(x, z) + 0.003, z); });
   jeep.userData.anim = t => {
     const f = fxT(zi), u = f < 0 ? 0 : smoother(0, 14, f), k = (u * 160) % 160, i = Math.floor(k), a = path[i], b = path[i + 1];

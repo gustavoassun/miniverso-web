@@ -19,7 +19,8 @@ const geos = (() => {
 const HIP = 0.0062, SHOULDER = 0.0128;
 
 // Conjunto de malhas instanciadas para n pessoas; place() posiciona uma pessoa com balanço de pernas e braços.
-function figures(g, n, colors) {
+// sc: tamanho (0,8 = crianças).
+function figures(g, n, colors, sc = 1) {
   const mk = (geo, count) => { const m = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ roughness: 0.72, flatShading: true }), count); m.frustumCulled = false; m.userData.detail = true; g.add(m); return m; };
   const torso = mk(geos.torso, n), head = mk(geos.head, n), hair = mk(geos.hair, n), legs = mk(geos.leg, 2 * n), arms = mk(geos.arm, 2 * n);
   for (let k = 0; k < n; k++) {
@@ -30,7 +31,7 @@ function figures(g, n, colors) {
   const o = new THREE.Object3D(), part = new THREE.Object3D(), M = new THREE.Matrix4();
   // swing: balanço do passo (−1..1); armsUp: 0 braços para baixo, 1 erguidos (festa); sit: sentado (pernas à frente).
   const place = (k, x, y, z, rotY, swing = 0, armsUp = 0, tilt = 0, sit = 0) => {
-    o.position.set(x, y, z); o.rotation.set(0, rotY, tilt); o.scale.setScalar(1); o.updateMatrix();
+    o.position.set(x, y, z); o.rotation.set(0, rotY, tilt); o.scale.setScalar(sc); o.updateMatrix();
     torso.setMatrixAt(k, o.matrix); head.setMatrixAt(k, o.matrix); hair.setMatrixAt(k, o.matrix);
     for (const s of [-1, 1]) {
       const i = 2 * k + (s > 0 ? 1 : 0);
@@ -46,10 +47,13 @@ function figures(g, n, colors) {
 // Público parado (assistindo, sentado ou na festa): pulam e erguem os braços quando a interação da área toca.
 function crowd(g, spots, zi, colors, opts = {}) {
   const fx = opts.fx || fxT, n = spots.length, f = figures(g, n, colors);
-  const people = spots.map(([x, z, y], k) => ({ x, z, y: y ?? (opts.yAt || sag)(x, z), ph: k * 0.7 + R() * 0.5 }));
+  const people = spots.map(([x, z, y, rot], k) => ({ x, z, y: y ?? (opts.yAt || sag)(x, z), rot, ph: k * 0.7 + R() * 0.5 }));
+  // opts.face: para onde olham (radianos, 0 = +z; o 4º valor de cada ponto vale só para aquela pessoa); opts.sit: sentados no chão (pernas à frente);
+  // opts.jump / opts.speed: altura e ritmo do pulo na festa (padrão calmo e alegre).
+  const face = opts.face || 0, sit = opts.sit ? 1 : 0, jump = opts.jump ?? 0.009, speed = opts.speed ?? 5.5;
   f.host.userData.anim = t => {
     const v = fx(zi), party = v < 0 ? 0 : smooth(0, 0.6, v) * (1 - smooth(8, 9, v));
-    people.forEach((p, k) => f.place(k, p.x, p.y + Math.abs(Math.sin(t * 7 + p.ph)) * 0.011 * party, p.z, Math.sin(t * 0.6 + p.ph) * 0.35, Math.sin(t * 9 + p.ph) * 0.25 * party, party > 0 ? party * (0.8 + 0.2 * Math.sin(t * 9 + p.ph)) : 0));
+    people.forEach((p, k) => f.place(k, p.x, p.y + (sit ? 0 : Math.max(0, Math.sin(t * speed + p.ph)) * jump * party), p.z, (p.rot ?? face) + Math.sin(t * 0.6 + p.ph) * (sit ? 0.15 : 0.35), sit ? 0 : Math.sin(t * speed * 1.3 + p.ph) * 0.25 * party, party > 0 ? party * (0.75 + 0.25 * Math.sin(t * speed * 1.3 + p.ph)) : 0, 0, sit));
     f.done();
   };
   animated.push(f.host);
@@ -86,4 +90,4 @@ function walkers(g, loops, per, colors, yAt = sag, hat) {
   animated.push(f.host);
 }
 
-export { crowd, loopPath, walkers };
+export { crowd, figures, loopPath, walkers };

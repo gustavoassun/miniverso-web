@@ -503,12 +503,12 @@ function buildEcology(g, zi) {
   {
     const hatch = mergeGeometries([paint(new THREE.SphereGeometry(0.0024, 8, 5, 0, TAU, 0, Math.PI / 2).scale(1.2, 0.6, 1), '#3f5a2a'), paint(new THREE.SphereGeometry(0.0011, 6, 4).translate(0.003, 0.0004, 0), '#5a7a3a'), ...[-1, 1].map(s => paint(Bx(0.0025, 0.0005, 0.0012).translate(0.0008, 0, s * 0.0026), '#5a7a3a'))]);
     const NH = 16, hs = new THREE.InstancedMesh(hatch, vcMat, NH); hs.frustumCulled = false; hs.userData.keep = true; g.add(hs);
-    const runs = Array.from({ length: NH }, (_, k) => { const [nx, nz] = nests[k % nests.length]; return { nx: nx + (R() - 0.5) * 0.006, nz: nz + (R() - 0.5) * 0.006, delay: R() * 1.5, sp: 0.06 + R() * 0.03, wob: R() * TAU }; });
+    const runs = Array.from({ length: NH }, (_, k) => { const [nx, nz] = nests[k % nests.length]; return { nx: nx + (R() - 0.5) * 0.006, nz: nz + (R() - 0.5) * 0.006, delay: 0.8 + R() * 2, sp: 0.06 + R() * 0.03, wob: R() * TAU }; });
     hs.userData.anim = t => {
       const f = fxT3(zi);
       runs.forEach((o, k) => {
         const e = f - o.delay; if (f < 0 || e < 0 || e > 9) { hs.setMatrixAt(k, ZERO); return; }
-        const tz = shore(o.nx) - 0.03, z = Math.max(tz, o.nz - e * o.sp * 0.5), x = o.nx + Math.sin(e * 6 + o.wob) * 0.002, out = smooth(tz + 0.01, tz, z), sc = (1 - out) * Math.min(1, e * 3);
+        const tz = shore(o.nx) - 0.03, z = Math.max(tz, o.nz - e * o.sp * 0.2), x = o.nx + Math.sin(e * 6 + o.wob) * 0.002, out = smooth(tz + 0.01, tz, z), sc = (1 - out) * Math.min(1, e * 3) * 1.15;
         hs.setMatrixAt(k, _m.makeRotationY(Math.PI / 2 + Math.sin(e * 10 + o.wob) * 0.25).scale(_p.set(sc, sc, sc)).setPosition(x, ground(x, z) + 0.0015, z));
       });
       hs.instanceMatrix.needsUpdate = true;
