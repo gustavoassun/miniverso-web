@@ -367,11 +367,12 @@ export function createMiniverso(rootEl, opts = {}) {
   setAutoOn(autoOn, false);
   const introEnd = () => intro.offsetTop + intro.offsetHeight - innerHeight;
   let lastProgress = clamp(scrollY / introEnd());
-  // Dois trechos: o óculos vem até o rosto e entra (~3,4 s, ágil mas sem pressa) e o planeta se forma (com calma, ~7 s).
-  const SPLIT = 0.42, AUTO_IN = 3400, AUTO_PLANET = 6800;
-  // Primeira visita: a abertura completa (o primeiro impacto). Depois que a pessoa chega ao planeta uma vez, o
-  // navegador lembra: a abertura fica curta (~3,5 s em vez de ~10 s), os portais ficam mais rápidos e a capa
-  // ganha o atalho "Ir ao planeta".
+  // Dois trechos: o óculos vem até o rosto e entra pelo visor (~4,6 s, com calma para a entrada não parecer uma
+  // explosão) e o planeta se forma (~7,4 s). Total de ~12 s, só na primeira visita.
+  const SPLIT = 0.42, AUTO_IN = 4600, AUTO_PLANET = 7400;
+  // A abertura é sempre a completa (o óculos vindo, a entrada e o planeta se formando). Depois que a pessoa chega ao
+  // planeta uma vez, o navegador lembra: nas próximas vezes aparece o botão "Pular animação" enquanto ela roda (leva
+  // ao planeta já pronto pelo portal), os portais ficam mais rápidos e a capa ganha o atalho "Ir ao planeta".
   const VISIT_KEY = 'miniverso-visitou';
   let visited = false;
   try { visited = localStorage.getItem(VISIT_KEY) === '1'; } catch {}
@@ -384,10 +385,12 @@ export function createMiniverso(rootEl, opts = {}) {
     if (planetGo) planetGo.hidden = false;
   }
   if (planetGo) planetGo.hidden = !visited;
+  const skipBtn = $('.skip-intro');
+  const showSkip = v => { if (!skipBtn) return; skipBtn.classList.toggle('show', v); skipBtn.tabIndex = v ? 0 : -1; };
   function startAuto() {
     const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
-    const inMs = visited ? 1400 : AUTO_IN, planetMs = visited ? 2200 : AUTO_PLANET;
-    auto = { from: scrollY, split, to: end, start: performance.now(), d1: inMs * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: planetMs };
+    auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
+    showSkip(visited);
   }
   // Três lugares, cada um no seu canto, ligados por um portal:
   // - capa: a abertura (óculos e formação do planeta) só anda para a frente; rolar para cima não a desfaz;
@@ -417,7 +420,7 @@ export function createMiniverso(rootEl, opts = {}) {
   // círculo se fecha no centro, revelando o lugar novo.
   function travelTo(y, label, dest, from, after) {
     if (travelling || !travel) return;
-    auto = null; travelling = true;
+    auto = null; travelling = true; showSkip(false);
     const r = from?.getBoundingClientRect?.();
     travel.style.setProperty('--ox', r ? `${(r.left + r.width / 2).toFixed(0)}px` : '50%');
     travel.style.setProperty('--oy', r ? `${(r.top + r.height / 2).toFixed(0)}px` : '50%');
@@ -453,6 +456,7 @@ export function createMiniverso(rootEl, opts = {}) {
   on(homeBtn, 'click', () => travelTo(0, 'Voltando ao início', 'capa', homeBtn));
   on(backBtn, 'click', () => travelTo(introEnd, 'Voltando ao planeta', 'planet', backBtn));
   on(planetGo, 'click', () => travelTo(introEnd, 'Indo ao planeta', 'planet', planetGo));
+  on(skipBtn, 'click', () => travelTo(introEnd, 'Indo ao planeta', 'planet', skipBtn));
   offs.push(() => clearTimeout(bpHint));
   on(document, 'click', e => {
     const a = e.target.closest?.('a'); if (!a || !a.href) return;
@@ -537,7 +541,7 @@ export function createMiniverso(rootEl, opts = {}) {
       const y = el < auto.d1 ? mix(auto.from, auto.split, autoEase(el / auto.d1)) : mix(auto.split, auto.to, autoEase(clamp((el - auto.d1) / auto.d2)));
       // 'instant': o site usa rolagem suave no CSS, que reiniciaria a cada quadro e travaria a animação.
       scrollTo({ top: y, behavior: 'instant' });
-      if (el >= auto.d1 + auto.d2) { auto = null; if (place === 'capa' && scrollY >= introEnd() - 2) setPlace('planet'); }
+      if (el >= auto.d1 + auto.d2) { auto = null; showSkip(false); if (place === 'capa' && scrollY >= introEnd() - 2) setPlace('planet'); }
     }
     // Fora da tela (no site, aba escondida ou abertura rolada para fora) o planeta hiberna: nada é animado nem desenhado.
     // Antes de hibernar, ainda avisa o site que o planeta saiu de cena (o céu e o menu das seções dependem disso).

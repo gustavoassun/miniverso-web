@@ -2,7 +2,7 @@
   <div class="home-page">
     <SpaceSky :enabled="entered" :reduced="scene.reduced" />
     <GlowCursor :enabled="entered" :reduced="scene.reduced" />
-    <GooeyNav :enabled="entered" :reduced="scene.reduced" :show-brand="!brandVisible" />
+    <GooeyNav :enabled="entered" :reduced="scene.reduced" show-brand />
     <LineSidebar v-if="entered" :items="progressSections" />
     <MiniversoIntro @scene-change="scene = $event" />
 
@@ -183,8 +183,7 @@ const sobreVisual = testeParam === 'galaxia' ? GalaxyPortals : testeParam === 'p
 const scene = ref({ progress: 0, reduced: false });
 // Os efeitos do resto da página entram quando o planeta sai de cena (ele ocupa o fim da rolagem da abertura).
 const entered = computed(() => scene.value.passed === true);
-const brandVisible = ref(true);
-let brandObserver, footerObserver;
+let footerObserver;
 
 // Elementos entram suavemente quando aparecem na tela (v-reveal="atraso em ms").
 const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -225,14 +224,12 @@ function measureProcess() {
 const onScroll = () => { if (!pFrame) pFrame = requestAnimationFrame(measureProcess); };
 
 onMounted(() => {
-  const brand = document.querySelector('.brand-handoff');
-  if (brand) { brandObserver = new IntersectionObserver(([entry]) => { brandVisible.value = entry.isIntersecting; }); brandObserver.observe(brand); }
   addEventListener('scroll', onScroll, { passive: true }); measureProcess();
   // Quando o rodapé aparece, o botão "Voltar ao planeta" sobe para não cobrir a logo.
   const footer = document.querySelector('.app-footer');
   if (footer) { footerObserver = new IntersectionObserver(([e]) => document.documentElement.classList.toggle('at-footer', e.isIntersecting)); footerObserver.observe(footer); }
 });
-onUnmounted(() => { footerObserver?.disconnect(); document.documentElement.classList.remove('at-footer'); brandObserver?.disconnect(); revealObserver?.disconnect(); revealObserver = null; removeEventListener('scroll', onScroll); cancelAnimationFrame(pFrame); });
+onUnmounted(() => { footerObserver?.disconnect(); document.documentElement.classList.remove('at-footer'); revealObserver?.disconnect(); revealObserver = null; removeEventListener('scroll', onScroll); cancelAnimationFrame(pFrame); });
 
 // Projetos publicados no painel aparecem aqui.
 const { projects: storedProjects } = useProjectStore();

@@ -39,7 +39,8 @@ onUnmounted(() => { resize?.disconnect(); cancelAnimationFrame(frame); window.re
 </script>
 <template>
   <nav ref="root" class="gooey-nav" :class="{ visible: enabled, reduced, 'has-brand': showBrand }" aria-label="Explorar Miniverso" :inert="!enabled">
-    <a v-if="showBrand" class="nav-brand" href="#inicio" aria-label="Miniverso — voltar ao início" @click="navigate(0, $event)"><img src="/images/miniverso-logo.png" alt="" width="1024" height="236" /></a>
+    <!-- Logo: volta à capa (o óculos 3D) pelo portal; o motor do planeta cuida do clique em links para "/". -->
+    <a v-if="showBrand" class="nav-brand" href="/" aria-label="Miniverso: voltar à abertura" title="Voltar à abertura"><img src="/images/miniverso-logo.png" alt="" width="1024" height="236" /></a>
     <span class="gooey-pill" :style="bubbleStyle" aria-hidden="true"><i v-for="i in 4" :key="`${burst}-${i}`" :style="{ '--i': i }" /></span>
     <a v-for="(item, index) in items" :key="item.id" class="nav-link" :href="'#' + item.id" :aria-current="active === index ? 'location' : undefined" @click="navigate(index, $event)"><i v-if="item.planet" class="nav-orb" aria-hidden="true"><PlanetIcon :moon="false" /></i>{{ item.label }}</a>
   </nav>
@@ -48,7 +49,10 @@ onUnmounted(() => { resize?.disconnect(); cancelAnimationFrame(frame); window.re
 .gooey-nav { position: fixed; z-index: 60; top: max(clamp(22px,5vh,56px),env(safe-area-inset-top)); right: 5%; transform: translateY(-16px); display: flex; align-items: center; gap: 3px; padding: 6px; border: 1px solid #9bcede40; border-radius: 40px; background: #0c1b29eb; backdrop-filter: blur(16px); box-shadow: 0 12px 36px #0004; opacity: 0; pointer-events: none; transition: opacity .4s, transform .4s; }
 .gooey-nav.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
 .gooey-nav .nav-brand { position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; margin-inline: 12px 14px; animation: brand-appear .3s ease-out both; }
-.nav-brand img { display: block; width: 104px; height: auto; }
+.nav-brand img { display: block; width: 104px; height: auto; opacity: .92; transition: opacity .3s, filter .3s, transform .3s; }
+.nav-brand:hover img, .nav-brand:focus-visible img { opacity: 1; filter: drop-shadow(0 0 8px #3fd0ef99); transform: scale(1.04); }
+.gooey-nav .nav-brand::after { content: ''; position: absolute; right: -14px; top: 22%; bottom: 22%; width: 1px; background: linear-gradient(180deg, transparent, #9bcede55, transparent); }
+.nav-brand:focus-visible { outline: 2px solid #3fd0ef; outline-offset: 4px; border-radius: 8px; }
 .gooey-nav .nav-link { position: relative; z-index: 2; display: inline-flex; min-height: 44px; align-items: center; justify-content: center; padding: 0 19px; border-radius: 30px; text-decoration: none; color: #b8ccda; font-size: 12px; white-space: nowrap; transition: color .35s; }
 .gooey-nav .nav-link[aria-current] { color: #102433; }
 .nav-orb { position: relative; display: block; width: 20px; height: 20px; margin: -4px 8px -4px 0; }

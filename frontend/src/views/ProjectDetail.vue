@@ -1,7 +1,8 @@
 <template>
   <div class="project-page">
     <SpaceSky enabled :reduced="reduced" />
-    <template v-if="project">
+    <!-- :key: ao ir de um projeto para outro (anterior/próximo), a entrada suave se repete -->
+    <div v-if="project" :key="project.id" class="pd-body">
       <!-- Capa do projeto -->
       <header class="hero">
         <div class="hero-media" :style="{ '--py': parallax + 'px' }"><img :src="project.url_imagem" :alt="'Cena do projeto ' + project.titulo" width="1600" height="900"></div>
@@ -69,7 +70,7 @@
           <router-link class="btn ghost" to="/projetos">Ver todos os projetos</router-link>
         </div>
       </section>
-    </template>
+    </div>
 
     <section v-else class="missing">
       <h1>Projeto não encontrado</h1>
@@ -115,13 +116,13 @@ h1,h2{max-width:none;margin:0;font-family:var(--font-title);font-weight:500;lett
 /* Capa */
 .hero{position:relative;min-height:100svh;display:flex;align-items:flex-end;padding:0 8% 12vh;overflow:hidden}
 .hero-media{position:absolute;inset:0;transform:translateY(var(--py));will-change:transform}
-.hero-media img{width:100%;height:100%;object-fit:cover;transform:scale(1.08);animation:heroIn 1.6s cubic-bezier(.2,.8,.2,1) both}
-@keyframes heroIn{from{transform:scale(1.2);filter:blur(8px) brightness(.6)}}
+.hero-media img{width:100%;height:100%;object-fit:cover;transform:scale(1.04);animation:heroIn 1.8s cubic-bezier(.2,.8,.2,1) both}
+@keyframes heroIn{from{transform:scale(1.1);opacity:.4;filter:brightness(.7)}}
 .hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,#070b1a99 0%,#070b1a22 30%,#070b1acc 72%,#070b1a 100%),linear-gradient(90deg,#070b1acc,transparent 70%)}
 .hero-copy{position:relative;max-width:900px}
-.hero-copy>*{animation:rise .9s cubic-bezier(.2,.8,.2,1) both}
-.hero-copy>:nth-child(2){animation-delay:.15s}.hero-copy>:nth-child(3){animation-delay:.25s}.hero-copy>:nth-child(4){animation-delay:.35s}
-@keyframes rise{from{opacity:0;transform:translateY(20px)}}
+.hero-copy>*{animation:rise 1s .25s cubic-bezier(.2,.8,.2,1) both}
+.hero-copy>:nth-child(2){animation-delay:.35s}.hero-copy>:nth-child(3){animation-delay:.45s}.hero-copy>:nth-child(4){animation-delay:.55s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
 .back{display:inline-flex;align-items:center;gap:10px;margin-bottom:34px;padding:10px 18px 10px 14px;border:1px solid #ffffff26;border-radius:99px;background:#070b1a99;backdrop-filter:blur(8px);color:#fff;font-size:14px;font-weight:600;text-decoration:none;transition:.25s}
 .back:hover{border-color:var(--cyan);background:#00b7e31f}
 .back svg{width:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}

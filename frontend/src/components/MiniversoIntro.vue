@@ -40,6 +40,8 @@
           </span>
         </div>
       </div>
+      <!-- Da segunda visita em diante: pular a abertura enquanto ela roda (leva ao planeta pronto). -->
+      <button class="skip-intro" type="button" tabindex="-1">Pular animação <i aria-hidden="true">»</i></button>
       <div class="labels">
         <button v-for="(name, i) in ZONE_NAMES" :key="name" type="button" class="zone-label" :style="{ '--c': ZONE_COLORS[i] }">
           <span class="tag"><i class="dot"></i><span class="name">{{ name }}</span><span class="go">ver área ›</span></span>
@@ -239,6 +241,12 @@ onUnmounted(() => {
 .scene-canvas.whacking, .scene-canvas.whacking.pointing { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='36' height='36'><text x='2' y='30' font-size='28'>🔨</text></svg>") 6 6, pointer; }
 .stage > :not(canvas) { pointer-events: none; }
 :focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+
+/* Pular animação: pílula de vidro discreta embaixo, só enquanto a abertura roda (a partir da segunda visita). */
+.stage > .skip-intro { position: absolute; z-index: 30; left: 50%; bottom: max(7vh, calc(env(safe-area-inset-bottom) + 24px)); display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border: 1px solid #9bcede40; border-radius: 99px; background: #0c1b29cc; backdrop-filter: blur(14px); color: #dff4fb; font: 600 13px var(--font-body); letter-spacing: .02em; cursor: pointer; opacity: 0; visibility: hidden; transform: translate(-50%, 10px); transition: opacity .5s, transform .5s, visibility 0s .5s, border-color .25s, background .25s; pointer-events: auto; }
+.stage > .skip-intro.show { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .6s .8s, transform .6s .8s, visibility 0s .8s, border-color .25s, background .25s; }
+.stage > .skip-intro:hover { border-color: var(--cyan); background: #0f2a3dd9; }
+.skip-intro i { font-style: normal; font-size: 16px; line-height: 1; color: var(--cyan); }
 
 /* mini + verso nas laterais do óculos; juntam-se e entram no visor. */
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }

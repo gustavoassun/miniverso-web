@@ -216,6 +216,14 @@ footer a {
   }
 }
 
+/* Troca entre a lista de projetos e um projeto (router.js): a página atual escurece e se dissolve, a nova surge
+   com um leve foco. Sutil e curta. */
+::view-transition-old(root) { animation: page-out .38s cubic-bezier(.4, 0, .2, 1) both; }
+::view-transition-new(root) { animation: page-in .62s cubic-bezier(.2, .8, .2, 1) .08s both; }
+::view-transition-group(root) { background: #070b1a; }
+@keyframes page-out { to { opacity: 0; filter: brightness(.6) blur(4px); transform: scale(.985); } }
+@keyframes page-in { from { opacity: 0; filter: blur(6px); transform: scale(1.015); } }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

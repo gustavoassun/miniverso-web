@@ -1,3 +1,4 @@
+import { nextTick } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 import Home from './views/Home.vue';
@@ -47,8 +48,30 @@ const router = createRouter({
     if (from.name === 'Home' && to.name === 'Home' && from.hash && !to.hash) return false;
     if (savedPosition) return savedPosition;
     if (to.hash) return { el: to.hash, top: 24, behavior: 'auto' };
-    return { top: 0 };
+    // Página nova começa no topo na hora ('instant'): sem isso a rolagem suave do CSS "arrastava" a página para cima
+    // na frente da pessoa ao abrir um projeto.
+    return { top: 0, behavior: 'instant' };
   }
+});
+
+// Troca suave entre a lista de projetos e as páginas de cada projeto: a página atual se dissolve e a nova aparece
+// (View Transitions do navegador; onde não existe, a troca é direta). A rolagem para o topo acontece escondida.
+const softPages = ['Projects', 'Project'];
+const calm = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+let finishSwap = null;
+router.beforeResolve((to, from) => {
+  if (calm || typeof document === 'undefined' || !document.startViewTransition) return;
+  if (!softPages.includes(to.name) || !softPages.includes(from.name) || to.fullPath === from.fullPath) return;
+  return new Promise(resolve => {
+    document.startViewTransition(() => new Promise(done => { finishSwap = done; resolve(); }));
+  });
+});
+// Libera a troca assim que o Vue desenhar a página nova. (Não esperar um quadro de animação aqui: durante a troca o
+// navegador pausa os quadros, e a espera travava a navegação por uns segundos até o tempo limite.)
+router.afterEach(async () => {
+  if (!finishSwap) return;
+  await nextTick();
+  const done = finishSwap; finishSwap = null; done();
 });
 
 router.beforeEach((to, from) => {
