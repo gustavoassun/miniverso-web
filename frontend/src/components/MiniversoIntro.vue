@@ -217,8 +217,12 @@ onMounted(async () => {
     if (unmounted) return;
     target = 0.7;
     engine = createMiniverso(root.value, { onFrame: state => emit('scene-change', state), cleanUrl, setHash, waitStart: true });
-    target = 0.9;
-    // Dois quadros desenhados (shaders prontos) e o carregamento termina.
+    target = 0.8;
+    // O carregamento só termina com o planeta preparado (shaders, texturas e geometria na placa de vídeo), para a
+    // primeira passagem da capa para o planeta não engasgar. Em aparelho muito lento, no máximo 6 s de espera.
+    await Promise.race([engine.ready, new Promise(r => setTimeout(r, 6000))]);
+    if (unmounted) return;
+    target = 0.95;
     requestAnimationFrame(() => requestAnimationFrame(() => { target = 1; }));
   } catch (error) {
     // Sem WebGL (ou falha ao carregar): a capa continua legível e o site segue normalmente.

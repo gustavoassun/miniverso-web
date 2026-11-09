@@ -626,7 +626,7 @@ export function createMiniverso(rootEl, opts = {}) {
       if (gone !== sentPassed) { sentPassed = gone; opts.onFrame?.({ progress: clamp(scrollY / introEnd()), reduced, passed: gone }); }
       music.setActive(false); return;
     }
-    if (frameMs < 250) adapt(frameMs * (smallDevice && !drag && !playing() && !auto ? 0.5 : 1));
+    if (frameMs < 250 && !auto && !travelling && place !== 'capa') adapt(frameMs * (smallDevice && !drag && !playing() ? 0.5 : 1));
     if (!reduced) clock += dt;
     rt.clock = clock;
     const alive = reduced ? 0 : 1;
@@ -959,18 +959,39 @@ export function createMiniverso(rootEl, opts = {}) {
   raf = requestAnimationFrame(tick);
   // Prepara o planeta enquanto a capa está parada: compila os shaders em paralelo (sem travar a página) e envia as
   // texturas para a placa de vídeo, para a formação não engasgar no primeiro quadro do planeta.
+  // Depois, um desenho escondido do planeta inteiro (tudo visível e sem cortar o que está fora da câmera) envia também
+  // a geometria das malhas para a placa de vídeo. A tela de carregamento espera esse preparo (ready), então a primeira
+  // passagem da capa para o planeta já encontra tudo pronto e roda lisa.
+  let readyDone; const ready = new Promise(r => { readyDone = r; });
   const warm = setTimeout(async () => {
-    if (disposed) return;
-    const shown = []; worldScene.traverse(o => { if (!o.visible) { o.visible = true; shown.push(o); } });
-    const job = renderer.compileAsync(worldScene, worldCamera);
-    for (const o of shown) o.visible = false;
-    const texs = new Set();
-    worldScene.traverse(o => { for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture) texs.add(m[k]); });
-    for (const t of texs) renderer.initTexture(t);
-    try { await job; } catch { /* sem compilação em paralelo: o primeiro quadro do planeta compila como antes */ }
-  }, 900);
-  offs.push(() => clearTimeout(warm));
+    if (disposed) return readyDone();
+    try {
+      const shown = []; worldScene.traverse(o => { if (!o.visible) { o.visible = true; shown.push(o); } });
+      const job = Promise.all([renderer.compileAsync(worldScene, worldCamera), renderer.compileAsync(rimScene, camera)]);   // bordas das lentes também
+      for (const o of shown) o.visible = false;
+      const texs = new Set();
+      worldScene.traverse(o => { for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture) texs.add(m[k]); });
+      for (const t of texs) renderer.initTexture(t);
+      try { await job; } catch { /* sem compilação em paralelo: o desenho escondido abaixo compila */ }
+      if (disposed) return readyDone();
+      await new Promise(r => requestAnimationFrame(r));
+      const vis = [], cull = [], rtWarm = new THREE.WebGLRenderTarget(64, 64, { stencilBuffer: true });
+      for (const sc of [worldScene, rimScene]) sc.traverse(o => { if (!o.visible) { o.visible = true; vis.push(o); } if (o.frustumCulled) { o.frustumCulled = false; cull.push(o); } });
+      const prevRT = renderer.getRenderTarget(), prevClear = renderer.autoClear;
+      // Desenha na tela de verdade (os shaders da tela são diferentes dos de um alvo escondido), recortado num canto de 1 px.
+      renderer.setRenderTarget(null); renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.autoClear = false;
+      worldStencil(true); renderer.render(worldScene, worldCamera); renderer.render(rimScene, camera); worldStencil(false); renderer.render(worldScene, worldCamera);
+      renderer.setScissorTest(false);
+      renderer.setRenderTarget(rtWarm); renderer.autoClear = true; renderer.render(worldScene, worldCamera);
+      renderer.setRenderTarget(prevRT); renderer.autoClear = prevClear;
+      for (const o of vis) o.visible = false; for (const o of cull) o.frustumCulled = true;
+      rtWarm.dispose();
+    } catch { /* se algo falhar, o planeta prepara no primeiro quadro, como antes */ }
+    readyDone();
+  }, 60);
+  offs.push(() => { clearTimeout(warm); readyDone?.(); });
   return {
+    ready,
     start(delay = 0) { if (t0 === Infinity) t0 = performance.now() + delay; },
     dispose() {
       disposed = true; cancelAnimationFrame(raf); auto = null;

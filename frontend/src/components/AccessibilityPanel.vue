@@ -2,18 +2,18 @@
   <!-- Painel de acessibilidade: texto maior, alto contraste, menos movimento, fonte mais legível, links destacados e o
        tradutor de Libras (VLibras), que só é carregado se a pessoa ligar. As escolhas ficam salvas no aparelho. -->
   <div class="a11y" @keydown.esc="close(true)">
-    <button ref="btn" class="a11y-btn" type="button" :aria-expanded="open" aria-controls="painel-acessibilidade" @click="open ? close(true) : show()">
+    <button ref="btn" class="a11y-btn" type="button" data-act="open" :aria-expanded="open" aria-controls="painel-acessibilidade">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="4.2" r="2.2" /><path d="M4 8.2c2.6.7 5.3 1 8 1s5.4-.3 8-1M12 9.2v5.3m0 0-3.4 7m3.4-7 3.4 7" /></svg>
       <span class="a11y-label">Acessibilidade</span>
     </button>
     <div v-if="open" id="painel-acessibilidade" ref="panel" class="a11y-panel" role="dialog" aria-labelledby="a11y-title">
       <div class="a11y-head">
         <h2 id="a11y-title">Acessibilidade</h2>
-        <button class="a11y-x" type="button" aria-label="Fechar painel de acessibilidade" @click="close(true)">×</button>
+        <button class="a11y-x" type="button" data-act="close" aria-label="Fechar painel de acessibilidade">×</button>
       </div>
       <ul class="a11y-list">
         <li v-for="o in OPTIONS" :key="o.key">
-          <button type="button" class="a11y-opt" :aria-pressed="!!state[o.key]" @click="toggle(o.key)">
+          <button type="button" class="a11y-opt" :data-act="'opt:' + o.key" :aria-pressed="!!state[o.key]">
             <span class="a11y-switch" aria-hidden="true"></span>
             <span><b>{{ o.name }}</b><small>{{ o.hint }}</small></span>
           </button>
@@ -21,7 +21,7 @@
       </ul>
       <p class="a11y-note">{{ libStatus }}</p>
       <div class="a11y-foot">
-        <button type="button" class="a11y-reset" @click="reset">Restaurar padrão</button>
+        <button type="button" class="a11y-reset" data-act="reset">Restaurar padrão</button>
         <router-link to="/acessibilidade" @click="close(false)">Sobre a acessibilidade do site</router-link>
       </div>
     </div>
@@ -29,7 +29,7 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, reactive, ref } from 'vue';
+import { nextTick, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 const KEY = 'miniverso-a11y';
 const OPTIONS = [
@@ -57,6 +57,7 @@ function reset() { for (const k of Object.keys(state)) state[k] = false; apply()
 // VLibras: o widget oficial do governo (tradução para Libras). Só entra na página quando ligado.
 let vlLoaded = false;
 function loadVLibras() {
+  librasHidden(false);
   const box = document.querySelector('[vw]');
   if (box) { box.style.display = ''; libStatus.value = 'Tradutor de Libras ligado: use a mãozinha azul no canto da tela.'; return; }
   libStatus.value = 'Carregando o tradutor de Libras…';
@@ -73,13 +74,37 @@ function loadVLibras() {
   s.onerror = () => { vlLoaded = false; libStatus.value = 'Não foi possível carregar o tradutor de Libras. Verifique a conexão.'; };
   document.head.appendChild(s);
 }
-function hideVLibras() { const box = document.querySelector('[vw]'); if (box) box.style.display = 'none'; if (!state.libras) libStatus.value = ''; }
+// Desligado: some tudo do VLibras, inclusive o botão novo (que ele desenha numa caixa fechada, #vlibras-access-wrapper)
+// e a janela do avatar, se estiver aberta. Uma folha de estilo própria esconde também o que ele criar depois (classes
+// no <html> não serviam: o VLibras reescreve as classes da página).
+function librasHidden(on) {
+  let st = document.getElementById('libras-off');
+  if (on && !st) { st = document.createElement('style'); st.id = 'libras-off'; st.textContent = "[vw], #vlibras-access-wrapper, #vlibras-app-root { display: none !important; }"; document.head.appendChild(st); }
+  // Só as caixas do próprio VLibras: ele também marca elementos da página (vlibras--hover) ao destacar o texto, e
+  // esconder por classe apagava a capa inteira. Ao desligar, tira essa marca que tiver ficado.
+  if (on) document.querySelectorAll('.vlibras--hover').forEach(e => e.classList.remove('vlibras--hover'));
+  if (!on && st) st.remove();
+}
+function hideVLibras() { librasHidden(true); if (!state.libras) libStatus.value = ''; }
 
 async function show() { open.value = true; await nextTick(); panel.value?.querySelector('.a11y-opt')?.focus(); document.addEventListener('pointerdown', outside, true); }
 function close(focusBack) { if (!open.value) return; open.value = false; document.removeEventListener('pointerdown', outside, true); if (focusBack) btn.value?.focus(); }
 function outside(e) { if (!e.target.closest?.('.a11y')) close(false); }
 
+// Os botões do painel são atendidos na janela, antes de qualquer outro script: com o VLibras ligado, ele captura os
+// cliques da página (para traduzir o texto clicado) e o clique em "desligar" nunca chegava ao painel.
+function onAct(e) {
+  const b = e.target.closest?.('.a11y [data-act]'); if (!b) return;
+  e.stopPropagation(); e.preventDefault();
+  const act = b.dataset.act;
+  if (act === 'open') open.value ? close(true) : show();
+  else if (act === 'close') close(true);
+  else if (act === 'reset') reset();
+  else if (act.startsWith('opt:')) toggle(act.slice(4));
+}
+onUnmounted(() => window.removeEventListener('click', onAct, true));
 onMounted(() => {
+  window.addEventListener('click', onAct, true);
   try { Object.assign(state, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch { /* sem armazenamento */ }
   // Espera o planeta montar para ele também receber o aviso de menos movimento.
   apply(); setTimeout(apply, 1500);
