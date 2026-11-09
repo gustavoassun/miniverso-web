@@ -182,7 +182,10 @@ const root = ref(null);
 const failed = ref(false);
 // Carregamento: a tela da marca fica até o 3D estar pronto (com um mínimo para a animação respirar). Depois a capa
 // entra em sequência — o nome, o óculos, os textos — e o óculos só começa a surgir quando a tela sai.
-const booted = ref(false), bootGone = ref(false), shown = ref(0);
+// Chegando direto numa seção (ex.: voltando do Acesso restrito para O estúdio), sem a tela de carregamento: a pessoa
+// vai para o site, e o planeta carrega quieto por trás (o motor já recolhe a abertura).
+const toSection = typeof location !== 'undefined' && location.hash.length > 1 && location.hash !== '#inicio';
+const booted = ref(false), bootGone = ref(toSection), shown = ref(0);
 let target = 0.08, bootRaf = 0;
 const bootStart = performance.now();
 const quick = (() => { try { return sessionStorage.getItem('miniverso-boot') === '1'; } catch { return false; } })();
@@ -438,9 +441,9 @@ onUnmounted(() => {
 .travel-line::after { content: ""; position: absolute; inset: 0; transform-origin: left; transform: scaleX(0); background: linear-gradient(90deg, #0a7fa3, var(--cyan), #fff); box-shadow: 0 0 12px var(--cyan); }
 .travel.on .travel-line::after { transform: scaleX(1); transition: transform 1s ease .3s; }
 /* No site, o palco do planeta nem é desenhado: subir além do topo das seções nunca mostra o planeta pela metade. */
-.miniverso-intro.away .stage { visibility: hidden; }
+.miniverso-intro[data-away] .stage { visibility: hidden; }
 /* No site a abertura fica recolhida: a página começa nas seções e não dá para "forçar" a volta rolando. */
-.miniverso-intro.collapsed { height: 0; overflow: hidden; }
+.miniverso-intro[data-collapsed] { height: 0; overflow: hidden; }
 /* Apresentação ao abrir a página: o óculos surge com calma e a capa entra em sequência, sem tudo de uma vez. */
 .scene-canvas { animation: intro-fade 1.6s ease .1s both; }
 .capa-top span { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .45s both; }
@@ -732,8 +735,8 @@ onUnmounted(() => {
   .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .zone-card .zone-info { padding: 6px 10px; }
   .zone-tour { grid-template-columns: auto 1fr auto; gap: 8px; } .zone-card .poi-play { grid-column: 1 / -1; justify-self: center; padding: 7px 14px; }
   .zone-card .poi-nav { width: 32px; height: 32px; } .zone-card .zone-act { padding: 8px 12px; font-size: 12px; } }
-.reduced .mini, .reduced .verso, .reduced .zone-label .dot, .reduced .zone-card, .reduced .planet-exit i::before, .reduced .planet-exit::after, .reduced .back-planet .moon, .reduced .pois :deep(.poi b)::after, .reduced .sound-toggle b { animation: none; }
-.reduced .chip .sw::after { transition: none; }
+[data-reduced] .mini, [data-reduced] .verso, [data-reduced] .zone-label .dot, [data-reduced] .zone-card, [data-reduced] .planet-exit i::before, [data-reduced] .planet-exit::after, [data-reduced] .back-planet .moon, [data-reduced] .pois :deep(.poi b)::after, [data-reduced] .sound-toggle b { animation: none; }
+[data-reduced] .chip .sw::after { transition: none; }
 </style>
 <style>
 /* Perto do rodapé, o botão "Voltar ao planeta" sobe para não cobrir a logo (classe posta pela Home). */

@@ -357,7 +357,7 @@ export function createMiniverso(rootEl, opts = {}) {
   on(window, 'pointermove', e => { mx = e.clientX / innerWidth * 2 - 1; my = e.clientY / innerHeight * 2 - 1; }, { passive: true });
 
   const setReduced = v => {
-    reduced = v; root.classList.toggle('reduced', v);
+    reduced = v; root.toggleAttribute('data-reduced', v);     // atributos (não classes): o Vue reescreve as classes do bloco
     motionBtn.setAttribute('aria-pressed', String(v));
   };
   on(motionBtn, 'click', () => { setReduced(!reduced); if (reduced) auto = null; });
@@ -446,7 +446,7 @@ export function createMiniverso(rootEl, opts = {}) {
   function collapse(on) {
     if (on === collapsed) return;
     const h = intro.offsetHeight;
-    collapsed = on; rootEl.classList.toggle('collapsed', on);
+    collapsed = on; rootEl.toggleAttribute('data-collapsed', on);
     scrollTo({ top: Math.max(0, scrollY + (on ? -h : intro.offsetHeight)), behavior: 'instant' });
   }
   function setPlace(p) {
@@ -454,7 +454,7 @@ export function createMiniverso(rootEl, opts = {}) {
     // Ao chegar no site, o botão do planeta mostra o nome por alguns segundos e depois vira só o planetinha.
     if (backBtn && p === 'site' && place !== 'site') { backBtn.classList.add('bp-named'); clearTimeout(bpHint); bpHint = setTimeout(() => backBtn.classList.remove('bp-named'), 4200); }
     place = p; if (p === 'capa') maxY = scrollY;
-    rootEl.classList.toggle('away', p === 'site');
+    rootEl.toggleAttribute('data-away', p === 'site');
     if (p === 'site') collapse(true);
     if (backBtn) { backBtn.classList.toggle('show', p === 'site'); backBtn.tabIndex = p === 'site' ? 0 : -1; }
   }
@@ -476,7 +476,7 @@ export function createMiniverso(rootEl, opts = {}) {
     setTimeout(() => {
       if (dest !== 'site') collapse(false);
       const top = typeof y === 'function' ? y() : y;
-      rootEl.classList.remove('away');
+      rootEl.removeAttribute('data-away');
       if (toCorner) backBtn.classList.add('arriving');
       scrollTo({ top, behavior: 'instant' }); eased = lastProgress = clamp(top / introEnd()); setPlace(dest);
       if (after) after(); else opts.cleanUrl?.();
@@ -522,7 +522,16 @@ export function createMiniverso(rootEl, opts = {}) {
     } else if (place !== 'capa' || scrollY > 2) { e.preventDefault(); travelTo(0, 'Voltando ao início', 'capa', a); }  // logo
   }, true);
   // Vindo de outra página direto para uma seção (ex.: /login → /#contato): o roteador rola e o lugar é o site.
-  if (location.hash) { freeUntil = performance.now() + 2500; setTimeout(() => setPlace(scrollY >= siteTop() - 2 ? 'site' : 'capa'), 2600); }
+  // Vindo de outra página direto para uma seção (ex.: /login → /#sobre): já entra no site, com a abertura recolhida e
+  // o planeta parado, e vai direto à seção (antes a abertura ficava aberta uns segundos e mexer o mouse levava ao planeta).
+  if (location.hash) {
+    const target = document.getElementById(location.hash.slice(1));
+    if (target && !intro.contains(target)) {
+      setPlace('site'); freeUntil = performance.now() + 600;
+      const go = () => scrollTo({ top: target.getBoundingClientRect().top + scrollY - 24, behavior: 'instant' });
+      go(); requestAnimationFrame(go); setTimeout(go, 300);
+    } else { freeUntil = performance.now() + 2500; setTimeout(() => setPlace(scrollY >= siteTop() - 2 ? 'site' : 'capa'), 2600); }
+  }
   on(window, 'scroll', () => {
     if (free() || auto) { if (place === 'capa') maxY = Math.max(maxY, scrollY); return; }
     const y = scrollY, end = introEnd();
@@ -612,7 +621,7 @@ export function createMiniverso(rootEl, opts = {}) {
     }
     // Fora da tela (no site, aba escondida ou abertura rolada para fora) o planeta hiberna: nada é animado nem desenhado.
     // Antes de hibernar, ainda avisa o site que o planeta saiu de cena (o céu e o menu das seções dependem disso).
-    if (!visible || document.hidden || rootEl.classList.contains('away')) {
+    if (!visible || document.hidden || rootEl.hasAttribute('data-away')) {
       const gone = scrollY > introEnd() + innerHeight * 0.25;
       if (gone !== sentPassed) { sentPassed = gone; opts.onFrame?.({ progress: clamp(scrollY / introEnd()), reduced, passed: gone }); }
       music.setActive(false); return;
@@ -917,6 +926,9 @@ export function createMiniverso(rootEl, opts = {}) {
     music.setBoost(!!fz?.show && zoneFx[focusZone] >= 0 && clock - zoneFx[focusZone] < fz.show.dur);
     if (soundBtn.classList.contains('live') !== soundLive) { soundBtn.classList.toggle('live', soundLive); soundBtn.tabIndex = soundLive ? 0 : -1; }
     if (exitBtn && exitBtn.classList.contains('live') !== exitLive) for (const b of [exitBtn, homeBtn]) { b.classList.toggle('live', exitLive); b.tabIndex = exitLive ? 0 : -1; }
+    // Os botões do planeta chegaram: os atalhos da abertura (Explorar o site / Pular animação) saem, para não ficarem
+    // um em cima do outro no fim da animação.
+    if ((exitLive || worldUi > 0.05) && skipBox?.classList.contains('show')) showSkip(false);
     css('--forming', reduced ? 0 : smooth(0.6, 0.66, p) * (1 - smooth(0.9, 0.95, p))); css('--reveal', reveal);
     // Tela de carregamento da formação: progresso de 0 a 100% das partículas até a faixa de luz terminar.
     const load = reduced ? 1 : smooth(0.6, 0.93, p), pct = Math.round(load * 100);
