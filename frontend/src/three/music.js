@@ -387,9 +387,19 @@ export function createMusic() {
     }
   }
   // Escolhe a faixa (a corrida vence a área; fora das áreas, o universo) e cruza: a que sai desce, a que entra sobe.
+  // Cala o Jingle Bells (e devolve a faixa do Natal ao volume normal na próxima mistura).
+  let jingleBus = null;
+  function stopJingle() {
+    if (!jingleBus) return;
+    const { jg, jr } = jingleBus; jingleBus = null;
+    ramp(jg.gain, 0, 0.08); ramp(jr.gain, 0, 0.08);
+    setTimeout(() => { jg.disconnect(); jr.disconnect(); }, 600);
+    const tr = live.natal; if (tr) clearTimeout(tr.x.jt);
+  }
   function mix() {
     if (!master) return;
     const name = race ? 'corrida' : TRACKS[zone] ? zone : 'espaco', now = ctx.currentTime;
+    if (name !== 'natal') stopJingle();                                              // saiu do Natal: a canção para
     for (const k in live) if (k !== name && live[k].on) { const o = live[k]; o.on = false; o.offAt = now; fade(o, 0, 0.5); }
     const tr = track(name);
     if (!tr.on) { if (now > tr.offAt + 3) { tr.step = 0; tr.nextT = now + (name === 'corrida' ? 0.02 : 0.1); } tr.on = true; }
@@ -519,13 +529,17 @@ export function createMusic() {
     // da área abaixa enquanto a canção toca e volta depois.
     jingle() {
       if (!master || ctx.state !== 'running' || !isOn()) return;
+      stopJingle();
+      // A canção toca num canal só dela: saindo da área do Natal, ele é calado na hora (antes as notas já agendadas
+      // continuavam tocando por cima da música das outras áreas).
+      const jg = ctx.createGain(), jr = ctx.createGain(); jg.connect(buses.sfx); jr.connect(buses.sfxRev); jingleBus = { jg, jr };
       const B = 0.4, t0 = ctx.currentTime + 0.1;
       const M = [[76,1],[76,1],[76,2],[76,1],[76,1],[76,2],[76,1],[79,1],[72,1.5],[74,.5],[76,4],[77,1],[77,1],[77,1.5],[77,.5],[77,1],[76,1],[76,1],[76,.5],[76,.5],[76,1],[74,1],[74,1],[76,1],[74,2],[79,2],
         [76,1],[76,1],[76,2],[76,1],[76,1],[76,2],[76,1],[79,1],[72,1.5],[74,.5],[76,4],[77,1],[77,1],[77,1.5],[77,.5],[77,1],[76,1],[76,1],[76,.5],[76,.5],[79,1],[79,1],[77,1],[74,1],[72,4]];
       let at = t0;
-      for (const [m, d] of M) { bell(at, m, buses.sfxRev, 0.05, Math.max(0.5, d * B * 1.6)); tone(at, 'triangle', mtof(m - 12), d * B * 0.9, 0.025, buses.sfx, { attack: 0.01 }); at += d * B; }
+      for (const [m, d] of M) { bell(at, m, jr, 0.05, Math.max(0.5, d * B * 1.6)); tone(at, 'triangle', mtof(m - 12), d * B * 0.9, 0.025, jg, { attack: 0.01 }); at += d * B; }
       const beats = Math.round((at - t0) / B);
-      for (let k = 0; k < beats; k++) { const bt = t0 + k * B; jingle(bt, buses.sfx, k % 2 ? 0.035 : 0.06); if (k % 2 === 0) tone(bt, 'sine', mtof((k % 8 < 4 ? 48 : 43)), B * 1.6, 0.09, buses.sfx, { attack: 0.01 }); }
+      for (let k = 0; k < beats; k++) { const bt = t0 + k * B; jingle(bt, jg, k % 2 ? 0.035 : 0.06); if (k % 2 === 0) tone(bt, 'sine', mtof((k % 8 < 4 ? 48 : 43)), B * 1.6, 0.09, jg, { attack: 0.01 }); }
       const tr = live.natal; if (tr) { fade(tr, tr.d.level * 0.12, 0.3); clearTimeout(tr.x.jt); tr.x.jt = setTimeout(() => mix(), (at - ctx.currentTime + 0.6) * 1000); }
     },
     setRace(v) { v = v || null; if (v !== race) { race = v; mix(); if (master && isOn()) ramp(master.gain, level(), 0.3); } },
