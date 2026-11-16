@@ -1,6 +1,9 @@
 // Fliperama do Salão Arcade: "Quebra-pixel", um quebra-blocos em pixel numa tela de fliperama sobre a cena.
 // Só roda e desenha enquanto está aberto. Mouse, dedo ou ← → movem a raquete; clique, toque ou espaço lançam a bola.
 // Cada fase limpa acelera a bola; blocos dourados valem mais e alargam a raquete por alguns segundos.
+import { touch } from './core/quality.js';
+// No celular a tela diz "TOQUE"; com mouse, "CLIQUE".
+const TAP = touch ? 'TOQUE' : 'CLIQUE';
 // sfx(tipo, altura) toca os efeitos (raquete, tijolo, vida perdida, fase limpa, fim) e buzz(padrão) vibra o celular.
 const W = 320, H = 240, COLS = 8, ROWS = 5, BW = 34, BH = 10, GAP = 4, OX = (W - (COLS * BW + (COLS - 1) * GAP)) / 2, OY = 34;
 const ROW_COLORS = ['#ff4fd8', '#ffc56b', '#3ee0b5', '#00b7e3', '#b07cff'];
@@ -134,7 +137,7 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
       x.textAlign = 'center'; x.font = '700 26px monospace';
       const bob = Math.sin(now * 2) * 2; x.fillStyle = '#ff4fd8'; x.fillText('QUEBRA-PIXEL', W / 2 + 2, 132 + bob + 2); x.fillStyle = '#ffc56b'; x.fillText('QUEBRA-PIXEL', W / 2, 132 + bob);
     }
-    const m = over ? 'FIM DE JOGO' : paused ? 'PAUSA · CLIQUE PARA VOLTAR' : now < msgUntil ? msg : ball.stuck ? 'CLIQUE PARA LANÇAR' : '';
+    const m = over ? 'FIM DE JOGO' : paused ? `PAUSA · ${TAP} PARA VOLTAR` : now < msgUntil ? msg : ball.stuck ? `${TAP} PARA LANÇAR` : '';
     if (m && (over || paused || now < msgUntil || Math.sin(now * 5) > -0.3)) { x.font = '700 14px monospace'; x.textAlign = 'center'; x.fillStyle = '#0b0618'; x.fillText(m, W / 2 + 1, 161); x.fillStyle = over ? '#ff4f6d' : '#7fe9ff'; x.fillText(m, W / 2, 160); }
     if (over) { x.font = '700 10px monospace'; x.fillStyle = '#ffffff'; x.fillText(`${score} PONTOS · RECORDE ${best}`, W / 2, 178); }
     if (flash > 0) { x.fillStyle = `rgba(255,255,255,${flash})`; x.fillRect(0, 0, W, H); flash = Math.max(0, flash - dt * 1.8); }

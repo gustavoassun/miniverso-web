@@ -149,7 +149,7 @@
         <i v-for="n in 28" :key="n" class="boot-star" aria-hidden="true" :style="{ '--x': (n * 37) % 100 + '%', '--y': (n * 61) % 100 + '%', '--d': (n % 7) * .4 + 's', '--s': (n % 3) + 1 + 'px' }" />
         <div class="boot-inner">
           <span class="boot-logo"><img src="/images/miniverso-logo.png" alt="Miniverso" width="1024" height="236"></span>
-          <span class="boot-line" aria-hidden="true"><i :style="{ transform: `scaleX(${shown})` }" /></span>
+          <span class="boot-line" aria-hidden="true"><i :style="{ transform: `scaleX(${bar})` }" /></span>
           <p><span>{{ shown >= 0.99 ? 'Pronto' : 'Carregando o universo' }}</span><b>{{ Math.round(shown * 100) }}%</b></p>
         </div>
       </div>
@@ -185,8 +185,11 @@ const failed = ref(false);
 // Chegando direto numa seção (ex.: voltando do Acesso restrito para O estúdio), sem a tela de carregamento: a pessoa
 // vai para o site, e o planeta carrega quieto por trás (o motor já recolhe a abertura).
 const toSection = typeof location !== 'undefined' && location.hash.length > 1 && location.hash !== '#inicio';
-const booted = ref(false), bootGone = ref(toSection), shown = ref(0);
+const booted = ref(false), bootGone = ref(toSection), shown = ref(0), bar = ref(0.08);
 let target = 0.08, bootRaf = 0;
+// A barra recebe só o destino e a placa de vídeo anima o caminho (transição em CSS): ela continua andando mesmo nos
+// momentos em que o processador está ocupado montando o planeta (antes parava e parecia travado).
+const setTarget = v => { target = Math.max(target, v); bar.value = target; };
 const bootStart = performance.now();
 const quick = (() => { try { return sessionStorage.getItem('miniverso-boot') === '1'; } catch { return false; } })();
 const reducedBoot = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -209,26 +212,27 @@ let engine = null, unmounted = false;
 
 onMounted(async () => {
   bootRaf = requestAnimationFrame(bootTick);
-  document.fonts?.ready.then(() => { target = Math.max(target, 0.3); });
+  document.fonts?.ready.then(() => { setTarget(0.3); });
   try {
     // O Three.js e o planeta vêm num pacote separado, carregado depois que a página já apareceu.
-    target = 0.18;
+    // Enquanto o motor é baixado e montado, a barra já vai andando (sem esperar cada etapa terminar).
+    setTarget(0.55);
     const { createMiniverso } = await import('../three/engine.js');
     if (unmounted) return;
-    target = 0.7;
+    setTarget(0.7);
     engine = createMiniverso(root.value, { onFrame: state => emit('scene-change', state), cleanUrl, setHash, waitStart: true });
-    target = 0.8;
+    setTarget(0.9);
     // O carregamento só termina com o planeta preparado (shaders, texturas e geometria na placa de vídeo), para a
     // primeira passagem da capa para o planeta não engasgar. Em aparelho muito lento, no máximo 6 s de espera.
     await Promise.race([engine.ready, new Promise(r => setTimeout(r, 6000))]);
     if (unmounted) return;
-    target = 0.95;
-    requestAnimationFrame(() => requestAnimationFrame(() => { target = 1; }));
+    setTarget(0.95);
+    requestAnimationFrame(() => requestAnimationFrame(() => { setTarget(1); }));
   } catch (error) {
     // Sem WebGL (ou falha ao carregar): a capa continua legível e o site segue normalmente.
     console.warn('Abertura 3D indisponível:', error);
     failed.value = true;
-    target = 1;
+    setTarget(1);
     emit('scene-change', { progress: 1, reduced: true, passed: true });
   }
 });
@@ -250,9 +254,15 @@ onUnmounted(() => {
 }
 /* A Home dá espaçamento e borda às suas seções; a abertura ocupa a tela inteira. */
 .miniverso-intro.miniverso-intro { padding: 0; border: 0; }
-.stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; }
+/* clip (e não só hidden): corta o que passa da tela sem deixar o navegador rolar o palco de lado quando um botão
+   recebe foco. No celular, ao iniciar a corrida, o palco rolava 98 px e metade da tela ficava preta. */
+.stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; overflow: clip; }
+/* Tocar várias vezes seguidas (nos jogos, no planeta) não seleciona texto nem pinta a tela de azul. Os textos do
+   cartão da área continuam selecionáveis. */
+.stage { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+.stage .zone-card p, .stage .zone-card h3 { -webkit-user-select: text; user-select: text; }
 .scene-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; touch-action: pan-y; outline-offset: -4px; }
-.scene-canvas.orbiting { touch-action: none; }
+.scene-canvas.orbiting, .scene-canvas[data-spin] { touch-action: none; }
 /* Cursor do universo: mira de VR (anel ciano com ponto branco, contorno escuro para ler em qualquer fundo).
    Apontando algo clicável, o anel abre e acende; arrastando, fecha com as setinhas de girar. */
 /* As variáveis do cursor (--cur, --cur-drag, --cur-point) ficam no App.vue, valendo para o site inteiro. */
@@ -273,7 +283,8 @@ onUnmounted(() => {
 .skip-intro i { font-style: normal; font-size: 16px; line-height: 1; color: var(--cyan); }
 .skip-intro .skip-site i { color: #fff; }
 /* Atalho da capa (a partir da segunda visita): pequeno, centralizado logo abaixo do nome e da dica de arrastar. */
-.capa-cta { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px) + 30px); translate: -50% 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
+/* Botões um pouco abaixo da dica "Arraste para explorar 360°" (antes ficavam colados nela). */
+.capa-cta { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px) + 44px); translate: -50% 0; display: flex; align-items: center; justify-content: center; gap: 10px; }
 .capa-cta[hidden] { display: none; }
 .capa-cta button { display: inline-flex; align-items: center; gap: 9px; height: 42px; padding: 0 18px; border-radius: 999px; font: 600 14px/1 var(--font-body); letter-spacing: .02em; white-space: nowrap; cursor: pointer; transition: border-color .25s, background .25s, box-shadow .25s, transform .25s; }
 /* Principal: o mesmo degradê do Explorar o site do planeta, com brilho na borda de cima. */
@@ -285,20 +296,20 @@ onUnmounted(() => {
 .capa-cta .cta-planet:hover, .capa-cta .cta-planet:focus-visible { border-color: rgba(127, 233, 255, .7); background: rgba(0, 183, 227, .14); transform: translateY(-2px); }
 .capa-cta .cta-planet svg { width: 18px; height: 18px; fill: none; stroke: #7fe9ff; stroke-width: 1.7; }
 .capa-cta .cta-planet svg circle { fill: rgba(127, 233, 255, .25); }
-@media (max-width: 700px) { .capa-cta { top: calc(50% + var(--hint-y, 150px) + 14px); gap: 8px; } .capa-cta button { height: 38px; padding: 0 14px; font-size: 13px; } }
+@media (max-width: 700px) { .capa-cta { top: calc(50% + var(--hint-y, 150px) + 30px); gap: 8px; } .capa-cta button { height: 38px; padding: 0 14px; font-size: 13px; } }
 
 /* mini + verso nas laterais do óculos; juntam-se e entram no visor. */
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
 .name-row { display: flex; transform: scale(var(--ns, 1)); opacity: var(--names, 1); will-change: transform; }
 .name-row span { display: block; }
-.mini { transform: translateX(calc((1 - var(--join, 0)) * var(--mini-x, -30vw))); animation: reveal-l 1s cubic-bezier(.2, .7, .2, 1) .7s both; }
-.verso { transform: translateX(calc((1 - var(--join, 0)) * var(--verso-x, 30vw))); animation: reveal-r 1s cubic-bezier(.2, .7, .2, 1) .82s both; }
+.mini { transform: translateX(calc((1 - var(--join, 0)) * var(--mini-x, -30vw))); animation: reveal-l 1.2s cubic-bezier(.2, .7, .2, 1) .6s both }
+.verso { transform: translateX(calc((1 - var(--join, 0)) * var(--verso-x, 30vw))); animation: reveal-r 1.2s cubic-bezier(.2, .7, .2, 1) .6s both }
 @keyframes reveal-l { from { clip-path: inset(0 0 0 100%); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
 @keyframes reveal-r { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
 .spark { position: absolute; left: 50%; top: 50%; width: min(56vw, 760px); height: 1px; transform: translate(-50%, -50%) scaleX(var(--spark, 0)); opacity: var(--spark, 0);
   background: linear-gradient(90deg, transparent, var(--cyan) 30%, #fff 50%, var(--cyan) 70%, transparent); box-shadow: 0 0 18px var(--cyan); }
 .hint { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px)); transform: translateX(-50%); margin: 0; text-align: center; opacity: calc(var(--hint, 1) * var(--capa, 1));
-  font: 10px var(--font-mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  font: 600 11px var(--font-body); letter-spacing: .14em; text-transform: uppercase; color: #aeb8cf; white-space: nowrap; }
 .veil { position: absolute; inset: 0; background: var(--bg); opacity: var(--veil, 0); }
 
 /* Formação do planeta: legenda e barra que acompanha a faixa de luz. */
@@ -320,13 +331,15 @@ onUnmounted(() => {
 /* Capa: rótulos no topo, frase e descrição embaixo, barra de navegação da abertura. */
 .capa { position: absolute; inset: 0; opacity: var(--capa, 1); }
 .capa-top, .capa-bottom, .capa-bar { position: absolute; left: max(16px, 4vw); right: max(16px, 4vw); }
-.capa-top { top: calc(110px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; gap: 16px; font: 11px var(--font-mono); letter-spacing: .2em; text-transform: uppercase; color: #c9d1e4; }  /* mais contraste (antes quase sumia) */
+/* Mesma fonte do menu e dos textos do site (antes era a fonte de máquina de escrever, pequena), maior e mais clara. */
+.capa-top { top: calc(116px + env(safe-area-inset-top, 0px)); display: flex; justify-content: space-between; gap: 16px; font: 600 14px/1.35 var(--font-body); letter-spacing: .12em; text-transform: uppercase; color: #dfe5f2; }
 .capa-bottom { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; }
-.capa-bottom h1 { margin: 0; max-width: 14ch; font: 500 clamp(32px, 3.8vw, 52px)/1 var(--font-title); letter-spacing: .01em; }
+/* Título em destaque: bem maior que antes (era até 52px). */
+.capa-bottom h1 { margin: 0; max-width: 14ch; font: 500 clamp(42px, 4.6vw, 72px)/.98 var(--font-title); letter-spacing: .01em; }
 .capa-bottom h1 span { color: var(--cyan); }
-.capa-bottom p { margin: 0; max-width: 34ch; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.capa-bottom p { margin: 0; max-width: 34ch; color: #c9d1e4; font-size: 16px; line-height: 1.6; }
 .capa-bar { bottom: calc(20px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding-top: 16px; border-top: 1px solid var(--line);
-  font: 11px var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+  font: 600 12px var(--font-body); letter-spacing: .12em; text-transform: uppercase; }
 .capa-bar .enter i { font-style: normal; margin-left: 14px; }
 .capa-bar .step { color: var(--muted); }
 @media (max-width: 1280px) { .capa-bar { grid-template-columns: auto 1fr; } .capa-bar .step { display: none; } }
@@ -448,18 +461,24 @@ onUnmounted(() => {
 .miniverso-intro[data-away] .stage { visibility: hidden; }
 /* No site a abertura fica recolhida: a página começa nas seções e não dá para "forçar" a volta rolando. */
 .miniverso-intro[data-collapsed] { height: 0; overflow: hidden; }
-/* Apresentação ao abrir a página: o óculos surge com calma e a capa entra em sequência, sem tudo de uma vez. */
+/* Apresentação ao abrir a página, em ordem: o nome "miniverso" surge inteiro (~0,6 s), fica um instante,
+   as metades se afastam (~2,1 s) e o óculos cresce girando entre elas (~2,5 a 4 s, no motor) e só depois entram o cabeçalho, as frases, os botões e a barra de baixo.
+   Com "Menos movimento", tudo aparece de uma vez. */
 .scene-canvas { animation: intro-fade 1.6s ease .1s both; }
-.capa-top span { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .45s both; }
-.capa-top span + span { animation-delay: .6s; }
-.capa-bottom h1 { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) .9s both; }
-.capa-bottom p { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.05s both; }
-.capa-cta { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.15s both; }
-.capa-bar { animation: intro-rise .9s cubic-bezier(.2, .7, .2, 1) 1.25s both; }
+.capa-top span { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 3.7s both; }
+.capa-top span + span { animation-delay: 3.85s; }
+.capa-bottom h1 { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4s both; }
+.capa-bottom p { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.1s both; }
+.capa-cta { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.2s both; }
+.capa-bar { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.35s both; }
+/* A dica de arrastar entra junto (por filtro, porque a opacidade dela é controlada pelo motor). */
+.hint { animation: hint-in 1s ease 4.2s both; }
+@keyframes hint-in { from { filter: opacity(0); } }
+[data-reduced] :is(.capa-top span, .capa-bottom h1, .capa-bottom p, .capa-cta, .capa-bar, .hint) { animation-delay: 0s; }
 @keyframes intro-fade { from { opacity: 0; transform: scale(1.04); } }
 .miniverso-intro:not(.booted) .scene-canvas, .miniverso-intro:not(.booted) .capa-top span, .miniverso-intro:not(.booted) .capa-bottom h1,
 .miniverso-intro:not(.booted) .capa-bottom p, .miniverso-intro:not(.booted) .capa-cta, .miniverso-intro:not(.booted) .capa-bar, .miniverso-intro:not(.booted) .mini,
-.miniverso-intro:not(.booted) .verso { animation-play-state: paused; }
+.miniverso-intro:not(.booted) .verso, .miniverso-intro:not(.booted) .hint { animation-play-state: paused; }
 /* Tela de carregamento */
 .boot { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 50% 55%, #141a3d, #0c0407 62%); transition: opacity .9s cubic-bezier(.4, 0, .2, 1), visibility 0s .9s; }
 .boot.out { opacity: 0; visibility: hidden; }
@@ -476,7 +495,7 @@ onUnmounted(() => {
 @keyframes boot-reveal { to { clip-path: inset(0 0 0 0); } }
 @keyframes boot-sheen { 0% { left: -40%; } 55%, 100% { left: 120%; } }
 .boot-line { position: relative; display: block; width: 240px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .1); }
-.boot-line i { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #1e4488, #00b7e3, #bdf2ff); transform-origin: left; box-shadow: 0 0 12px #00b7e3; }
+.boot-line i { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #1e4488, #00b7e3, #bdf2ff); transform-origin: left; box-shadow: 0 0 12px #00b7e3; transition: transform 1.8s cubic-bezier(.25, .8, .3, 1); will-change: transform; }
 .boot p { display: flex; justify-content: space-between; gap: 16px; width: 240px; white-space: nowrap; margin: -12px 0 0; color: #8ea6b4; font: 600 11px var(--font-body); letter-spacing: .22em; text-transform: uppercase; opacity: 0; animation: boot-fade .6s .7s forwards; }
 .boot p b { color: #dff6fd; font-weight: 700; letter-spacing: .06em; }
 @keyframes boot-fade { to { opacity: 1; } }
@@ -620,6 +639,14 @@ onUnmounted(() => {
 /* Na escolha da cor do kart a janela vai para a esquerda (no celular, para baixo) e o kart aparece na vitrine. */
 .how.side { left: max(24px, calc(50% - 470px)); translate: 0 -50%; }
 @media (max-width: 760px), (orientation: portrait) { .how.side { left: 50%; top: auto; bottom: 16px; translate: -50% 0; gap: 6px; padding: 14px 16px 12px; } .how.side .how-steps { display: none; } }
+/* Celular: com o "Como jogar" aberto, o cartão da área sai de baixo (ele cobria a janela, a escolha da cor e o Jogar). */
+@media (max-width: 760px) { .stage:has(> .how:not([hidden])) > .zone-card { display: none; } }
+/* Celular, com um jogo rolando: o cartão da área sai (o "Sair do jogo" fica no topo), sobrando a tela para o jogo, e
+   os controles da corrida descem para onde o polegar alcança. */
+@media (max-width: 760px) {
+  .stage:has(> .race-pad:not([hidden])) > .zone-card, .stage:has(> .game-exit:not([hidden])) > .zone-card { display: none; }
+  .stage > .race-pad { bottom: calc(28px + env(safe-area-inset-bottom, 0px)); }
+}
 .how-colors { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .how-colors[hidden] { display: none; }
 .how-colors :deep(.how-color) { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); background: var(--k); cursor: pointer; padding: 0; transition: transform .15s, border-color .15s; }
@@ -672,7 +699,8 @@ onUnmounted(() => {
 @media (max-width: 560px) { .rh-map { width: 92px; height: 92px; } .rh-pos { font-size: 32px; } }
 /* Celular: painéis dos jogos menores e colados no alto, para sobrar tela para o jogo (lixeiras, pista, blocos). */
 @media (max-width: 560px) {
-  .game-hud { top: calc(12px + env(safe-area-inset-top, 0px)); padding: 7px 12px; gap: 3px; }
+  /* O placar fica logo abaixo da linha de cima (acessibilidade à esquerda e "Sair do jogo" no meio), sem ficar por baixo deles. */
+  .game-hud { top: calc(68px + env(safe-area-inset-top, 0px)); padding: 7px 12px; gap: 3px; }
   .gh-title { font-size: 15px; } .gh-score { font-size: 21px; } .gh-hint { font-size: 13px; }
   .gh-bins { gap: 5px; } .gh-bins button { padding: 7px 11px 7px 8px; font-size: 13px; }
   .race-hud { top: calc(12px + env(safe-area-inset-top, 0px)); right: 12px; padding: 7px 9px; gap: 2px 8px; }
@@ -725,7 +753,8 @@ onUnmounted(() => {
 .no-webgl .back-planet, .no-webgl .travel, .no-webgl .names, .no-webgl .hint, .no-webgl .labels, .no-webgl .world, .no-webgl .meter, .no-webgl .capa-bar .auto-toggle, .no-webgl .capa-bar .motion-toggle, .no-webgl .capa-bar .sound-chip { display: none; }
 
 @media (max-width: 760px) {
-  .capa-top { top: calc(84px + env(safe-area-inset-top, 0px)); font-size: 10px; }
+  .capa-top { top: calc(90px + env(safe-area-inset-top, 0px)); font-size: 12px; letter-spacing: .1em; }
+  .capa-bottom h1 { font-size: 46px; }
   /* Os botões da barra quebram em duas linhas no celular: o texto da capa sobe para não ficar embaixo deles. */
   .capa-bottom { flex-direction: column; align-items: flex-start; gap: 10px; bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
   .capa-bottom p { display: none; }                                    /* no celular fica só o título, sem encostar no botão do meio */

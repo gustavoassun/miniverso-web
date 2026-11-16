@@ -130,8 +130,9 @@ export function createMiniverso(rootEl, opts = {}) {
   // Chave "Som" na barra da capa, junto dos outros ajustes da abertura (mesma escolha do botão do planeta).
   const soundChip = $('.sound-chip');
   on(soundChip, 'click', () => { music.setEnabled(!music.enabled); syncSound(); });
-  on(document, 'pointerdown', () => music.wake(), true);
-  on(document, 'keydown', () => music.wake(), true);
+  // Gestos que o navegador aceita para liberar o som: no celular conta o dedo saindo da tela (não o encostar), por
+  // isso escuta também pointerup/touchend/click. Todo gesto tenta religar o áudio se ele estiver parado.
+  for (const ev of ['pointerdown', 'pointerup', 'touchend', 'click', 'keydown']) on(document, ev, () => music.wake(), true);
   on(document, 'visibilitychange', () => music.refresh());
   offs.push(() => music.dispose());
   let poi = -1, tour = false, tourAt = 0, markers = [];
@@ -216,6 +217,8 @@ export function createMiniverso(rootEl, opts = {}) {
     if (f.cam || f.track) { aim(f.after || null); shot = { ...f }; shotAt = clock; show = true; } else aim(f);
   }
   if (import.meta.env.DEV) window.__miniShot = f => { if (focusZone >= 0) { aim(f.after || null); shot = { dur: 30, ...f }; shotAt = clock; show = true; } };
+  // Só em desenvolvimento: abre uma área pelo nome, para testar telas e jogos sem caçar o rótulo no planeta.
+  if (import.meta.env.DEV) window.__miniZone = name => { const i = ZONES.findIndex(z => z.name === name); if (i >= 0) { if (focusZone >= 0) closeZone(); openZone(i); } return i; };
   // Terceira ação: nos Jogos é a corrida; nas outras áreas, uma interação simples (zoneFx3, texto done3).
   on(zoneAct3, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startRace(); else { zoneFx3[i] = clock; zoneStatus.textContent = ZONES[i].done3 || ''; focusOn(i, 'go3'); } });
   on(zoneAct4, 'click', () => { const i = focusZone; if (i < 0) return; if (i === game.zi) startArcade(); else { zoneFx4[i] = clock; zoneStatus.textContent = ZONES[i].done4 || ''; focusOn(i, 'go4'); } });
@@ -262,6 +265,10 @@ export function createMiniverso(rootEl, opts = {}) {
     return hits.length ? zoneMarks.findIndex(z => z.hit === hits[0].object) : -1;
   }
   const ripple = at => { displayUniforms.uRipP.value.copy(at); rippleAt = performance.now(); };
+  // Óculos 360: inclinação de até ~75° para cima ou para baixo. O toque sabe se começou em cima do óculos.
+  const PITCH = 1.3;
+  let fling = 0, spinOn = false, farS = -1;
+  function hitHeadset() { ray.setFromCamera(pointer, camera); return ray.intersectObject(rig, true).length > 0; }
 
   // Dentro de uma área, o clique fica nela: as outras áreas e os trens lá atrás não respondem (para sair, o × da barra
   // ou os rótulos). Só na Ferrovia um clique no trem leva para a cabine.
@@ -274,7 +281,17 @@ export function createMiniverso(rootEl, opts = {}) {
     if (drag && drag.id === e.pointerId) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) drag.moved = true;
-      if (drag.mode === 'headset') { userY = drag.y0 + dx * 0.008; userX = clamp(drag.x0 + dy * 0.004, -0.5, 0.5); }
+      if (drag.mode === 'headset') {
+        // Toque fora do óculos: o primeiro movimento decide. Na vertical rola a página (entra no planeta, como antes);
+        // na horizontal gira o óculos. No óculos (ou com mouse), gira nos dois sentidos: dá para ver de cima e de baixo.
+        if (drag.axis === '?' && Math.abs(dx) + Math.abs(dy) > 8) drag.axis = Math.abs(dy) > Math.abs(dx) ? 'scroll' : 'yaw';
+        if (drag.axis === 'scroll') {
+          const step = e.clientY - drag.ly, sec = Math.max(0.008, (performance.now() - drag.lt) / 1000);
+          scrollBy({ top: -step, behavior: 'instant' }); drag.vy = -step / sec;
+        } else if (drag.axis === 'both') { userY = drag.y0 + dx * 0.008; userX = clamp(drag.x0 + dy * 0.006, -PITCH, PITCH); }
+        else if (drag.axis === 'yaw') userY = drag.y0 + dx * 0.008;
+        drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = performance.now();
+      }
       if (drag.mode === 'planet' && playing()) { /* jogo rolando: câmera fixa, arrastar não gira a vista */ }
       else if (drag.mode === 'planet' && focusZone >= 0 && !cab) {
         zYawT -= (e.clientX - drag.lx) * 0.006; zPitchT = clamp(zPitchT + (e.clientY - drag.ly) * 0.005, 0.18, 1.45); show = false;
@@ -300,7 +317,9 @@ export function createMiniverso(rootEl, opts = {}) {
     toNdc(e);
     const mode = worldLive ? 'planet' : (!reduced && lockNow < 0.5 ? 'headset' : null);
     if (!mode || (mode === 'planet' && inCab())) return;
-    drag = { id: e.pointerId, mode, x: e.clientX, y: e.clientY, y0: userY, x0: userX, lx: e.clientX, ly: e.clientY, lt: performance.now(), moved: false };
+    cancelAnimationFrame(fling);
+    const axis = mode !== 'headset' ? null : e.pointerType === 'mouse' || hitHeadset() ? 'both' : '?';
+    drag = { id: e.pointerId, mode, axis, vy: 0, x: e.clientX, y: e.clientY, y0: userY, x0: userX, lx: e.clientX, ly: e.clientY, lt: performance.now(), moved: false };
     canvas.setPointerCapture(e.pointerId); canvas.classList.add('dragging');
     if (mode === 'planet') velX = velY = 0;
   });
@@ -318,6 +337,12 @@ export function createMiniverso(rootEl, opts = {}) {
       else if (focusZone < 0) { const zi = hitZone(); if (zi >= 0) openZone(zi); }
     }
     if (drag.mode === 'planet' && performance.now() - drag.lt > 80) velX = velY = 0;
+    // Rolagem pelo dedo na capa: continua um pouco depois de soltar, como a rolagem normal do celular.
+    if (drag.axis === 'scroll' && performance.now() - drag.lt < 80 && Math.abs(drag.vy) > 60) {
+      let v = drag.vy, tl = performance.now();
+      const glide = () => { const n = performance.now(), d = (n - tl) / 1000; tl = n; v *= Math.exp(-d * 4); scrollBy({ top: v * d, behavior: 'instant' }); if (Math.abs(v) > 30) fling = requestAnimationFrame(glide); };
+      fling = requestAnimationFrame(glide);
+    }
     drag = null; canvas.classList.remove('dragging'); idleAt = performance.now();
     if (e.pointerType !== 'mouse') { hoverVisor = 0; hoverZone = -1; }
   };
@@ -348,7 +373,7 @@ export function createMiniverso(rootEl, opts = {}) {
       e.preventDefault(); return;
     }
     if (k === 'ArrowLeft') userY -= 0.35; else if (k === 'ArrowRight') userY += 0.35;
-    else if (k === 'ArrowUp') userX = clamp(userX - 0.15, -0.5, 0.5); else if (k === 'ArrowDown') userX = clamp(userX + 0.15, -0.5, 0.5);
+    else if (k === 'ArrowUp') userX = clamp(userX - 0.2, -PITCH, PITCH); else if (k === 'ArrowDown') userX = clamp(userX + 0.2, -PITCH, PITCH);
     else if (k === 'Home') { userY = 0; userX = 0; }
     else if (k === 'Enter' || k === ' ') ripple(new THREE.Vector2(0, 0));
     else return;
@@ -643,10 +668,19 @@ export function createMiniverso(rootEl, opts = {}) {
     const pRaw = eased, p = pRaw < 0.07 ? pRaw / 0.07 * 0.2 : pRaw < 0.42 ? 0.2 + (pRaw - 0.07) / 0.35 * 0.52 : 0.72 + (pRaw - 0.42) / 0.58 * 0.28;
 
     // Linha do tempo (0 a 1). Fases encadeadas, sem pausas.
-    const enter = reduced ? 1 : easeOut(clamp((now - t0 - 150) / 1900));
+    // Entrada da capa, em ordem: primeiro o nome "miniverso" inteiro no centro; depois as metades se afastam e o óculos
+    // surge no espaço entre elas (crescendo e girando); só então o resto da capa entra (CSS). O relógio daqui começa
+    // 1 s depois do CSS (espera a tela de carregamento sumir).
+    const split = reduced ? 1 : smoother(0, 1, (now - t0 - 1100) / 1000);
+    const enter = reduced ? 1 : easeOut(clamp((now - t0 - 1500) / 1500));
+    const appear = enter >= 1 ? 1 : Math.max(0.0001, 1 - (1 - enter) ** 3 + Math.sin(enter * Math.PI) * 0.06);
     const capa = reduced ? 1 - smooth(0.02, 0.08, p) : 1 - smoother(0.02, 0.1, p);  // textos da capa saem
     const grow = reduced ? 0 : smoother(0.2, 0.34, p);             // óculos cresce do tamanho da capa ao normal
     const lock = lockNow = reduced ? 1 : smooth(0.02, 0.1, p);    // óculos vai ao centro e para de frente
+    // Enquanto o óculos pode ser girado, o navegador não trata o toque na tela 3D como gesto dele (rolar ou "puxar
+    // para atualizar", que recarregava a página): quem decide entre girar e rolar é o arrasto acima.
+    const spin = !worldLive && !reduced && lock < 0.5;
+    if (spin !== spinOn) { spinOn = spin; canvas.toggleAttribute('data-spin', spin); }
     const join = reduced ? 0 : smoother(0.04, 0.2, p);            // mini + verso se unem no centro
     const power = reduced ? 1 : smooth(0.18, 0.24, p);            // visor liga
     const shrink = reduced ? 1 : smoother(0.21, 0.32, p);         // nome encolhe até o visor
@@ -683,7 +717,7 @@ export function createMiniverso(rootEl, opts = {}) {
     const gap = Math.max(14, stage.clientWidth * 0.02), gutter = Math.max(16, stage.clientWidth * 0.04);
     const room = stage.clientWidth - 2 * gutter - miniW - versoW - 2 * gap;
     const capaScale = clamp(Math.min(stage.clientWidth * 0.4, room) / 2 / (HALF_W * pxPerUnit), 0.3, 1);
-    rig.scale.setScalar(mix(capaScale, 1, grow));
+    rig.scale.setScalar(mix(capaScale, 1, grow) * appear);
     const hw = HALF_W * capaScale * pxPerUnit;
     root.style.setProperty('--mini-x', `${(-(hw + gap) - (miniW - versoW) / 2).toFixed(1)}px`);
     root.style.setProperty('--verso-x', `${(hw + gap - (miniW - versoW) / 2).toFixed(1)}px`);
@@ -776,7 +810,12 @@ export function createMiniverso(rootEl, opts = {}) {
     if (focusT > 0.001) {
       // Vista de perto num ângulo baixo, como quem chega andando na área (não mais de cima).
       tilt.updateMatrixWorld(true);
-      const zg = ZONES[lastFocus].group, far = (portrait ? 1.9 : 1) * (ZONES[lastFocus].view || 1), k = smoother(0, 1, focusT);
+      // Celular em pé: a câmera se afasta conforme a tela é estreita (≈2,5× num celular comum), para a área inteira
+      // caber de lado a lado (antes ficava cortada nas beiradas). Num jogo fica mais perto, para os alvos de tocar
+      // (lixo, blocos) não ficarem pequenos demais.
+      const farT = portrait ? (playing() ? 1.9 : clamp(1.15 / camera.aspect, 1.9, 2.6)) : 1;
+      farS = farS < 0 ? farT : farS + (farT - farS) * (1 - Math.exp(-dt * 3));     // muda devagar (sem pulo de câmera)
+      const zg = ZONES[lastFocus].group, far = farS * (ZONES[lastFocus].view || 1), k = smoother(0, 1, focusT);
       fdir.copy(zoneMarks[lastFocus].dir).transformDirection(planet.matrixWorld);
       const ez = 1 - Math.exp(-dt * (reduced ? 30 : 6));
       zYaw += (zYawT - zYaw) * ez; zPitch += (zPitchT - zPitch) * ez; zDist += (zDistT - zDist) * ez; zF.lerp(zFT, ez);
@@ -912,7 +951,7 @@ export function createMiniverso(rootEl, opts = {}) {
 
     // Nome e interface.
     const target = nameWidthOnScreen() / nameWidth;
-    css('--join', join);
+    css('--join', Math.max(join, 1 - split));
     css('--ns', mix(1, target, shrink));
     css('--names', (1 - nameIn) * (reduced ? 1 - smooth(0.12, 0.22, p) : 1));
     css('--capa', capa);
@@ -967,7 +1006,11 @@ export function createMiniverso(rootEl, opts = {}) {
     if (disposed) return readyDone();
     try {
       const shown = []; worldScene.traverse(o => { if (!o.visible) { o.visible = true; shown.push(o); } });
-      const job = Promise.all([renderer.compileAsync(worldScene, worldCamera), renderer.compileAsync(rimScene, camera)]);   // bordas das lentes também
+      // Compilação em bloco só onde o navegador compila em paralelo (sem travar). Sem esse recurso, o pedido ficava
+      // acumulado e era cobrado inteiro no primeiro desenho (meio segundo parado): aí os shaders são preparados um a
+      // um, no laço abaixo, com limite de tempo por quadro.
+      const parallel = renderer.extensions.has('KHR_parallel_shader_compile');
+      const job = parallel ? Promise.all([renderer.compileAsync(worldScene, worldCamera), renderer.compileAsync(rimScene, camera)]) : Promise.resolve();   // bordas das lentes também
       for (const o of shown) o.visible = false;
       const texs = new Set();
       worldScene.traverse(o => { for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture) texs.add(m[k]); });
@@ -975,19 +1018,50 @@ export function createMiniverso(rootEl, opts = {}) {
       try { await job; } catch { /* sem compilação em paralelo: o desenho escondido abaixo compila */ }
       if (disposed) return readyDone();
       await new Promise(r => requestAnimationFrame(r));
-      const vis = [], cull = [], rtWarm = new THREE.WebGLRenderTarget(64, 64, { stencilBuffer: true });
+      const vis = [];
+      const cull = [];
       for (const sc of [worldScene, rimScene]) sc.traverse(o => { if (!o.visible) { o.visible = true; vis.push(o); } if (o.frustumCulled) { o.frustumCulled = false; cull.push(o); } });
-      const prevRT = renderer.getRenderTarget(), prevClear = renderer.autoClear;
-      // Desenha na tela de verdade (os shaders da tela são diferentes dos de um alvo escondido), recortado num canto de 1 px.
-      renderer.setRenderTarget(null); renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.autoClear = false;
-      worldStencil(true); renderer.render(worldScene, worldCamera); renderer.render(rimScene, camera); worldStencil(false); renderer.render(worldScene, worldCamera);
-      renderer.setScissorTest(false);
-      renderer.setRenderTarget(rtWarm); renderer.autoClear = true; renderer.render(worldScene, worldCamera);
-      renderer.setRenderTarget(prevRT); renderer.autoClear = prevClear;
-      for (const o of vis) o.visible = false; for (const o of cull) o.frustumCulled = true;
-      rtWarm.dispose();
+      const restore = () => { for (const o of vis) o.visible = false; for (const o of cull) o.frustumCulled = true; };
+      const prevClear = renderer.autoClear;
+      // Tudo é desenhado na tela de verdade, recortado num canto de 1 px (invisível), com os mesmos shaders que o
+      // planeta usa. Antes havia também um desenho num alvo escondido, que pedia outra versão de cada shader, nunca
+      // usada, compilada de uma vez só: era a travada de mais de meio segundo na tela de carregamento.
+      // Entre um quadro e outro o motor volta a esconder o planeta, as nuvens, as ilhas... (na capa eles ficam escondidos):
+      // antes de cada desenho daqui os grupos são mostrados de novo, senão parte do planeta ficava sem preparar.
+      const groups = []; for (const sc of [worldScene, rimScene]) sc.traverse(o => { if (!(o.isMesh || o.isPoints || o.isLine)) groups.push(o); });
+      const pixel = fn => { for (const g of groups) g.visible = true; renderer.setRenderTarget(null); renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.autoClear = false; fn(); renderer.setScissorTest(false); renderer.autoClear = prevClear; };
+      // A geometria vai para a placa de vídeo em pedaços, um por quadro, cada um com mais ou menos o mesmo número de
+      // vértices, para a tela de carregamento continuar respirando.
+      const meshes = []; worldScene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine) && o.geometry) meshes.push(o); });
+      const verts = o => o.geometry.attributes.position?.count || 0, total = meshes.reduce((n, o) => n + verts(o), 0);
+      // Primeiro, um exemplar de cada material (o shader dele é preparado na primeira vez em que é desenhado): alguns por
+      // quadro, com no máximo ~10 ms de trabalho por quadro. Onde o navegador não compila em paralelo, era aqui que
+      // tudo travava de uma vez.
+      const reps = new Map();
+      for (const o of meshes) for (const m of [].concat(o.material)) { const k = `${m?.uuid}|${o.isInstancedMesh ? 1 : 0}|${o.isPoints ? 'p' : o.isLine ? 'l' : 'm'}`; if (m && !reps.has(k)) reps.set(k, o); }
+      const firsts = [...new Set(reps.values())];
+      for (const o of meshes) o.visible = false;
+      for (let i = 0; i < firsts.length && !disposed;) {
+        const t = performance.now();
+        while (i < firsts.length && performance.now() - t < 10) { const o = firsts[i++]; o.visible = true; pixel(() => renderer.render(worldScene, worldCamera)); o.visible = false; }
+        await new Promise(r => requestAnimationFrame(r));
+      }
+      const per = Math.max(20000, total / 10);
+      for (let i = 0; i < meshes.length && !disposed;) {
+        const batch = new Set(); let n = 0;
+        while (i < meshes.length && (n < per || !batch.size)) { batch.add(meshes[i]); n += verts(meshes[i]); i++; }
+        for (const o of meshes) o.visible = batch.has(o);
+        pixel(() => renderer.render(worldScene, worldCamera));
+        await new Promise(r => requestAnimationFrame(r));
+      }
+      for (const o of meshes) o.visible = true;
+      if (disposed) { restore(); return readyDone(); }
+      // Por fim, as mesmas passadas da chegada ao planeta (com o recorte das lentes e as bordas delas).
+      pixel(() => { worldStencil(true); renderer.render(worldScene, worldCamera); renderer.render(rimScene, camera); worldStencil(false); renderer.render(worldScene, worldCamera); });
+      restore();
     } catch { /* se algo falhar, o planeta prepara no primeiro quadro, como antes */ }
     readyDone();
+    music.prepare();
   }, 60);
   offs.push(() => { clearTimeout(warm); readyDone?.(); });
   return {

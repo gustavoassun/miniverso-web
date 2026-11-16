@@ -50,6 +50,9 @@ onUnmounted(() => headIO?.disconnect());
 :root { font-family: var(--font-body); font-synthesis: none; text-rendering: optimizeLegibility; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 0; }
+/* Na página inicial, arrastar para baixo no topo não recarrega o site ("puxar para atualizar" do celular): o gesto
+   é de girar o óculos ou entrar no planeta. */
+html:has(.miniverso-intro), html:has(.miniverso-intro) body { overscroll-behavior-y: none; }
 button, input, textarea { font: inherit; }
 a { color: inherit; }
 /* Cursor da Miniverso no site inteiro: a mira de VR; em links e botões, a mira acesa (apontando). Campos de texto
@@ -67,7 +70,11 @@ html:not(.miniverso-glow-cursor) :is(a[href], button:not(:disabled), [role='butt
 .skip-link:focus { transform: translateY(0); }
 .app-header { position: relative; z-index: 20; background: #0a0b16; color: #e9eaf3; }
 /* Na Home, o cabeçalho entra com suavidade junto com a capa. */
+/* Na capa, o cabeçalho entra junto com o resto, depois do nome e do óculos (espera a tela de carregamento sair). */
 .immersive-shell .app-header { animation: header-in .9s ease .25s both; }
+.immersive-shell:has(.miniverso-intro) .app-header { animation-delay: 3.6s; }
+.immersive-shell:has(.miniverso-intro:not(.booted)) .app-header { animation-play-state: paused; }
+.immersive-shell:has(.miniverso-intro[data-reduced]) .app-header { animation-delay: 0s; }
 @keyframes header-in { from { opacity: 0; transform: translateY(-8px); } }
 .immersive-shell .app-header { position: absolute; top: 0; left: 0; right: 0; background: transparent; }
 .navbar { height: 102px; margin: 0 5%; display: flex; justify-content: space-between; align-items: center; gap: 28px; border-bottom: 1px solid #9d99b22b; }
@@ -98,7 +105,7 @@ html.a11y-contrast :where(#conteudo-principal) :is(button, a.btn) { outline: 1px
 html.a11y-contrast :focus-visible { outline: 3px solid #ffd23f !important; outline-offset: 4px; }
 html.a11y-font body, html.a11y-font body :not(svg, svg *, code, kbd, .scene-canvas) { font-family: Verdana, 'Segoe UI', Tahoma, sans-serif !important; letter-spacing: .02em !important; word-spacing: .06em; }
 html.a11y-links #conteudo-principal a, html.a11y-links .app-footer a { text-decoration: underline !important; text-underline-offset: 3px; }
-html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; scroll-behavior: auto !important; }
+html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after { animation-delay: 0s !important; animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; scroll-behavior: auto !important; }
 #conteudo-principal { min-height: 75vh; outline: none; }
 .app-shell:not(.immersive-shell) #conteudo-principal { padding: clamp(24px, 5vw, 70px); }
 .admin-shell .app-header,.admin-shell .app-footer{display:none}.admin-shell #conteudo-principal{padding:0!important}
@@ -109,6 +116,9 @@ html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after { anim
 /* Na Home, o rodapé fica sobre o céu do site, sem faixa de outra cor. */
 .immersive-shell .app-footer { position: relative; z-index: 2; background: linear-gradient(180deg, transparent, #070b1acc); border-top: 1px solid #ffffff12; font-size: 13px; color: #8fa9b8; }
 .immersive-shell .app-footer span { font: 600 12px var(--font-body); letter-spacing: .08em; }
+/* Itens do cabeçalho nunca quebram em duas linhas ("O estúdio", "Acesso restrito", "Vamos conversar"). */
+.nav-links a, .header-contact { white-space: nowrap; }
+@media(min-width: 701px) and (max-width: 960px) { .navbar { gap: 14px; } .nav-links { gap: 14px; } .header-actions .a11y-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); } .navbar .header-actions .a11y-btn { width: 44px; padding: 0; justify-content: center; } }
 @media(max-width: 850px) {
   .navbar { height: 84px; gap: 16px; }
   .brand img { width: 125px; }
