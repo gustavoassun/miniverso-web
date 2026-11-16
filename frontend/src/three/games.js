@@ -700,7 +700,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   const exitable = () => (rc.on || whack.on || race.state !== 'off' || ecoT.on || cl.on) && how.hidden && !arc.on;
   const playing = () => rc.on || whack.on || arc.on || race.state !== 'off' || !how.hidden || ecoT.on || cl.on;
   // Um passo por quadro: os jogos andam e a música abaixa enquanto algum está rolando.
-  function whackTick() { const n = nowS(); recyLoop(n); whackLoop(n); raceLoop(n); ecoLoop(n); cleanLoop(n); sound?.setDuck(playing()); }
+  function whackTick() { const n = nowS(); recyLoop(n); whackLoop(n); raceLoop(n); ecoLoop(n); cleanLoop(n); sound?.setDuck(playing()); sound?.setRace?.(race.state === 'run' && me ? (me.lap >= LAPS - 1 ? 'final' : 'run') : null); }
   // Brinquedos pelo planeta: um clique faz pular e girar.
   function hitToy() {
     if (!st().worldLive || st().cab) return null;
