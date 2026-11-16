@@ -8,11 +8,15 @@ const canvas = ref(null);
 const root = ref(null);
 // Viagem pelo fundo: progresso da rolagem do início das seções (logo depois do planeta) até o fim da página.
 // No topo, o horizonte do planeta que acabamos de deixar; no meio, a Via Láctea; no fim, o brilho de uma galáxia.
-let sFrame = 0;
+// As medidas da página (onde começam as seções e a altura total) ficam guardadas e só são relidas quando o tamanho da
+// página muda: lê-las a cada rolagem obrigava o navegador a recalcular o layout no meio da animação do planeta.
+let sFrame = 0, start = 0, end = 1;
+function measure() {
+  start = document.getElementById('sobre')?.offsetTop ?? innerHeight;
+  end = Math.max(start + 1, document.documentElement.scrollHeight - innerHeight);
+}
 function journey() {
   sFrame = 0; const el = root.value; if (!el) return;
-  const start = document.getElementById('sobre')?.offsetTop ?? innerHeight;
-  const end = Math.max(start + 1, document.documentElement.scrollHeight - innerHeight);
   const p = Math.min(1, Math.max(0, (scrollY - start) / (end - start)));
   el.style.setProperty('--sp', p.toFixed(4));
   el.style.setProperty('--near', Math.max(0, 1 - Math.max(0, scrollY - start + innerHeight * 0.4) / (innerHeight * 1.6)).toFixed(3));
@@ -28,6 +32,7 @@ const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
 const onMove = (e) => { mouse.tx = e.clientX / innerWidth - 0.5; mouse.ty = e.clientY / innerHeight - 0.5; };
 
 function size() {
+  measure(); journey();
   if (!canvas.value) return;
   dpr = Math.min(1.5, devicePixelRatio || 1); w = innerWidth; h = innerHeight;
   canvas.value.width = w * dpr; canvas.value.height = h * dpr;
@@ -74,7 +79,7 @@ function loop(now) {
 }
 function sync() { cancelAnimationFrame(raf); raf = 0; last = 0; if (props.enabled && !props.reduced && !document.hidden) raf = requestAnimationFrame(loop); else draw(0); }
 watch(() => [props.enabled, props.reduced], sync);
-onMounted(() => { addEventListener('scroll', onScroll, { passive: true }); journey(); size(); ro = new ResizeObserver(size); ro.observe(document.documentElement); addEventListener('pointermove', onMove, { passive: true }); document.addEventListener('visibilitychange', sync); sync(); });
+onMounted(() => { addEventListener('scroll', onScroll, { passive: true }); size(); ro = new ResizeObserver(size); ro.observe(document.documentElement); addEventListener('pointermove', onMove, { passive: true }); document.addEventListener('visibilitychange', sync); sync(); });
 onUnmounted(() => { removeEventListener('scroll', onScroll); cancelAnimationFrame(sFrame); cancelAnimationFrame(raf); ro?.disconnect(); removeEventListener('pointermove', onMove); document.removeEventListener('visibilitychange', sync); });
 </script>
 

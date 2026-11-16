@@ -1,10 +1,10 @@
 <template>
   <!-- Abertura 3D: capa com o óculos, entrada pelo visor e o planeta Miniverso. O motor (src/three) liga tudo. -->
-  <section id="inicio" ref="root" class="miniverso-intro" :class="{ 'no-webgl': failed, booted }" aria-labelledby="intro-title">
+  <section id="inicio" ref="root" class="miniverso-intro" :class="{ 'no-webgl': failed, booted, ready: planetReady }" aria-labelledby="intro-title">
     <div class="stage">
       <canvas class="scene-canvas" tabindex="0" role="img" :aria-label="sceneLabel"></canvas>
       <div class="names" aria-hidden="true">
-        <div class="name-row"><span class="mini">mini</span><span class="verso">verso</span></div>
+        <div class="name-row"><span class="mini"><span class="wipe"><span>mini</span></span></span><span class="verso"><span class="wipe"><span>verso</span></span></span></div>
         <i class="spark"></i>
       </div>
       <p class="hint" aria-hidden="true">Arraste para explorar 360°</p>
@@ -144,15 +144,6 @@
     </div>
     <!-- No corpo da página (acima das seções): o botão flutuante do site e a cortina das transições. -->
     <Teleport to="body">
-      <div v-if="!bootGone" class="boot" :class="{ out: booted }" role="status" aria-live="polite">
-        <span class="boot-glow" aria-hidden="true" />
-        <i v-for="n in 28" :key="n" class="boot-star" aria-hidden="true" :style="{ '--x': (n * 37) % 100 + '%', '--y': (n * 61) % 100 + '%', '--d': (n % 7) * .4 + 's', '--s': (n % 3) + 1 + 'px' }" />
-        <div class="boot-inner">
-          <span class="boot-logo"><img src="/images/miniverso-logo.png" alt="Miniverso" width="1024" height="236"></span>
-          <span class="boot-line" aria-hidden="true"><i :style="{ transform: `scaleX(${bar})` }" /></span>
-          <p><span>{{ shown >= 0.99 ? 'Pronto' : 'Carregando o universo' }}</span><b>{{ Math.round(shown * 100) }}%</b></p>
-        </div>
-      </div>
       <button type="button" class="back-planet" tabindex="-1" aria-label="Voltar ao planeta"><span class="bp-label">Voltar ao planeta</span><i class="orb" aria-hidden="true"><PlanetIcon /></i></button>
       <div class="travel" aria-hidden="true">
         <i class="travel-ring"></i>
@@ -180,66 +171,71 @@ const cleanUrl = () => { if (route.hash) router.replace({ path: '/', query: rout
 const setHash = hash => router.replace({ path: '/', query: route.query, hash });
 const root = ref(null);
 const failed = ref(false);
-// Carregamento: a tela da marca fica até o 3D estar pronto (com um mínimo para a animação respirar). Depois a capa
-// entra em sequência — o nome, o óculos, os textos — e o óculos só começa a surgir quando a tela sai.
-// Chegando direto numa seção (ex.: voltando do Acesso restrito para O estúdio), sem a tela de carregamento: a pessoa
-// vai para o site, e o planeta carrega quieto por trás (o motor já recolhe a abertura).
+// Abertura sem tela de carregamento: o site já abre com o nome "miniverso" surgindo (só desenho da página, não
+// depende do 3D) enquanto o planeta é montado por trás. Quando o 3D fica pronto, o motor começa: as metades do nome
+// se afastam, o óculos cresce entre elas e depois entram o cabeçalho, as frases e os botões (classe booted).
+// Se o 3D fica pronto rápido, o ritmo é o de sempre (metades se afastando ~2,1 s depois de abrir); se demora, o nome
+// espera inteiro na tela e o resto vem logo que o 3D chega. O planeta é preparado em seguida, durante a entrada da capa;
+// até ele ficar pronto (normalmente antes de os botões aparecerem; no máximo 6 s), a rolagem fica presa na capa e os
+// botões que levam ao planeta esperam, para a passagem para o planeta nunca engasgar.
+// Chegando direto numa seção (ex.: voltando do Acesso restrito para O estúdio), a pessoa vai para o site e o planeta
+// carrega quieto por trás (o motor já recolhe a abertura).
 const toSection = typeof location !== 'undefined' && location.hash.length > 1 && location.hash !== '#inicio';
-const booted = ref(false), bootGone = ref(toSection), shown = ref(0), bar = ref(0.08);
-let target = 0.08, bootRaf = 0;
-// A barra recebe só o destino e a placa de vídeo anima o caminho (transição em CSS): ela continua andando mesmo nos
-// momentos em que o processador está ocupado montando o planeta (antes parava e parecia travado).
-const setTarget = v => { target = Math.max(target, v); bar.value = target; };
-const bootStart = performance.now();
-const quick = (() => { try { return sessionStorage.getItem('miniverso-boot') === '1'; } catch { return false; } })();
+const booted = ref(false), planetReady = ref(false);
+const openedAt = performance.now();
 const reducedBoot = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MIN_BOOT = reducedBoot ? 300 : quick ? 900 : 2200;
-function bootTick(now) {
-  bootRaf = 0;
-  shown.value += (target - shown.value) * (reducedBoot ? 1 : 0.06);
-  if (target >= 1 && shown.value > 0.995 && now - bootStart >= MIN_BOOT) { shown.value = 1; finishBoot(); return; }
-  bootRaf = requestAnimationFrame(bootTick);
-}
+// Rolagem presa sem mexer no visual: só ignora a roda do mouse, o arrasto na tela e as teclas de rolar. Antes era
+// overflow: hidden na página, que escondia a barra de rolagem: a largura mudava, o navegador recalculava o site inteiro
+// (travada) e o canvas do 3D era redimensionado (a piscada preta quando o óculos começava a aparecer).
+const KEYS = new Set([' ', 'PageDown', 'PageUp', 'ArrowDown', 'ArrowUp', 'End', 'Home']);
+const stopScroll = e => { if (e.type !== 'keydown' || (KEYS.has(e.key) && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target?.tagName))) e.preventDefault(); };
+let holding = false;
+const holdScroll = v => {
+  if (toSection || v === holding || typeof window === 'undefined') return;
+  holding = v;
+  for (const ev of ['wheel', 'touchmove', 'keydown']) (v ? addEventListener : removeEventListener)(ev, stopScroll, { passive: false, capture: true });
+  // O cabeçalho espera o início do motor (classe no html: só o cabeçalho é recalculado, não a página toda).
+  document.documentElement.classList.toggle('intro-hold', v && !booted.value);
+};
+let startTimer = 0;
 function finishBoot() {
-  if (booted.value) return;
-  booted.value = true;
-  try { sessionStorage.setItem('miniverso-boot', '1'); } catch { /* sem armazenamento */ }
-  engine?.start(reducedBoot ? 0 : 1000);
-  setTimeout(() => { bootGone.value = true; }, 1100);
+  if (booted.value || unmounted) return;
+  // Pronto antes do ritmo normal: espera até 1 s depois de abrir e começa como sempre. Atrasado: começa já, com as
+  // metades se afastando logo (o motor conta a entrada a partir do início dele).
+  const wait = reducedBoot ? 0 : openedAt + 1000 - performance.now();
+  const go = d => { if (unmounted) return; booted.value = true; document.documentElement.classList.remove('intro-hold'); engine?.start(d); };
+  if (wait > 0) startTimer = setTimeout(() => go(0), wait); else go(reducedBoot ? 0 : -800);
 }
 const sceneLabel = `Óculos de realidade virtual em 3D. Arraste ou use as setas para girar; toque no visor ou pressione Enter para acendê-lo. Ao final da abertura, um pequeno planeta com as áreas da Miniverso (${ZONE_NAMES.join(', ')}) pode ser girado em qualquer direção; cada área abre de perto com uma pequena interação.`;
 let engine = null, unmounted = false;
 
 onMounted(async () => {
-  bootRaf = requestAnimationFrame(bootTick);
-  document.fonts?.ready.then(() => { setTarget(0.3); });
+  holdScroll(true);
   try {
     // O Three.js e o planeta vêm num pacote separado, carregado depois que a página já apareceu.
-    // Enquanto o motor é baixado e montado, a barra já vai andando (sem esperar cada etapa terminar).
-    setTarget(0.55);
     const { createMiniverso } = await import('../three/engine.js');
     if (unmounted) return;
-    setTarget(0.7);
     engine = createMiniverso(root.value, { onFrame: state => emit('scene-change', state), cleanUrl, setHash, waitStart: true });
-    setTarget(0.9);
-    // O carregamento só termina com o planeta preparado (shaders, texturas e geometria na placa de vídeo), para a
-    // primeira passagem da capa para o planeta não engasgar. Em aparelho muito lento, no máximo 6 s de espera.
-    await Promise.race([engine.ready, new Promise(r => setTimeout(r, 6000))]);
+    // A capa começa assim que o óculos foi desenhado (o planeta é preparado depois, por trás). Em aparelho muito lento,
+    // no máximo 6 s de espera.
+    await Promise.race([engine.coverReady, new Promise(r => setTimeout(r, 6000))]);
     if (unmounted) return;
-    setTarget(0.95);
-    requestAnimationFrame(() => requestAnimationFrame(() => { setTarget(1); }));
+    finishBoot();
+    await Promise.race([engine.ready, new Promise(r => setTimeout(r, Math.max(0, openedAt + 6000 - performance.now())))]);
+    if (unmounted) return;
+    planetReady.value = true; holdScroll(false);
   } catch (error) {
     // Sem WebGL (ou falha ao carregar): a capa continua legível e o site segue normalmente.
     console.warn('Abertura 3D indisponível:', error);
     failed.value = true;
-    setTarget(1);
+    booted.value = planetReady.value = true; holdScroll(false);
     emit('scene-change', { progress: 1, reduced: true, passed: true });
   }
 });
 
 onUnmounted(() => {
   unmounted = true;
-  cancelAnimationFrame(bootRaf);
+  clearTimeout(startTimer); holdScroll(false);
   engine?.dispose();
   engine = null;
 });
@@ -257,6 +253,9 @@ onUnmounted(() => {
 /* clip (e não só hidden): corta o que passa da tela sem deixar o navegador rolar o palco de lado quando um botão
    recebe foco. No celular, ao iniciar a corrida, o palco rolava 98 px e metade da tela ficava preta. */
 .stage { position: sticky; top: 0; height: 100vh; height: 100svh; overflow: hidden; overflow: clip; }
+/* O mesmo céu que o 3D desenha (cor de fundo e degradês da marca nos cantos), já no primeiro quadro: quando o canvas
+   aparece por cima, o fundo não muda (antes a tela passava do preto liso para o céu e parecia piscar). */
+.stage { background: radial-gradient(circle 55vh at 50% 50%, rgba(13, 13, 31, .9), transparent), radial-gradient(circle 75vh at 100% 0%, rgba(0, 51, 64, .18), transparent), radial-gradient(circle 110vh at 100% 100%, rgba(25, 18, 56, .7), transparent), radial-gradient(circle 105vh at 0% 0%, rgba(15, 33, 69, .75), transparent), #0c0407; }
 /* Tocar várias vezes seguidas (nos jogos, no planeta) não seleciona texto nem pinta a tela de azul. Os textos do
    cartão da área continuam selecionáveis. */
 .stage { -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
@@ -302,10 +301,21 @@ onUnmounted(() => {
 .names { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(38px, 8vw, 118px)/1 var(--font-display); letter-spacing: -.03em; color: var(--ice); }
 .name-row { display: flex; transform: scale(var(--ns, 1)); opacity: var(--names, 1); will-change: transform; }
 .name-row span { display: block; }
-.mini { transform: translateX(calc((1 - var(--join, 0)) * var(--mini-x, -30vw))); animation: reveal-l 1.2s cubic-bezier(.2, .7, .2, 1) .6s both }
-.verso { transform: translateX(calc((1 - var(--join, 0)) * var(--verso-x, 30vw))); animation: reveal-r 1.2s cubic-bezier(.2, .7, .2, 1) .6s both }
-@keyframes reveal-l { from { clip-path: inset(0 0 0 100%); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
-@keyframes reveal-r { from { clip-path: inset(0 100% 0 0); opacity: 0; } to { clip-path: inset(0); opacity: 1; } }
+.mini { transform: translateX(calc((1 - var(--join, 1)) * var(--mini-x, -30vw))); }
+.verso { transform: translateX(calc((1 - var(--join, 1)) * var(--verso-x, 30vw))); }
+/* O nome surge a partir da emenda: uma janela desliza para fora enquanto as letras ficam paradas (a moldura anda
+   para um lado e o texto o mesmo tanto para o outro). Só movimento e transparência, que a placa de vídeo anima sozinha:
+   fica liso mesmo enquanto o planeta 3D está sendo montado ao mesmo tempo. */
+.mini, .verso { overflow: hidden; }
+.wipe, .wipe > span { display: block; will-change: transform; }
+.mini .wipe { animation: wipe-in-l 1.2s cubic-bezier(.2, .7, .2, 1) .6s both; }
+.mini .wipe > span { animation: wipe-hold-l 1.2s cubic-bezier(.2, .7, .2, 1) .6s both; }
+.verso .wipe { animation: wipe-in-r 1.2s cubic-bezier(.2, .7, .2, 1) .6s both; }
+.verso .wipe > span { animation: wipe-hold-r 1.2s cubic-bezier(.2, .7, .2, 1) .6s both; }
+@keyframes wipe-in-l { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes wipe-hold-l { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes wipe-in-r { from { transform: translateX(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes wipe-hold-r { from { transform: translateX(100%); } to { transform: none; } }
 .spark { position: absolute; left: 50%; top: 50%; width: min(56vw, 760px); height: 1px; transform: translate(-50%, -50%) scaleX(var(--spark, 0)); opacity: var(--spark, 0);
   background: linear-gradient(90deg, transparent, var(--cyan) 30%, #fff 50%, var(--cyan) 70%, transparent); box-shadow: 0 0 18px var(--cyan); }
 .hint { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px)); transform: translateX(-50%); margin: 0; text-align: center; opacity: calc(var(--hint, 1) * var(--capa, 1));
@@ -461,45 +471,30 @@ onUnmounted(() => {
 .miniverso-intro[data-away] .stage { visibility: hidden; }
 /* No site a abertura fica recolhida: a página começa nas seções e não dá para "forçar" a volta rolando. */
 .miniverso-intro[data-collapsed] { height: 0; overflow: hidden; }
-/* Apresentação ao abrir a página, em ordem: o nome "miniverso" surge inteiro (~0,6 s), fica um instante,
-   as metades se afastam (~2,1 s) e o óculos cresce girando entre elas (~2,5 a 4 s, no motor) e só depois entram o cabeçalho, as frases, os botões e a barra de baixo.
+/* Apresentação ao abrir a página, em ordem: o nome "miniverso" surge inteiro (~0,6 s, sem esperar o 3D), fica um
+   instante, as metades se afastam (~2,1 s) e o óculos cresce girando entre elas (~2,5 a 4 s, no motor) e só depois
+   entram o cabeçalho, as frases, os botões e a barra de baixo (esses contam a partir do início do motor).
    Com "Menos movimento", tudo aparece de uma vez. */
 .scene-canvas { animation: intro-fade 1.6s ease .1s both; }
-.capa-top span { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 3.7s both; }
-.capa-top span + span { animation-delay: 3.85s; }
-.capa-bottom h1 { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4s both; }
-.capa-bottom p { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.1s both; }
-.capa-cta { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.2s both; }
-.capa-bar { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 4.35s both; }
+.capa-top span { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2s both; }
+.capa-top span + span { animation-delay: 2.15s; }
+.capa-bottom h1 { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.3s both; }
+.capa-bottom p { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.4s both; }
+.capa-cta { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.5s both; }
+.capa-bar { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.65s both; }
 /* A dica de arrastar entra junto (por filtro, porque a opacidade dela é controlada pelo motor). */
-.hint { animation: hint-in 1s ease 4.2s both; }
+.hint { animation: hint-in 1s ease 2.5s both; }
 @keyframes hint-in { from { filter: opacity(0); } }
 [data-reduced] :is(.capa-top span, .capa-bottom h1, .capa-bottom p, .capa-cta, .capa-bar, .hint) { animation-delay: 0s; }
-@keyframes intro-fade { from { opacity: 0; transform: scale(1.04); } }
+@keyframes intro-fade { from { opacity: 0; } }
 .miniverso-intro:not(.booted) .scene-canvas, .miniverso-intro:not(.booted) .capa-top span, .miniverso-intro:not(.booted) .capa-bottom h1,
-.miniverso-intro:not(.booted) .capa-bottom p, .miniverso-intro:not(.booted) .capa-cta, .miniverso-intro:not(.booted) .capa-bar, .miniverso-intro:not(.booted) .mini,
-.miniverso-intro:not(.booted) .verso, .miniverso-intro:not(.booted) .hint { animation-play-state: paused; }
-/* Tela de carregamento */
-.boot { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; overflow: hidden; background: radial-gradient(ellipse at 50% 55%, #141a3d, #0c0407 62%); transition: opacity .9s cubic-bezier(.4, 0, .2, 1), visibility 0s .9s; }
-.boot.out { opacity: 0; visibility: hidden; }
-.boot-glow { position: absolute; left: 50%; top: 50%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); border-radius: 50%; background: radial-gradient(circle, rgba(0, 183, 227, .16), rgba(30, 68, 136, .12) 40%, transparent 70%); filter: blur(30px); animation: boot-breathe 4s ease-in-out infinite; }
-@keyframes boot-breathe { 50% { transform: translate(-50%, -50%) scale(1.12); opacity: .7; } }
-.boot-star { position: absolute; left: var(--x); top: var(--y); width: var(--s); height: var(--s); border-radius: 50%; background: #fff; opacity: .5; animation: boot-tw 2.6s var(--d) ease-in-out infinite; }
-@keyframes boot-tw { 50% { opacity: .08; } }
-.boot-inner { position: relative; display: grid; justify-items: center; gap: 26px; transition: transform .9s cubic-bezier(.4, 0, .2, 1); }
-.boot.out .boot-inner { transform: scale(.96); }
-.boot-logo { position: relative; display: block; overflow: hidden; clip-path: inset(0 100% 0 0); animation: boot-reveal 1.1s .2s cubic-bezier(.7, 0, .2, 1) forwards;
-  -webkit-mask: url('/images/miniverso-logo.png') center / 100% 100% no-repeat; mask: url('/images/miniverso-logo.png') center / 100% 100% no-repeat; }
-.boot-logo img { display: block; width: min(260px, 58vw); height: auto; }
-.boot-logo::after { content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 40%; background: linear-gradient(90deg, transparent, #9fe6f7, transparent); animation: boot-sheen 2.4s 1.1s ease-in-out infinite; }
-@keyframes boot-reveal { to { clip-path: inset(0 0 0 0); } }
-@keyframes boot-sheen { 0% { left: -40%; } 55%, 100% { left: 120%; } }
-.boot-line { position: relative; display: block; width: 240px; height: 2px; border-radius: 2px; overflow: hidden; background: rgba(255, 255, 255, .1); }
-.boot-line i { position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(90deg, #1e4488, #00b7e3, #bdf2ff); transform-origin: left; box-shadow: 0 0 12px #00b7e3; transition: transform 1.8s cubic-bezier(.25, .8, .3, 1); will-change: transform; }
-.boot p { display: flex; justify-content: space-between; gap: 16px; width: 240px; white-space: nowrap; margin: -12px 0 0; color: #8ea6b4; font: 600 11px var(--font-body); letter-spacing: .22em; text-transform: uppercase; opacity: 0; animation: boot-fade .6s .7s forwards; }
-.boot p b { color: #dff6fd; font-weight: 700; letter-spacing: .06em; }
-@keyframes boot-fade { to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .boot-glow, .boot-star, .boot-logo::after { animation: none; } .boot-logo { animation: none; clip-path: none; } .boot p { animation: none; opacity: 1; } }
+.miniverso-intro:not(.booted) .capa-bottom p, .miniverso-intro:not(.booted) .capa-cta, .miniverso-intro:not(.booted) .capa-bar,
+.miniverso-intro:not(.booted) .hint { animation-play-state: paused; }
+/* Botões que levam ao planeta e a barra de rolar: só aparecem com o planeta pronto (se ficar pronto antes da hora deles,
+   nada muda; se atrasar, eles entram suavemente quando ficar). */
+:is(.capa-cta, .capa-bar) > * { transition: opacity .6s ease; }
+.miniverso-intro:not(.ready) :is(.capa-cta, .capa-bar) { pointer-events: none; }
+.miniverso-intro:not(.ready) :is(.capa-cta, .capa-bar) > * { opacity: 0; }
 @keyframes intro-rise { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } }
 /* Rótulo da área: etiqueta de vidro com o ponto na cor da área e uma haste fina que desce até ela. */
 .zone-label { --c: var(--cyan); position: absolute; left: 0; top: 0; display: grid; justify-items: center; padding: 0; border: 0; background: none;
@@ -768,7 +763,7 @@ onUnmounted(() => {
   .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .zone-card .zone-info { padding: 6px 10px; }
   .zone-tour { grid-template-columns: auto 1fr auto; gap: 8px; } .zone-card .poi-play { grid-column: 1 / -1; justify-self: center; padding: 7px 14px; }
   .zone-card .poi-nav { width: 32px; height: 32px; } .zone-card .zone-act { padding: 8px 12px; font-size: 12px; } }
-[data-reduced] .mini, [data-reduced] .verso, [data-reduced] .zone-label .dot, [data-reduced] .zone-card, [data-reduced] .planet-exit i::before, [data-reduced] .planet-exit::after, [data-reduced] .back-planet .moon, [data-reduced] .pois :deep(.poi b)::after, [data-reduced] .sound-toggle b { animation: none; }
+[data-reduced] .wipe, [data-reduced] .wipe > span, [data-reduced] .zone-label .dot, [data-reduced] .zone-card, [data-reduced] .planet-exit i::before, [data-reduced] .planet-exit::after, [data-reduced] .back-planet .moon, [data-reduced] .pois :deep(.poi b)::after, [data-reduced] .sound-toggle b { animation: none; }
 [data-reduced] .chip .sw::after { transition: none; }
 </style>
 <style>

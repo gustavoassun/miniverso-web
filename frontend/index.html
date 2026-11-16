@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0a0b16" />
+    <meta name="theme-color" content="#0c0407" />
     <meta
       name="description"
       content="Miniverso: experiências imersivas que conectam tecnologia, treinamento e cuidado."
@@ -11,6 +11,10 @@
     <link rel="icon" href="/miniverso-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>Miniverso</title>
+    <!-- Primeiro quadro: antes de o site montar, a página já nasce com o mesmo céu da capa (a cor e os degradês do fundo do 3D) (sem piscar a cor padrão do navegador
+         entre abrir e o nome "miniverso" aparecer). Nas outras páginas fica a cor normal do site. -->
+    <style>html.boot-dark { background: #0c0407; color-scheme: dark; } html.boot-dark body { background: radial-gradient(circle 55vh at 50% 50%, rgba(13, 13, 31, .9), transparent), radial-gradient(circle 75vh at 100% 0%, rgba(0, 51, 64, .18), transparent), radial-gradient(circle 110vh at 100% 100%, rgba(25, 18, 56, .7), transparent), radial-gradient(circle 105vh at 0% 0%, rgba(15, 33, 69, .75), transparent), #0c0407; background-attachment: fixed; }</style>
+    <script>if (location.pathname === '/' && (!location.hash || location.hash === '#inicio')) document.documentElement.classList.add('boot-dark');</script>
   </head>
   <body>
     <a class="skip-link" href="#conteudo-principal">Pular para o conteúdo</a>

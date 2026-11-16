@@ -284,7 +284,8 @@ export function createMiniverso(rootEl, opts = {}) {
       if (drag.mode === 'headset') {
         // Toque fora do óculos: o primeiro movimento decide. Na vertical rola a página (entra no planeta, como antes);
         // na horizontal gira o óculos. No óculos (ou com mouse), gira nos dois sentidos: dá para ver de cima e de baixo.
-        if (drag.axis === '?' && Math.abs(dx) + Math.abs(dy) > 8) drag.axis = Math.abs(dy) > Math.abs(dx) ? 'scroll' : 'yaw';
+        // Com o planeta ainda sendo preparado (primeiros segundos), arrastar na vertical gira o óculos em vez de rolar.
+        if (drag.axis === '?' && Math.abs(dx) + Math.abs(dy) > 8) drag.axis = Math.abs(dy) > Math.abs(dx) && warmDone ? 'scroll' : 'yaw';
         if (drag.axis === 'scroll') {
           const step = e.clientY - drag.ly, sec = Math.max(0.008, (performance.now() - drag.lt) / 1000);
           scrollBy({ top: -step, behavior: 'instant' }); drag.vy = -step / sec;
@@ -444,8 +445,10 @@ export function createMiniverso(rootEl, opts = {}) {
   if (planetGo) planetGo.hidden = !visited;
   if (capaCta) capaCta.hidden = !visited;
   const skipBox = $('.skip-intro'), skipBtn = $('.skip-go'), skipSite = $('.skip-site');
+  let autoWait = false;
   const showSkip = v => { if (!skipBox) return; skipBox.classList.toggle('show', v); skipBtn.tabIndex = skipSite.tabIndex = v ? 0 : -1; };
   function startAuto() {
+    if (!warmDone) { if (!autoWait) { autoWait = true; startWarm(); ready.then(() => { autoWait = false; if (!disposed) startAuto(); }); } return; }
     const end = introEnd(), split = Math.max(end * SPLIT, scrollY);
     auto = { from: scrollY, split, to: end, start: performance.now(), d1: AUTO_IN * clamp((split - scrollY) / (end * (SPLIT - JOINED))), d2: AUTO_PLANET };
     showSkip(visited);
@@ -995,78 +998,101 @@ export function createMiniverso(rootEl, opts = {}) {
         renderer.render(rimScene, camera);
       }
     }
+    if (coverFrames < 2) coverFrames++; else if (primed && !coverSent) { coverSent = true; coverDone(); }
   }
   raf = requestAnimationFrame(tick);
-  // Prepara o planeta enquanto a capa está parada: compila os shaders em paralelo (sem travar a página) e envia as
-  // texturas para a placa de vídeo, para a formação não engasgar no primeiro quadro do planeta.
+  // A capa não espera o planeta: ela começa assim que o óculos foi desenhado e o primeiro desenho do mundo (a parte
+  // pesada e única do preparo) já passou (coverReady). O resto do planeta é preparado em pedaços pequenos durante a
+  // entrada da capa (no máximo ~5 ms de trabalho por quadro, então o óculos
+  // continua girando liso), e fica pronto antes de os botões aparecerem. Ir ao planeta antes disso espera o preparo
+  // terminar (ver startAuto), para a passagem nunca engasgar.
+  let coverDone, coverFrames = 0, coverSent = false, primed = false, warmStarted = false, warmDone = false; const coverReady = new Promise(r => { coverDone = r; });
+  const startWarm = () => { if (!warmStarted) { warmStarted = true; setTimeout(warmUp, 0); } };
+  // Prepara o planeta: compila os shaders em paralelo (sem travar a página) e envia as texturas para a placa de vídeo,
+  // para a formação não engasgar no primeiro quadro do planeta.
   // Depois, um desenho escondido do planeta inteiro (tudo visível e sem cortar o que está fora da câmera) envia também
-  // a geometria das malhas para a placa de vídeo. A tela de carregamento espera esse preparo (ready), então a primeira
-  // passagem da capa para o planeta já encontra tudo pronto e roda lisa.
+  // a geometria das malhas para a placa de vídeo, então a primeira passagem da capa para o planeta já encontra tudo
+  // pronto e roda lisa.
   let readyDone; const ready = new Promise(r => { readyDone = r; });
-  const warm = setTimeout(async () => {
+  async function warmUp() {
     if (disposed) return readyDone();
+    const frame = () => new Promise(r => requestAnimationFrame(r));
+    const BUDGET = 5;   // ms de trabalho por quadro: a capa (o óculos girando) continua lisa enquanto o planeta é preparado
     try {
-      const shown = []; worldScene.traverse(o => { if (!o.visible) { o.visible = true; shown.push(o); } });
-      // Compilação em bloco só onde o navegador compila em paralelo (sem travar). Sem esse recurso, o pedido ficava
-      // acumulado e era cobrado inteiro no primeiro desenho (meio segundo parado): aí os shaders são preparados um a
-      // um, no laço abaixo, com limite de tempo por quadro.
-      const parallel = renderer.extensions.has('KHR_parallel_shader_compile');
-      const job = parallel ? Promise.all([renderer.compileAsync(worldScene, worldCamera), renderer.compileAsync(rimScene, camera)]) : Promise.resolve();   // bordas das lentes também
-      for (const o of shown) o.visible = false;
-      const texs = new Set();
-      worldScene.traverse(o => { for (const m of [].concat(o.material || [])) for (const k in m) if (m[k]?.isTexture) texs.add(m[k]); });
-      for (const t of texs) renderer.initTexture(t);
-      try { await job; } catch { /* sem compilação em paralelo: o desenho escondido abaixo compila */ }
+      const meshes = []; worldScene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine) && o.geometry) meshes.push(o); });
+      // Um exemplar de cada combinação de material e tipo de objeto (cada uma vira um shader diferente).
+      const reps = new Map();
+      for (const o of meshes) for (const m of [].concat(o.material)) { const k = `${m?.uuid}|${o.isInstancedMesh ? (o.instanceColor ? 'ic' : 'i') : ''}|${o.isPoints ? 'p' : o.isLine ? 'l' : 'm'}`; if (m && !reps.has(k)) reps.set(k, o); }
+      const firsts = [...new Set(reps.values())];
+      // 1. Shaders: pedidos aos poucos, objeto por objeto (com as luzes do mundo), alguns por quadro. Onde o navegador
+      //    compila em paralelo, isso não trava a página; depois só esperamos todos ficarem prontos. Antes era um pedido
+      //    só para o planeta inteiro, que segurava a página por ~120 ms de uma vez.
+      if (renderer.extensions.has('KHR_parallel_shader_compile')) {
+        const jobs = [];
+        for (let i = 0; i < firsts.length && !disposed;) {
+          const t = performance.now();
+          while (i < firsts.length && performance.now() - t < BUDGET) jobs.push(renderer.compileAsync(firsts[i++], worldCamera, worldScene).catch(() => {}));
+          await frame();
+        }
+        jobs.push(renderer.compileAsync(rimScene, camera).catch(() => {}));                   // bordas das lentes também
+        await Promise.all(jobs);
+      }
       if (disposed) return readyDone();
-      await new Promise(r => requestAnimationFrame(r));
+      // 2. Texturas, uma a uma.
+      const texs = [...new Set(meshes.flatMap(o => [].concat(o.material || []).flatMap(m => Object.values(m).filter(v => v?.isTexture))))];
+      for (let i = 0; i < texs.length && !disposed;) { const t = performance.now(); while (i < texs.length && performance.now() - t < BUDGET) renderer.initTexture(texs[i++]); await frame(); }
+      await frame();
       const vis = [];
       const cull = [];
       for (const sc of [worldScene, rimScene]) sc.traverse(o => { if (!o.visible) { o.visible = true; vis.push(o); } if (o.frustumCulled) { o.frustumCulled = false; cull.push(o); } });
       const restore = () => { for (const o of vis) o.visible = false; for (const o of cull) o.frustumCulled = true; };
       const prevClear = renderer.autoClear;
       // Tudo é desenhado na tela de verdade, recortado num canto de 1 px (invisível), com os mesmos shaders que o
-      // planeta usa. Antes havia também um desenho num alvo escondido, que pedia outra versão de cada shader, nunca
-      // usada, compilada de uma vez só: era a travada de mais de meio segundo na tela de carregamento.
-      // Entre um quadro e outro o motor volta a esconder o planeta, as nuvens, as ilhas... (na capa eles ficam escondidos):
-      // antes de cada desenho daqui os grupos são mostrados de novo, senão parte do planeta ficava sem preparar.
+      // planeta usa. Entre um quadro e outro o motor volta a esconder o planeta, as nuvens, as ilhas... (na capa eles
+      // ficam escondidos): antes de cada desenho daqui os grupos são mostrados de novo, senão parte do planeta ficava
+      // sem preparar.
       const groups = []; for (const sc of [worldScene, rimScene]) sc.traverse(o => { if (!(o.isMesh || o.isPoints || o.isLine)) groups.push(o); });
       const pixel = fn => { for (const g of groups) g.visible = true; renderer.setRenderTarget(null); renderer.setScissorTest(true); renderer.setScissor(0, 0, 1, 1); renderer.autoClear = false; fn(); renderer.setScissorTest(false); renderer.autoClear = prevClear; };
-      // A geometria vai para a placa de vídeo em pedaços, um por quadro, cada um com mais ou menos o mesmo número de
-      // vértices, para a tela de carregamento continuar respirando.
-      const meshes = []; worldScene.traverse(o => { if ((o.isMesh || o.isPoints || o.isLine) && o.geometry) meshes.push(o); });
-      const verts = o => o.geometry.attributes.position?.count || 0, total = meshes.reduce((n, o) => n + verts(o), 0);
-      // Primeiro, um exemplar de cada material (o shader dele é preparado na primeira vez em que é desenhado): alguns por
-      // quadro, com no máximo ~10 ms de trabalho por quadro. Onde o navegador não compila em paralelo, era aqui que
-      // tudo travava de uma vez.
-      const reps = new Map();
-      for (const o of meshes) for (const m of [].concat(o.material)) { const k = `${m?.uuid}|${o.isInstancedMesh ? 1 : 0}|${o.isPoints ? 'p' : o.isLine ? 'l' : 'm'}`; if (m && !reps.has(k)) reps.set(k, o); }
-      const firsts = [...new Set(reps.values())];
+      // 3. O primeiro desenho de cada material (com o shader já pronto, sobra pouco trabalho), poucos por quadro.
+      //    O primeiro desenho do mundo, seja do que for, paga uma preparação única de ~0,3 s: ele é feito antes de a capa
+      //    começar (só o nome está entrando, e essa animação a placa de vídeo faz sozinha), e a capa espera por ele.
       for (const o of meshes) o.visible = false;
-      for (let i = 0; i < firsts.length && !disposed;) {
+      if (firsts.length) { firsts[0].visible = true; pixel(() => renderer.render(worldScene, worldCamera)); firsts[0].visible = false; }
+      primed = true;
+      await frame();
+      for (let i = 1; i < firsts.length && !disposed;) {
         const t = performance.now();
-        while (i < firsts.length && performance.now() - t < 10) { const o = firsts[i++]; o.visible = true; pixel(() => renderer.render(worldScene, worldCamera)); o.visible = false; }
-        await new Promise(r => requestAnimationFrame(r));
+        while (i < firsts.length && performance.now() - t < BUDGET) { const o = firsts[i++]; o.visible = true; pixel(() => renderer.render(worldScene, worldCamera)); o.visible = false; }
+        await frame();
       }
-      const per = Math.max(20000, total / 10);
+      // 4. A geometria vai para a placa de vídeo em pedaços pequenos, cada um com mais ou menos o mesmo número de
+      //    vértices, um por quadro.
+      const verts = o => o.geometry.attributes.position?.count || 0, total = meshes.reduce((n, o) => n + verts(o), 0);
+      const per = Math.max(12000, total / 24);
       for (let i = 0; i < meshes.length && !disposed;) {
         const batch = new Set(); let n = 0;
         while (i < meshes.length && (n < per || !batch.size)) { batch.add(meshes[i]); n += verts(meshes[i]); i++; }
         for (const o of meshes) o.visible = batch.has(o);
         pixel(() => renderer.render(worldScene, worldCamera));
-        await new Promise(r => requestAnimationFrame(r));
+        await frame();
       }
       for (const o of meshes) o.visible = true;
       if (disposed) { restore(); return readyDone(); }
-      // Por fim, as mesmas passadas da chegada ao planeta (com o recorte das lentes e as bordas delas).
-      pixel(() => { worldStencil(true); renderer.render(worldScene, worldCamera); renderer.render(rimScene, camera); worldStencil(false); renderer.render(worldScene, worldCamera); });
+      // 5. As mesmas passadas da chegada ao planeta (o mundo recortado pelas lentes, as bordas delas e o mundo inteiro),
+      //    uma por quadro. Sem elas, a primeira passagem para o planeta engasgava várias vezes; com elas, roda lisa.
+      pixel(() => { worldStencil(true); renderer.render(worldScene, worldCamera); worldStencil(false); }); await frame();
+      pixel(() => renderer.render(rimScene, camera)); await frame();
+      pixel(() => renderer.render(worldScene, worldCamera));
       restore();
     } catch { /* se algo falhar, o planeta prepara no primeiro quadro, como antes */ }
+    primed = true; warmDone = true;
     readyDone();
     music.prepare();
-  }, 60);
-  offs.push(() => { clearTimeout(warm); readyDone?.(); });
+  }
+  startWarm();
+  offs.push(() => { readyDone?.(); coverDone?.(); });
   return {
-    ready,
+    ready, coverReady,
     start(delay = 0) { if (t0 === Infinity) t0 = performance.now() + delay; },
     dispose() {
       disposed = true; cancelAnimationFrame(raf); auto = null;

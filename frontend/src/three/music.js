@@ -92,34 +92,47 @@ export function createMusic() {
   const buses = {}, live = {};
 
   // O áudio é montado em duas partes: o contexto (rápido, é o que o navegador precisa liberar no primeiro toque) e o
-  // resto (reverberação, ruídos), mais pesado, montado com a página ociosa na capa. Antes tudo era montado no
-  // primeiro toque e o clique em "Ver o planeta" engasgava.
+  // resto (reverberação, ruídos), mais pesado. Com a página ociosa, esse resto é montado em etapas pequenas, uma por
+  // momento livre (gerar o ruído, cada canal do eco, preparar cada eco), para nunca travar a capa ou o planeta; antes era
+  // um bloco só de ~80 ms. Se o som for pedido antes de terminar (um toque em "som"), o que falta é montado na hora.
   function makeCtx() { if (!ctx) ctx = new AudioContext(); }
-  let idleBuild = 0;
+  const B = {}, sr = () => ctx.sampleRate;
+  const fillIr = (d, from = 0, to = d.length) => { for (let i = from; i < to; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3; };
+  const STEPS = [
+    () => {
+      makeCtx();
+      B.master = ctx.createGain(); B.master.gain.value = 0;
+      B.comp = ctx.createDynamicsCompressor(); B.comp.threshold.value = -18; B.comp.ratio.value = 3;
+      B.master.connect(B.comp).connect(ctx.destination);
+      // Ruído branco reaproveitado pela percussão, pelas ondas, pelo vento e pelo ronco do trem.
+      noiseBuf = ctx.createBuffer(1, sr() * 2, sr());
+      const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    },
+    // Reverberação (resposta de impulso gerada), dividida por todas as faixas: cada canal numa etapa.
+    () => { B.ir = ctx.createBuffer(2, sr() * 1.8, sr()); fillIr(B.ir.getChannelData(0)); },
+    () => fillIr(B.ir.getChannelData(1)),
+    () => { B.sIr = ctx.createBuffer(2, sr() * 1.1, sr()); fillIr(B.sIr.getChannelData(0)); fillIr(B.sIr.getChannelData(1)); },
+    () => { rev = ctx.createConvolver(); rev.buffer = B.ir; const revOut = ctx.createGain(); revOut.gain.value = 0.55; rev.connect(revOut).connect(B.master); },
+    () => {
+      // Efeitos vão direto para a saída (não esperam a música subir), com reverberação própria.
+      buses.sfx = ctx.createGain(); buses.sfx.gain.value = 0; buses.sfx.connect(B.comp);
+      const sRev = ctx.createConvolver(); sRev.buffer = B.sIr; sRev.connect(buses.sfx);
+      buses.sfxRev = ctx.createGain(); buses.sfxRev.connect(buses.sfx); const sSend = ctx.createGain(); sSend.gain.value = 0.8; buses.sfxRev.connect(sSend).connect(sRev);
+      master = B.master;
+      timer = setInterval(schedule, 25);
+      mix();
+    }
+  ];
+  let step = 0, idleBuild = 0;
   function buildSoon() {
     if (master || idleBuild) return;
-    const run = () => { idleBuild = 0; ensure(); apply(); };
-    idleBuild = 'requestIdleCallback' in window ? requestIdleCallback(run, { timeout: 2500 }) : setTimeout(run, 400);
+    const run = () => { idleBuild = 0; if (master) return; STEPS[step++](); if (master) apply(); else idleBuild = idle(run); };
+    const idle = fn => ('requestIdleCallback' in window ? requestIdleCallback(fn, { timeout: 2500 }) : setTimeout(fn, 120));
+    idleBuild = idle(run);
   }
   function ensure() {
     makeCtx();
-    if (master) return;
-    master = ctx.createGain(); master.gain.value = 0;
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
-    master.connect(comp).connect(ctx.destination);
-    // Ruído branco reaproveitado pela percussão, pelas ondas, pelo vento e pelo ronco do trem.
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const nd = noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
-    // Reverberação (resposta de impulso gerada), dividida por todas as faixas.
-    const makeIr = sec => { const b = ctx.createBuffer(2, ctx.sampleRate * sec, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 3; } return b; };
-    rev = ctx.createConvolver(); rev.buffer = makeIr(2.2);
-    const revOut = ctx.createGain(); revOut.gain.value = 0.55; rev.connect(revOut).connect(master);
-    // Efeitos vão direto para a saída (não esperam a música subir), com reverberação própria.
-    buses.sfx = ctx.createGain(); buses.sfx.gain.value = 0; buses.sfx.connect(comp);
-    const sRev = ctx.createConvolver(); sRev.buffer = makeIr(1.1); sRev.connect(buses.sfx);
-    buses.sfxRev = ctx.createGain(); buses.sfxRev.connect(buses.sfx); const sSend = ctx.createGain(); sSend.gain.value = 0.8; buses.sfxRev.connect(sSend).connect(sRev);
-    timer = setInterval(schedule, 25);
-    mix();
+    while (!master) STEPS[step++]();
   }
 
   // ——— Instrumentos ———
