@@ -103,49 +103,106 @@ function piece(list, geo, color, x, y, z, ry = 0, rx = 0, rz = 0) {
 const Bx = (w, h, d) => new THREE.BoxGeometry(w, h, d), Cy = (r, h, s = 10, r2 = r) => new THREE.CylinderGeometry(r, r2, h, s);
 const meshOf = (list, m) => { const mesh = new THREE.Mesh(mergeGeometries(list), m); return mesh; };
 
-// Kart (uma malha só): chassi baixo, laterais arredondadas na cor do kart, bico com placa de número e asa
-// dianteira, motor com dois escapamentos, aerofólio traseiro com suportes, rodas de trás com aro, volante e o piloto
-// de macacão branco com capacete na cor do kart, viseira escura e faixa branca. As rodas da frente são uma peça à
-// parte (kartWheels) para virar nas curvas.
-const wheel = (L, x, z, w) => { piece(L, Cy(0.0038, w, 12), '#15161c', x, 0.0038, z, 0, Math.PI / 2); piece(L, Cy(0.0021, w + 0.0004, 10), '#c9d0de', x, 0.0038, z, 0, Math.PI / 2); };
-function kartGeo(color) {
-  const L = [];
-  piece(L, Bx(0.03, 0.0026, 0.017), '#2a2f3a', 0, 0.0034, 0);
-  for (const s of [-1, 1]) piece(L, new RoundedBoxGeometry(0.017, 0.0055, 0.0052, 2, 0.002), color, -0.001, 0.0058, s * 0.0088);
-  piece(L, new RoundedBoxGeometry(0.013, 0.0048, 0.012, 2, 0.002), color, 0.0098, 0.0058, 0);
-  piece(L, Bx(0.0045, 0.0014, 0.021), '#2a2f3a', 0.0168, 0.0038, 0);
-  for (const s of [-1, 1]) piece(L, Bx(0.0045, 0.004, 0.0012), color, 0.0168, 0.0048, s * 0.0103);
-  piece(L, Cy(0.0031, 0.0007, 12), '#f6f6f6', 0.0105, 0.0084, 0);
-  piece(L, Bx(0.0014, 0.0008, 0.0026), '#15161c', 0.0105, 0.0088, 0);
-  piece(L, Bx(0.008, 0.0016, 0.0125), '#f6f6f6', -0.0005, 0.0059, 0);
-  piece(L, Bx(0.006, 0.0075, 0.0095), '#2a2f3a', -0.0062, 0.0082, 0);
-  piece(L, Bx(0.0072, 0.0062, 0.012), '#3a3f4a', -0.0118, 0.0072, 0);
-  for (const s of [-1, 1]) { piece(L, Cy(0.0012, 0.0062, 8), '#c9d0de', -0.0162, 0.0088, s * 0.003, 0, 0, Math.PI / 2); piece(L, Cy(0.0014, 0.0012, 8), '#15161c', -0.0194, 0.0088, s * 0.003, 0, 0, Math.PI / 2); }
-  for (const s of [-1, 1]) { piece(L, Bx(0.0016, 0.0062, 0.0014), '#2a2f3a', -0.0142, 0.0112, s * 0.0062); piece(L, Bx(0.0058, 0.0048, 0.0008), color, -0.0152, 0.0138, s * 0.0102); }
-  piece(L, Bx(0.0058, 0.0014, 0.021), color, -0.0152, 0.0145, 0);
-  piece(L, Bx(0.0058, 0.0007, 0.021), '#f6f6f6', -0.0152, 0.0153, 0);
-  for (const s of [-1, 1]) wheel(L, -0.0092, s * 0.0092, 0.0048);
-  piece(L, new THREE.TorusGeometry(0.0022, 0.0005, 4, 12), '#15161c', 0.0042, 0.0108, 0, Math.PI / 2, 0, 0.55);
-  piece(L, Bx(0.0052, 0.0072, 0.0074), '#f6f6f6', -0.0028, 0.0108, 0);
-  for (const s of [-1, 1]) piece(L, Bx(0.0062, 0.0018, 0.0018), '#f6f6f6', 0.0012, 0.0112, s * 0.0034, 0, 0, -0.35);
-  piece(L, new THREE.SphereGeometry(0.0039, 12, 8), color, -0.0024, 0.0158, 0);
-  piece(L, new THREE.SphereGeometry(0.0034, 10, 6, -0.9, 1.8, 1.05, 0.75), '#141428', -0.0019, 0.0156, 0);
-  piece(L, new THREE.TorusGeometry(0.0039, 0.0006, 4, 16), '#f6f6f6', -0.0024, 0.0158, 0, Math.PI / 2, 0, 0);
-  // Acabamento: faixa branca nas laterais, número nos dois lados, para-choques na frente e atrás, barras laterais
-  // cromadas, faróis de LED, lanterna vermelha no aerofólio, encosto do banco e espelhos.
+// Kart de corrida do Miniverso GP, no mesmo estilo facetado (low-poly) do resto do planeta. Uma malha só por kart,
+// na cor dele: carroceria baixa em cunha com o bico afilado e a tampa do motor subindo atrás do piloto, assoalho de
+// carbono, pontões laterais com entrada de ar e faixa branca, asas dianteira e traseira compactas com placas escuras,
+// dois escapamentos cromados, difusor e suspensão. Rodas com pneu arredondado, faixa amarela, aro de cinco raios e
+// cubo. O piloto vai sentado baixo, de macacão branco com ombreiras e luvas na cor do kart, colar de proteção e
+// capacete facetado na cor do kart com faixa branca, aerofólio e um visor de realidade virtual que envolve a frente
+// (armação branca e lente ciano acesa). As luzes (lente do visor, painel do volante, faróis, lanterna e o neon embaixo)
+// ficam numa malha acesa à parte (kartGlowGeo), igual para todos. As rodas da frente são à parte (kartWheels) para virar.
+const kartMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.1, flatShading: true });
+const _up = new THREE.Vector3(0, 1, 0), _a = new THREE.Vector3(), _b = new THREE.Vector3();
+// Cilindro ou cápsula ligando dois pontos (braços do piloto, braços da suspensão).
+function limb(L, geo, color, a, b) {
+  _a.fromArray(a); _b.fromArray(b); const d = _b.clone().sub(_a), len = d.length();
+  geo = paint(geo, color); geo.scale(1, len, 1);
+  geo.applyMatrix4(_m.compose(_a.add(_b).multiplyScalar(0.5), _q.setFromUnitVectors(_up, d.normalize()), ONE)); L.push(geo);
+}
+// Peça de perfil: o desenho de lado (x para a frente, y para cima) ganha largura; taper(x) estreita a peça ao longo
+// do comprimento (bico fino, traseira um pouco mais estreita).
+function profile(pts, depth, taper) {
+  const geo = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y))), { depth, bevelEnabled: true, bevelThickness: 0.0004, bevelSize: 0.0004, bevelSegments: 1 }).translate(0, 0, -depth / 2);
+  if (taper) { const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, p.getZ(i) * taper(p.getX(i))); }
+  return geo;
+}
+const wheel = (L, x, z, w) => {
+  const h = w / 2;
+  piece(L, new THREE.LatheGeometry([[0.0023, -h], [0.0033, -h], [0.0038, -h + 0.0008], [0.0038, h - 0.0008], [0.0033, h], [0.0023, h]].map(([r, y]) => new THREE.Vector2(r, y)), 18), '#16171d', x, 0.0038, z, 0, Math.PI / 2);
+  piece(L, Cy(0.00235, w * 0.86, 14), '#c9d0de', x, 0.0038, z, 0, Math.PI / 2);                 // aro
   for (const s of [-1, 1]) {
-    piece(L, Bx(0.0155, 0.0006, 0.0016), '#f6f6f6', -0.001, 0.0087, s * 0.0088);
-    piece(L, Cy(0.0019, 0.0004, 12), '#f6f6f6', -0.002, 0.0058, s * 0.0115, 0, Math.PI / 2);
-    piece(L, Cy(0.0009, 0.0005, 8), '#15161c', -0.002, 0.0058, s * 0.0117, 0, Math.PI / 2);
-    piece(L, Cy(0.0007, 0.014, 6), '#c9d0de', 0.0005, 0.0034, s * 0.0124, 0, 0, Math.PI / 2);
-    piece(L, Bx(0.0008, 0.0011, 0.0035), '#fff1b8', 0.0164, 0.0066, s * 0.0045);
-    piece(L, Bx(0.0011, 0.0011, 0.0016), '#15161c', 0.0018, 0.0128, s * 0.0068);
+    const fz = z + s * h;
+    piece(L, new THREE.TorusGeometry(0.0031, 0.00018, 3, 18), '#ffd23f', x, 0.0038, fz);          // faixa do pneu
+    piece(L, Cy(0.0019, 0.0003, 12), '#3a3f4a', x, 0.0038, fz - s * 0.0003, 0, Math.PI / 2);     // fundo do aro
+    for (let k = 0; k < 5; k++) piece(L, Bx(0.0034, 0.00045, 0.0003), '#e6eaf2', x, 0.0038, fz - s * 0.0001, 0, 0, k / 5 * Math.PI);   // raios
+    piece(L, Cy(0.0006, 0.0004, 8), '#16171d', x, 0.0038, fz, 0, Math.PI / 2);                    // cubo
   }
-  piece(L, Bx(0.0016, 0.0016, 0.019), '#15161c', 0.0197, 0.0034, 0);
-  piece(L, Bx(0.0016, 0.0018, 0.02), '#15161c', -0.0206, 0.0044, 0);
-  piece(L, Bx(0.0006, 0.0012, 0.008), '#ff3b3b', -0.0182, 0.0145, 0);
-  piece(L, Bx(0.0014, 0.0062, 0.0078), '#15161c', -0.0058, 0.0102, 0);
+};
+const HX = -0.0038, HY = 0.0150;                                                                  // centro do capacete
+function kartGeo(color) {
+  const L = [], WHITE = '#f6f6f6', CARBON = '#1b1e26', DARK = '#0d0f14', CHROME = '#c9d0de';
+  const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+  // Carroceria: bico afilado, cockpit, tampa do motor subindo atrás do piloto e traseira.
+  piece(L, profile([[0.0195, 0.0031], [0.0195, 0.0042], [0.0165, 0.0052], [0.010, 0.0070], [0.0045, 0.0090], [0.0030, 0.0092], [-0.0058, 0.0092], [-0.0068, 0.0116], [-0.0105, 0.0110], [-0.0170, 0.0078], [-0.0170, 0.0031]], 0.0080,
+    x => (x > 0.004 ? lerp(1, 0.36, (x - 0.004) / 0.0155) : x < -0.010 ? lerp(1, 0.72, (-0.010 - x) / 0.007) : 1)), color, 0, 0, 0);
+  piece(L, Bx(0.0100, 0.0004, 0.0012), WHITE, 0.0105, 0.0080, 0, 0, 0, -0.33);                      // faixa branca no bico
+  piece(L, Bx(0.031, 0.0010, 0.0200), CARBON, 0, 0.0027, 0);                                       // assoalho
+  for (const s of [-1, 1]) {
+    // Pontões laterais (entre as rodas), com entrada de ar e faixa branca.
+    piece(L, profile([[0.0050, 0.0033], [0.0050, 0.0064], [0.0030, 0.0070], [-0.0032, 0.0070], [-0.0050, 0.0058], [-0.0050, 0.0033]], 0.0030), color, 0, 0, s * 0.0070);
+    piece(L, Bx(0.0004, 0.0022, 0.0022), DARK, 0.0055, 0.0050, s * 0.0070);
+    piece(L, Bx(0.0070, 0.0003, 0.0007), WHITE, -0.0002, 0.0075, s * 0.0070);
+    // Suspensão: braços da carroceria às rodas.
+    for (const x of [0.0092, -0.0092]) for (const y of [0.0032, 0.0046]) limb(L, Cy(0.0003, 1, 4), CARBON, [x, y, s * 0.0036], [x, 0.0038, s * 0.0070]);
+  }
+  // Asa dianteira: plano de carbono, flap na cor do kart e placas escuras.
+  piece(L, Bx(0.0048, 0.0007, 0.0230), CARBON, 0.0185, 0.0027, 0);
+  piece(L, Bx(0.0026, 0.0006, 0.0210), color, 0.0176, 0.0037, 0, 0, 0, 0.3);
+  for (const s of [-1, 1]) piece(L, Bx(0.0050, 0.0026, 0.0005), CARBON, 0.0182, 0.0034, s * 0.0116);
+  // Traseira: escapamentos, difusor e asa com suportes, flap na cor do kart (borda branca) e placas escuras.
+  for (const s of [-1, 1]) {
+    piece(L, Cy(0.0008, 0.0040, 8), CHROME, -0.0178, 0.0066, s * 0.0024, 0, 0, Math.PI / 2);
+    piece(L, Cy(0.0006, 0.0003, 8), DARK, -0.0198, 0.0066, s * 0.0024, 0, 0, Math.PI / 2);
+    piece(L, Bx(0.0010, 0.0040, 0.0007), CARBON, -0.0160, 0.0108, s * 0.0028);
+    piece(L, Bx(0.0066, 0.0046, 0.0005), CARBON, -0.0172, 0.0128, s * 0.0102);
+  }
+  piece(L, Bx(0.0028, 0.0022, 0.0150), CARBON, -0.0186, 0.0037, 0);
+  piece(L, Bx(0.0056, 0.0008, 0.0200), CARBON, -0.0168, 0.0132, 0);
+  piece(L, Bx(0.0032, 0.0007, 0.0194), color, -0.0180, 0.0142, 0, 0, 0, -0.3);
+  piece(L, Bx(0.0006, 0.0003, 0.0194), WHITE, -0.0195, 0.0149, 0, 0, 0, -0.3);
+  for (const s of [-1, 1]) wheel(L, -0.0092, s * 0.0092, 0.0048);
+  piece(L, Bx(0.0005, 0.0022, 0.0034), CARBON, 0.0028, 0.0100, 0, 0, 0, 0.5);                      // volante
+  // Piloto: macacão branco, ombreiras e luvas na cor do kart, colar escuro, braços até o volante.
+  piece(L, new THREE.CapsuleGeometry(0.0024, 0.0030, 2, 8), WHITE, -0.0042, 0.0092, 0, 0, 0, 0.2);
+  piece(L, new THREE.TorusGeometry(0.0018, 0.0006, 4, 10).rotateX(Math.PI / 2), CARBON, -0.0041, 0.0122, 0);
+  for (const s of [-1, 1]) {
+    const sh = [-0.0040, 0.0116, s * 0.0026], elbow = [-0.0006, 0.0101, s * 0.0031], hand = [0.0024, 0.0102, s * 0.0015];
+    piece(L, new THREE.IcosahedronGeometry(0.0011, 1), color, ...sh);
+    limb(L, Cy(0.0007, 1, 6), WHITE, sh, elbow);
+    limb(L, Cy(0.00062, 1, 6), WHITE, elbow, hand);
+    piece(L, new THREE.IcosahedronGeometry(0.0008, 1), color, ...hand);
+  }
+  // Capacete facetado na cor do kart, com faixa branca de frente a trás e aerofólio; o visor VR envolve a frente:
+  // armação branca aqui e a lente acesa em kartGlowGeo.
+  const sx = 1.1, sz = 0.95;
+  piece(L, new THREE.IcosahedronGeometry(0.0033, 2).scale(sx, 0.98, sz), color, HX, HY, 0);
+  piece(L, new THREE.TorusGeometry(0.00335, 0.00034, 3, 14, Math.PI).scale(sx, 0.98, sz), WHITE, HX, HY, 0, 0, 0, 0.12);
+  piece(L, Bx(0.0012, 0.0004, 0.0030), CARBON, HX - 0.0037, HY + 0.0016, 0, 0, 0, 0.3);
+  piece(L, new THREE.SphereGeometry(0.00352, 16, 1, Math.PI - 1.75, 3.5, Math.PI * 0.38, Math.PI * 0.2).scale(sx, 0.98, sz), WHITE, HX, HY, 0);
   return mergeGeometries(L);
+}
+// Luzes do kart (malha acesa, igual para todos): lente ciano do visor VR, painel do volante, faróis, lanterna
+// vermelha na asa traseira e o neon ciano embaixo dos dois lados.
+let glowGeo = null;
+function kartGlowGeo() {
+  if (glowGeo) return glowGeo;
+  const L = [];
+  piece(L, new THREE.SphereGeometry(0.00358, 16, 1, Math.PI - 1.6, 3.2, Math.PI * 0.415, Math.PI * 0.13).scale(1.1, 0.98, 0.95), '#46e8ff', HX, HY, 0);
+  piece(L, Bx(0.0002, 0.0007, 0.0014), '#46e8ff', 0.0025, 0.0101, 0, 0, 0, 0.5);
+  for (const s of [-1, 1]) piece(L, Bx(0.0006, 0.0005, 0.0012), '#fff1b8', 0.0150, 0.0060, s * 0.0016, 0, s * 0.4);
+  piece(L, Bx(0.0003, 0.0005, 0.010), '#ff3b3b', -0.0198, 0.0150, 0);
+  for (const s of [-1, 1]) piece(L, Bx(0.024, 0.0004, 0.0006), '#00b7e3', 0, 0.0021, s * 0.0100);
+  return (glowGeo = mergeGeometries(L));
 }
 function kartWheels() { const L = []; for (const s of [-1, 1]) wheel(L, 0, s * 0.0092, 0.0038); return mergeGeometries(L); }
 
@@ -388,7 +445,7 @@ function buildGames(g, zi) {
   // (pulo calmo, sem tremedeira); na vitória, ficam vários segundos em festa.
   {
     const cc = ['#ff8a6b', '#ffc56b', '#3ee0b5', '#00b7e3', '#ff4fd8', '#b07cff', '#f6f6f6', '#7a5cff'];
-    const f = figures(g, fans.length, fans.map((_, i) => cc[(i * 5) % 8]));
+    const f = figures(g, fans.length, fans.map((_, i) => cc[(i * 5) % 8]), 1, { hat: 'bone', hatColors: cc });
     const flags = new THREE.InstancedMesh(new THREE.BoxGeometry(0.0004, 0.004, 0.006).translate(0, 0.006, 0.003), new THREE.MeshBasicMaterial({ toneMapped: false }), fans.length);
     fans.forEach((_, i) => { flags.setColorAt(i, new THREE.Color(cc[(i * 3 + 2) % 8])); flags.setMatrixAt(i, ZERO); });
     flags.userData.detail = true; flags.frustumCulled = false;
@@ -719,8 +776,9 @@ function buildGames(g, zi) {
   const wheelsGeo = kartWheels(), kUp = new THREE.Vector3(0, 1, 0), kNrm = new THREE.Vector3(), kQ = new THREE.Quaternion(), kQ2 = new THREE.Quaternion(), kE = new THREE.Euler();
   // Karts: o seu (amarelo) e cinco rivais (Rosa, Azul, Verde, Roxo e Laranja).
   [['#ffc56b', 'Você', 0.17, -0.012], ['#ff4fd8', 'Rosa', 0.19, 0.012], ['#00b7e3', 'Azul', 0.18, -0.01], ['#3ee0b5', 'Verde', 0.2, 0.011], ['#b07cff', 'Roxo', 0.185, -0.011], ['#ff8a3c', 'Laranja', 0.195, 0.012]].forEach(([color, name, speed, lane], k) => {
-    const kart = new THREE.Mesh(kartGeo(color), vcMat); g.add(kart);
-    const front = new THREE.Mesh(wheelsGeo, vcMat); front.position.set(0.0092, 0, 0); kart.add(front);
+    const kart = new THREE.Mesh(kartGeo(color), kartMat); g.add(kart);
+    const front = new THREE.Mesh(wheelsGeo, kartMat); front.position.set(0.0092, 0, 0); kart.add(front);
+    kart.add(new THREE.Mesh(kartGlowGeo(), glowMat));                                                   // luzes: visor VR, faróis, lanterna e neon
     kart.scale.setScalar(KART_S);
     const info = { mesh: kart, color, name, s: k * track.L / 6, lane, speed, last: -1, y: 0 };
     // roll: o kart deita um pouco para fora nas curvas; pitch: empina na rampa do viaduto; steer: rodas da frente.

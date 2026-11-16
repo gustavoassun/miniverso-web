@@ -294,12 +294,12 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
 
   // 3) Corrida de kart: você pilota o kart amarelo contra três rivais, 3 voltas por um circuito com viaduto. O kart
   // acelera sozinho; ← → (ou A/D, ou os botões na tela) viram, ↓ freia e Espaço (ou o botão Item) usa o item.
-  // Sem tocar em nada, ele se alinha sozinho com a pista; as zebras seguram o kart dentro da pista, mas em cima delas
-  // ele anda devagar e a mureta freia; as setas azuis dão turbo. Segurar a curva em velocidade solta faíscas
+  // Sem tocar em nada, ele se alinha sozinho com a pista; as zebras e a mureta seguram o kart dentro da pista sem
+  // tirar velocidade (encostar nos cantos não freia mais: antes ficava quase impossível ganhar); as setas azuis dão turbo. Segurar a curva em velocidade solta faíscas
   // (azuis, depois laranja) e, ao soltar, vira um turbo curto. Nas caixas "?" você ganha um item: turbo, casca de
   // banana (larga atrás de você e faz quem passar rodar) ou escudo (6 s protegido).
   // PACE: a corrida anda num ritmo 18% mais calmo que o relógio (com os karts menores, a pista parece maior).
-  const PACE = 0.82, LAPS = 3, VMAX = 0.27, ACC = 0.24, BRAKE = 0.7, KERB = 0.15, ON_KERB = track.W - 0.008;
+  const PACE = 0.82, LAPS = 3, VMAX = 0.27, ACC = 0.24, BRAKE = 0.7, ON_KERB = track.W - 0.008;
   // Até onde o centro do kart vai: a lateral dele encosta na face da mureta (no chão) ou na mureta da ponte (no viaduto).
   const HALF = 0.0116 * track.KART_S, edgeAt = i => (track.Y[i] > 0.004 ? track.W + 0.002 - HALF : track.BARRIER - 0.0016 - HALF);
   const input = { l: false, r: false, b: false };
@@ -442,12 +442,12 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     const spinning = me.spin > 0;
     const steer = spinning ? 0 : (input.r ? 1 : 0) - (input.l ? 1 : 0);
     me.st += (steer - me.st) * Math.min(1, dt * 12);
-    const kerb = Math.abs(me.lat) > ON_KERB, top = (kerb ? KERB : VMAX) + me.boost;
+    const kerb = Math.abs(me.lat) > ON_KERB, top = VMAX + me.boost;                          // na zebra só levanta poeira
     if (input.b) me.v = Math.max(0, me.v - BRAKE * dt);
-    else if (me.v < top) me.v = Math.min(top, me.v + ACC * dt); else me.v = Math.max(top, me.v - (kerb ? 0.5 : 0.25) * dt);
+    else if (me.v < top) me.v = Math.min(top, me.v + ACC * dt); else me.v = Math.max(top, me.v - 0.25 * dt);
     me.boost = Math.max(0, me.boost - dt * 0.12);
     // Derrapagem: virando forte em velocidade, a carga sobe (faíscas azuis, depois laranja); ao soltar, turbo curto.
-    const drifting = Math.abs(steer) > 0.5 && me.v > 0.17 && !kerb;
+    const drifting = Math.abs(steer) > 0.5 && me.v > 0.17;
     if (drifting) me.drift += dt;
     else { if (me.drift > 0.6) { const big = me.drift > 1.3; me.boost = Math.max(me.boost, big ? 0.085 : 0.055); me.v = Math.max(me.v, VMAX + (big ? 0.06 : 0.035)); sfx('boost'); buzz(big ? 30 : 18); if (big) flash('Super derrapada!', 'boost', 0.7); } me.drift = 0; }
     const ahead = (me.i + 4) % N, tan = Math.atan2(TZ[ahead], TX[ahead]), err = wrapA(tan - me.h);
@@ -458,13 +458,13 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     me.lat = (me.x - X[i]) * nx + (me.z - Z[i]) * nz;
     const EDGE = edgeAt(i);
     if (Math.abs(me.lat) > EDGE) {
-      // Encostou na mureta: o kart fica rente a ela e desliza junto, virando para dentro da pista.
+      // Encostou na mureta: o kart fica rente a ela e desliza junto, virando para dentro da pista, sem perder
+      // velocidade (só faísca e um toque de som quando bate de frente).
       const push = me.lat - Math.sign(me.lat) * EDGE; me.x -= nx * push; me.z -= nz * push; me.lat -= push;
       const into = Math.abs(wrapA(Math.atan2(TZ[i], TX[i]) - me.h));
       me.h += wrapA(Math.atan2(TZ[i], TX[i]) - me.h) * 0.35;
-      me.v *= 1 - Math.min(0.5, into * 1.2) * Math.min(1, dt * 20);
       if (n - me.hitAt > 0.35 && into > 0.12) {
-        me.hitAt = n; me.v *= 0.8; me.drift = 0; sfx('bump'); buzz(25);
+        me.hitAt = n; sfx('bump'); buzz(25);
         for (let k = 0; k < 6; k++) race.fx(me.x + nx * Math.sign(me.lat) * 0.01, yAt(me.x, me.z, me.y) + 0.006, me.z + nz * Math.sign(me.lat) * 0.01, (R() - 0.5) * 0.1, 0.05 + R() * 0.05, (R() - 0.5) * 0.1, 0.35, '#fff6d8', 0.9);
       }
     }
@@ -500,11 +500,12 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     for (const a of ais) {
       const ai = Math.floor((((a.prog % L) + L) % L) / ds);
       let lim = 1; for (let k = 0; k < 12; k += 2) lim = Math.min(lim, track.VL[(ai + k) % N]);
-      // Competitivos: fazem as curvas mais perto do limite e, se você abre vantagem, apertam forte (até ~27% mais
-      // rápidos); se eles abrem, aliviam só um pouco.
-      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.35 : a.mood === 'agressiva' ? 1 : 0.85);
-      let target = Math.min(0.28, lim * 1.2) * a.skill * (a.fin ? 0.6 : rubber);
-      if (a.mood === 'final' && a.prog > (LAPS - 1) * L && !a.fin) target *= 1.07;
+      // Equilibrados: nas retas chegam quase à sua velocidade máxima; se você abre vantagem, apertam (até ~20% mais
+      // rápidos) e, se eles abrem, aliviam um pouco. Primeiro eram fortes demais (passavam da sua velocidade e apertavam
+      // até ~27%); depois ficaram fáceis; este é o meio-termo.
+      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.4 : a.mood === 'agressiva' ? 0.68 : 0.58);
+      let target = Math.min(0.266, lim * 1.22) * a.skill * (a.fin ? 0.6 : rubber);
+      if (a.mood === 'final' && a.prog > (LAPS - 1) * L && !a.fin) target *= 1.06;
       if (a.mood === 'erra' && race.state === 'run') { a.nextSlip -= dt; if (a.nextSlip < 0 && lim < 0.8) { a.slowUntil = n + 0.7; a.nextSlip = 6 + R() * 8; } if (n < a.slowUntil) target *= 0.72; }
       { const as = ((a.prog % L) + L) % L; for (const p of track.pads) if (as > p.s0 && as < p.s1 && !(a.boostT > 0)) a.boostT = 0.8; }  // também pegam as faixas de turbo
       if (a.boostT > 0) { a.boostT -= dt; target += 0.07; }
@@ -531,7 +532,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       const dx = me.x - a.x, dz = me.z - a.z, d = Math.hypot(dx, dz);
       if (d < 0.015 && d > 1e-5 && Math.abs(me.y - a.y) < 0.02) {
         const k = (0.015 - d) / d; me.x += dx * k; me.z += dz * k;
-        if (nowS() < me.shieldUntil) a.v *= 0.8; else me.v *= 0.9;
+        if (nowS() < me.shieldUntil) a.v *= 0.8; else me.v *= 0.97;
         if (n - me.hitAt > 0.35) { me.hitAt = n; sfx('bump'); buzz(20); }
       }
       if (!a.fin && a.prog >= LAPS * L) a.fin = ++race.order;
