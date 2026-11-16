@@ -926,8 +926,9 @@ export function createMiniverso(rootEl, opts = {}) {
       vc.project(worldCamera);
       const el = labels[i];
       el.style.transform = `translate(${((vc.x * 0.5 + 0.5) * stage.clientWidth).toFixed(1)}px, ${((-vc.y * 0.5 + 0.5) * stage.clientHeight).toFixed(1)}px) translate(-50%, -100%)`;
-      // Cada rótulo acende quando a faixa de luz passa pela sua área.
-      const shownByScan = smooth(edge, edge + 0.12, n.dot(revealUniforms.uRevealAxis.value)) * smooth(0.74, 0.77, p);
+      // Cada rótulo acende quando a faixa de luz passa pela sua área, mas só depois que o contador "Formando o
+      // Miniverso" some: antes, os rótulos apareciam por cima da porcentagem e embaralhavam o número.
+      const shownByScan = smooth(edge, edge + 0.12, n.dot(revealUniforms.uRevealAxis.value)) * smooth(0.74, 0.77, p) * (reduced ? 1 : smooth(0.93, 0.97, p));
       el.style.opacity = (Math.max(worldUi, shownByScan) * smooth(0.05, 0.35, facing) * (1 - focusT)).toFixed(3);
       el.classList.toggle('live', worldLive && facing > 0.2 && focusT < 0.5);
       el.classList.toggle('on', hoverZone === i);
