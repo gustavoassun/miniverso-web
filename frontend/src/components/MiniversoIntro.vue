@@ -815,6 +815,25 @@ onUnmounted(() => {
   .capa-bar .actions { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
   .capa-bar .chip { padding: 7px 11px 7px 8px; font-size: 11px; gap: 7px; }
 }
+/* Celular baixo (iPhone SE, Androids pequenos): os botões do meio ficam logo abaixo dos óculos e o título subiria até
+   eles. O título fica menor e mais largo, numa linha só (ou duas no celular mais estreito), e desce um pouco. */
+@media (max-width: 760px) and (max-height: 760px) {
+  .capa-bottom { bottom: calc(114px + env(safe-area-inset-bottom, 0px)); }
+  .capa-bottom h1 { font-size: 34px; max-width: none; }
+}
+@media (max-width: 760px) and (max-height: 620px) { .capa-bottom h1 { font-size: 28px; } }   /* o mais baixo de todos (320×568) */
+/* Celular deitado: não cabe tudo empilhado. Ficam o nome com o óculos, os botões logo abaixo dele e a barra no pé;
+   a frase grande, o texto do topo e o "arraste" saem. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .capa-top, .capa-bottom, .hint { display: none; }
+  .capa-cta { top: calc(50% + var(--hint-y, 90px) - 6px); }
+  .capa-cta button { height: 36px; padding: 0 14px; font-size: 13px; }
+  .capa-bar { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); padding-top: 10px; }
+  .capa-bar .step { display: none; }
+  .capa-bar .chip { padding: 6px 11px 6px 8px; font-size: 11px; gap: 7px; }
+  .world h2 { max-width: none; font-size: 30px; }                     /* no planeta, o título numa linha para não tampar o mundo */
+  .world-label { display: none; }
+}
 @media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; }
   .zone-card { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 20px); padding: 12px 12px 10px; gap: 8px; }
   .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .poi-name { font-size: 16px; } .zone-card .poi-text { font-size: 14.5px; } .zone-card .zone-info { padding: 6px 10px; }

@@ -726,7 +726,10 @@ export function createMiniverso(rootEl, opts = {}) {
     const pxPerUnit = (stage.clientWidth / 2) / (fit * tan * camera.aspect);
     const gap = Math.max(14, stage.clientWidth * 0.02), gutter = Math.max(16, stage.clientWidth * 0.04);
     const room = stage.clientWidth - 2 * gutter - miniW - versoW - 2 * gap;
-    const capaScale = clamp(Math.min(stage.clientWidth * 0.4, room) / 2 / (HALF_W * pxPerUnit), 0.3, 1);
+    // Tela deitada (notebook baixo, celular deitado): o óculos também respeita a altura (até 32% dela; 26% no celular
+    // deitado), para não encostar no texto do topo nem jogar os botões em cima da barra. No desktop comum nada muda.
+    const hFrac = stage.clientHeight < 500 ? 0.26 : 0.32, maxW = camera.aspect > 1 ? stage.clientHeight * hFrac * HALF_W / HALF_H : Infinity;
+    const capaScale = clamp(Math.min(stage.clientWidth * 0.4, room, maxW) / 2 / (HALF_W * pxPerUnit), 0.2, 1);
     rig.scale.setScalar(mix(capaScale, 1, grow) * appear);
     const hw = HALF_W * capaScale * pxPerUnit;
     root.style.setProperty('--mini-x', `${(-(hw + gap) - (miniW - versoW) / 2).toFixed(1)}px`);
