@@ -460,6 +460,19 @@ export function createMusic() {
     boost: t => { noise(t, 0.45, 'bandpass', 1800, 1.2, 0.12, buses.sfxRev); tone(t, 'sawtooth', 220, 0.45, 0.04, buses.sfx, { freqEnd: 880, filter: 2400 }); },
     bump: t => { tone(t, 'sine', 95, 0.18, 0.2, buses.sfx, { freqEnd: 45 }); noise(t, 0.08, 'lowpass', 600, 0.8, 0.12, buses.sfx); },
     whoosh: t => noise(t, 0.3, 'bandpass', 1200, 1.5, 0.08, buses.sfxRev),
+    // Corrida de kart: cada momento com o seu som.
+    pickup: t => { [84, 88, 91, 96].forEach((m, k) => tone(t + k * 0.035, 'sine', mtof(m), 0.25, 0.05, buses.sfxRev)); noise(t, 0.18, 'highpass', 6000, 0.8, 0.05, buses.sfxRev); },   // caixa: plim de cristal
+    roll: (t, a = 0) => tone(t, 'square', mtof(79 + (a % 3) * 4), 0.035, 0.025, buses.sfx, { filter: 3500 }),                                     // roleta do item: tic
+    ready: t => { tone(t, 'triangle', mtof(88), 0.2, 0.06, buses.sfxRev); tone(t + 0.08, 'triangle', mtof(95), 0.45, 0.06, buses.sfxRev); },           // item pronto: ding
+    nitro: t => { noise(t, 0.12, 'lowpass', 500, 0.8, 0.25, buses.sfx); noise(t + 0.05, 0.9, 'bandpass', 900, 0.9, 0.14, buses.sfxRev, { freqEnd: 3200 }); tone(t + 0.04, 'sawtooth', 110, 0.9, 0.05, buses.sfx, { freqEnd: 660, filter: 1800 }); },   // turbo: ignição e jato
+    plop: t => { tone(t, 'sine', 700, 0.12, 0.09, buses.sfx, { freqEnd: 220 }); tone(t + 0.11, 'sine', 300, 0.1, 0.06, buses.sfx, { freqEnd: 420 }); },    // banana largada: plop
+    slip: t => { noise(t, 0.5, 'bandpass', 2600, 4, 0.1, buses.sfx, { freqEnd: 900 }); [0, 1, 2, 3, 4, 5].forEach(k => tone(t + k * 0.09, 'sine', k % 2 ? 330 - k * 25 : 440 - k * 25, 0.1, 0.06, buses.sfx)); },   // escorregão: derrapada + uó-uó
+    shieldOn: t => { [72, 79, 84, 91].forEach((m, k) => tone(t + k * 0.05, 'sine', mtof(m), 0.7, 0.035, buses.sfxRev, { attack: 0.03 })); },             // escudo ligando: brilho
+    deflect: t => { tone(t, 'triangle', 1760, 0.25, 0.06, buses.sfxRev); tone(t, 'sine', 2640, 0.35, 0.04, buses.sfxRev); },                            // escudo bloqueou: ting
+    charge: (t, a = 0) => { tone(t, 'square', mtof(76 + a), 0.06, 0.035, buses.sfx, { filter: 4000 }); tone(t + 0.06, 'square', mtof(83 + a), 0.09, 0.035, buses.sfx, { filter: 4000 }); },   // derrapagem carregou
+    pad: t => { tone(t, 'square', 330, 0.22, 0.04, buses.sfx, { freqEnd: 1320, filter: 3000 }); noise(t, 0.2, 'highpass', 3000, 0.7, 0.06, buses.sfxRev); },   // faixa de turbo: zap
+    up: t => { tone(t, 'square', mtof(84), 0.06, 0.035, buses.sfx, { filter: 4500 }); tone(t + 0.06, 'square', mtof(91), 0.1, 0.035, buses.sfx, { filter: 4500 }); },   // ganhou posição
+    down: t => { tone(t, 'square', mtof(79), 0.07, 0.03, buses.sfx, { filter: 2500 }); tone(t + 0.07, 'square', mtof(74), 0.12, 0.03, buses.sfx, { filter: 2500 }); },   // perdeu posição
     paddle: t => tone(t, 'square', 440, 0.06, 0.05, buses.sfx, { filter: 2400 }),
     lap: t => { tone(t, 'triangle', mtof(81), 0.14, 0.07, buses.sfx); tone(t + 0.1, 'triangle', mtof(88), 0.3, 0.07, buses.sfxRev); },
     lose: t => [72, 69, 65, 60].forEach((m, k) => tone(t + k * 0.16, 'square', mtof(m), 0.2, 0.045, buses.sfx, { filter: 1800 })),
@@ -523,20 +536,36 @@ export function createMusic() {
     // Motor do kart: level de 0 (marcha lenta) a 1+ (turbo); null desliga. Dois osciladores com filtro e um leve tremor.
     engine(level) {
       if (level == null || !master || ctx.state !== 'running' || !isOn()) {
-        if (motor) { const m = motor; motor = null; ramp(m.g.gain, 0, 0.08); setTimeout(() => { m.a.stop(); m.b.stop(); m.l.stop(); }, 500); }
+        if (motor) { const m = motor; motor = null; ramp(m.g.gain, 0, 0.08); setTimeout(() => { for (const o of m.os) o.stop(); }, 500); }
         return;
       }
+      // Motor sutil e encorpado, de fundo: grave com um pouco de brilho, sem chiar. Cinco marchas: o giro sobe dentro de
+      // cada uma e cai de leve na troca ("zan... zan... zaam"); no turbo sobe só um pouco.
       if (!motor) {
-        const a = ctx.createOscillator(), b = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
-        a.type = 'sawtooth'; b.type = 'square'; b.detune.value = -1200 + 7; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
-        l.frequency.value = 18; lg.gain.value = 0.012; l.connect(lg).connect(g.gain);
-        a.connect(f); b.connect(f); f.connect(g).connect(buses.sfx); a.start(); b.start(); l.start();
-        motor = { a, b, f, g, l };
+        const mk = (type, gain) => { const o = ctx.createOscillator(), gg = ctx.createGain(); o.type = type; gg.gain.value = gain; o.connect(gg); return [o, gg]; };
+        const [a, ag] = mk('sawtooth', 0.6), [b, bg] = mk('triangle', 0.18), [c, cg] = mk('sine', 0.9);   // mais corpo, menos chiado
+        const ws = ctx.createWaveShaper(), curve = new Float32Array(1024);
+        for (let i = 0; i < 1024; i++) { const x = i / 511.5 - 1; curve[i] = Math.tanh(x * 1.3); }
+        ws.curve = curve;
+        const f = ctx.createBiquadFilter(), hp = ctx.createBiquadFilter(), g = ctx.createGain(), l = ctx.createOscillator(), lg = ctx.createGain();
+        f.type = 'lowpass'; f.Q.value = 1.2; hp.type = 'highpass'; hp.frequency.value = 50; g.gain.value = 0;
+        l.frequency.value = 30; lg.gain.value = 0.003; l.connect(lg).connect(g.gain);
+        for (const n of [ag, bg, cg]) n.connect(ws);
+        ws.connect(f).connect(hp).connect(g).connect(buses.sfx);
+        for (const o of [a, b, c, l]) o.start();
+        motor = { a, b, c, f, g, l, os: [a, b, c, l], gear: 0 };
       }
       const n = ctx.currentTime, k = Math.max(0, Math.min(1.3, level));
-      motor.a.frequency.setTargetAtTime(48 + k * 120, n, 0.08); motor.b.frequency.setTargetAtTime(48 + k * 120, n, 0.08);
-      motor.f.frequency.setTargetAtTime(380 + k * 1500, n, 0.08); motor.g.gain.setTargetAtTime(0.03 + k * 0.025, n, 0.1);
-      motor.l.frequency.setTargetAtTime(14 + k * 30, n, 0.1);
+      const G = 5, gx = Math.min(G - 0.001, k * G), gear = Math.floor(gx);
+      let rpm = k < 0.03 ? 0.22 : 0.4 + 0.6 * (gx - gear);
+      if (k > 1) rpm = 1 + (k - 1) * 0.25;                                              // turbo: passa do limite
+      if (gear > motor.gear && k > 0.1) { motor.g.gain.cancelScheduledValues(n); motor.g.gain.setValueAtTime(motor.g.gain.value * 0.75, n); }   // troca de marcha
+      motor.gear = gear;
+      const base = 70 + rpm * 190 + gear * 10;                                      // grave e encorpado (antes ia a 600 Hz e ficava fino)
+      motor.a.frequency.setTargetAtTime(base, n, 0.045); motor.b.frequency.setTargetAtTime(base * 2, n, 0.045); motor.c.frequency.setTargetAtTime(base * 0.5, n, 0.045);
+      motor.f.frequency.setTargetAtTime(450 + rpm * 1200, n, 0.06);
+      motor.g.gain.setTargetAtTime(0.011 + Math.min(1, k) * 0.012 + Math.max(0, k - 1) * 0.008, n, 0.07);   // sutil, mas presente
+      motor.l.frequency.setTargetAtTime(base / 5, n, 0.05);                          // a vibração da combustão acompanha o giro
     },
     dispose() { clearInterval(timer); clearTimeout(sus); if (idleBuild) { if ('cancelIdleCallback' in window) cancelIdleCallback(idleBuild); clearTimeout(idleBuild); } ctx?.close(); ctx = null; }
   };

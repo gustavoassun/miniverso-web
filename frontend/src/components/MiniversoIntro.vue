@@ -705,8 +705,9 @@ onUnmounted(() => {
 /* Na escolha da cor do kart a janela vai para a esquerda (no celular, para baixo) e o kart aparece na vitrine. */
 .how.side { left: max(24px, calc(50% - 470px)); translate: 0 -50%; }
 @media (max-width: 760px), (orientation: portrait) { .how.side { left: 50%; top: auto; bottom: 16px; translate: -50% 0; gap: 6px; padding: 14px 16px 12px; } .how.side .how-steps { display: none; } }
-/* Celular: com o "Como jogar" aberto, o cartão da área sai de baixo (ele cobria a janela, a escolha da cor e o Jogar). */
-@media (max-width: 760px) { .stage:has(> .how:not([hidden])) > .zone-card { display: none; } }
+/* Com o "Como jogar" aberto, o cartão da área sai de baixo em qualquer tela (no tablet em pé e em telas médias ele
+   ficava por cima da janela, da escolha da cor e do Jogar); volta quando a janela fecha. */
+.stage:has(> .how:not([hidden])) > .zone-card { display: none; }
 /* Celular, com um jogo rolando: o cartão da área sai (o "Sair do jogo" fica no topo), sobrando a tela para o jogo, e
    os controles da corrida descem para onde o polegar alcança. */
 @media (max-width: 760px) {

@@ -346,17 +346,18 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
   function startRace() {
     stopGame();
     const K = race.karts;
-    // Grid: você larga na segunda fila, à esquerda.
-    trackAt(-0.085, -0.013, pt);
-    me = { sp: undefined, k: K[0], x: pt.x, z: pt.z, h: pt.h, y: 0, v: 0, st: 0, prog: -0.085, lane: -0.013, lat: -0.013, i: Math.round((track.L - 0.085) / track.ds) % track.N, lap: 0, lapAt: 0, fin: 0, boost: 0, hitAt: -9, drift: 0, spin: 0, item: null, rollAt: 0, shieldUntil: 0 };
+    // Grid: você larga em último, sozinho atrás de todo mundo, e tem que ir buscar as posições.
+    const START = -0.185;
+    trackAt(START, 0, pt);
+    me = { sp: undefined, k: K[0], x: pt.x, z: pt.z, h: pt.h, y: 0, v: 0, st: 0, prog: START, lane: 0, lat: 0, i: Math.round((track.L + START) / track.ds) % track.N, lap: 0, lapAt: 0, fin: 0, boost: 0, hitAt: -9, drift: 0, spin: 0, item: null, rollAt: 0, shieldUntil: 0 };
     // Rivais com jeito próprio: Rosa é agressiva e cola em quem está na frente; Azul é rápido mas às vezes erra a
     // curva; Verde guarda força e acelera na última volta.
     // Cinco rivais competitivos: Rosa e Roxo são agressivos, Azul é muito rápido mas às vezes erra, Verde e Laranja
     // guardam força para a última volta. Você larga no meio do grid.
-    ais = [[K[1], -0.035, -0.013, 1, 'agressiva'], [K[2], -0.035, 0.013, 0.99, 'erra'], [K[3], -0.085, 0.013, 0.95, 'final'], [K[4], -0.135, -0.013, 0.98, 'agressiva'], [K[5], -0.135, 0.013, 0.96, 'final']]
+    ais = [[K[1], -0.035, -0.013, 1, 'agressiva'], [K[2], -0.035, 0.013, 0.99, 'erra'], [K[3], -0.085, 0.013, 0.96, 'final'], [K[4], -0.085, -0.013, 0.98, 'agressiva'], [K[5], -0.135, 0.013, 0.97, 'final']]
       .map(([k, prog, lane, skill, mood]) => ({ k, prog, lane, laneT: lane, skill, mood, v: 0, fin: 0, x: 0, z: 0, spin: 0, boostT: 0, dropAt: 0, slowUntil: 0, nextSlip: 4 + R() * 6 }));
     for (const a of [me, ...ais]) { trackAt(a.prog, a.lane, pt); a.x = pt.x; a.z = pt.z; a.k.place(pt.x, pt.z, pt.h, 0, pt.y); }
-    race.bananas.length = 0; for (const it of race.items) it.off = -9; race.shield.visible = false;
+    race.lastPos = 0; race.bananas.length = 0; for (const it of race.items) it.off = -9; race.shield.visible = false;
     Object.assign(race, { state: 'grid', last: nowS(), order: 0, gridAt: nowS() }); setLights(0, false); lights = 0;
     input.l = input.r = input.b = false; compact(true); boardKey = '';
     intro('race', goRace); howColors.hidden = false; how.classList.add('side'); paintPick();
@@ -401,34 +402,35 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       it.off = rt.clock;
       for (let k = 0; k < 10; k++) race.fx(it.x, it.y, it.z, (R() - 0.5) * 0.12, R() * 0.1, (R() - 0.5) * 0.12, 0.5, ['#ff4fd8', '#ffc56b', '#7fe9ff', '#3ee0b5'][k % 4], 1.2);
       if (a === me) {
-        if (!me.item && !me.rollAt) { me.rollAt = n; sfx('bonus'); buzz(20); }
+        if (!me.item && !me.rollAt) { me.rollAt = n; me.rollTick = -1; sfx('pickup'); buzz(20); }
       } else if (R() < 0.5) { a.boostT = 1.3; } else { a.dropAt = n + 0.8 + R() * 1.5; }
     }
   }
   function useItem() {
     if (!me || race.state !== 'run' || !me.item) return;
     const it = me.item; me.item = null; rhItem.textContent = ''; rhItem.classList.remove('has');
-    if (it === 'turbo') { me.boost = 0.11; me.v = Math.max(me.v, VMAX + 0.09); sfx('boost'); buzz(35); flash('TURBO!', 'boost', 0.8); }
-    else if (it === 'banana') { dropBanana(me.prog - 0.03, me.lat); sfx('whoosh'); buzz(12); }
-    else { me.shieldUntil = nowS() + 6; sfx('bonus'); buzz(20); flash('ESCUDO!', 'shield', 0.8); }
+    if (it === 'turbo') { me.boost = 0.11; me.v = Math.max(me.v, VMAX + 0.09); sfx('nitro'); buzz(35); flash('TURBO!', 'boost', 0.8); }
+    else if (it === 'banana') { dropBanana(me.prog - 0.03, me.lat, me); sfx('plop'); buzz(12); }
+    else { me.shieldUntil = nowS() + 6; sfx('shieldOn'); buzz(20); flash('ESCUDO!', 'shield', 0.8); }
   }
-  function dropBanana(prog, lane) {
+  function dropBanana(prog, lane, by) {
     trackAt(prog, lane, pt);
-    race.bananas.push({ x: pt.x, z: pt.z, y: yAt(pt.x, pt.z, pt.y), at: rt.clock });
+    race.bananas.push({ x: pt.x, z: pt.z, y: yAt(pt.x, pt.z, pt.y), at: rt.clock, by });
     if (race.bananas.length > 6) race.bananas.shift();
   }
   // Escorregou na casca: o kart dá uma volta inteira, perde quase toda a velocidade e solta estrelinhas.
-  function slip(a, n) {
+  function slip(a, n, by) {
     a.spin = 1; a.v *= 0.3;
     for (let k = 0; k < 8; k++) race.fx(a.x, yAt(a.x, a.z, a.y ?? 0) + 0.012, a.z, (R() - 0.5) * 0.1, 0.06 + R() * 0.05, (R() - 0.5) * 0.1, 0.6, '#ffd23f', 1.1);
-    if (a === me) { sfx('bad'); buzz([40, 30, 60]); flash('Escorregou!', 'bad', 0.9); }
+    if (a === me) { sfx('slip'); buzz([40, 30, 60]); flash('Escorregou!', 'bad', 0.9); }
+    else if (by === me) { sfx('slip'); sfx('good', 0, 0.25); buzz(15); flash(`Acertou o ${a.k.name}! 🍌`, 'boost', 1); }   // a sua banana pegou um rival
   }
   function bananaHits(a, n) {
     for (let i = race.bananas.length - 1; i >= 0; i--) {
       const b = race.bananas[i]; if ((a.x - b.x) ** 2 + (a.z - b.z) ** 2 > 0.01 ** 2 || rt.clock - b.at < 0.4) continue;
       race.bananas.splice(i, 1);
-      if (a === me && nowS() < me.shieldUntil) { sfx('paddle'); continue; }
-      slip(a, n);
+      if (a === me && nowS() < me.shieldUntil) { sfx('deflect'); buzz(12); flash('Bloqueou! 🛡️', 'shield', 0.7); continue; }
+      slip(a, n, b.by);
     }
   }
   // Chama do turbo e poeira: partículas saindo de trás do kart.
@@ -453,8 +455,8 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     me.boost = Math.max(0, me.boost - dt * 0.12);
     // Derrapagem: virando forte em velocidade, a carga sobe (faíscas azuis, depois laranja); ao soltar, turbo curto.
     const drifting = Math.abs(steer) > 0.5 && me.v > 0.17;
-    if (drifting) me.drift += dt;
-    else { if (me.drift > 0.6) { const big = me.drift > 1.3; me.boost = Math.max(me.boost, big ? 0.085 : 0.055); me.v = Math.max(me.v, VMAX + (big ? 0.06 : 0.035)); sfx('boost'); buzz(big ? 30 : 18); if (big) flash('Super derrapada!', 'boost', 0.7); } me.drift = 0; }
+    if (drifting) { const d0 = me.drift; me.drift += dt; if (d0 < 0.6 && me.drift >= 0.6) sfx('charge', 0); else if (d0 < 1.3 && me.drift >= 1.3) sfx('charge', 7); }   // carga azul, depois laranja
+    else { if (me.drift > 0.6) { const big = me.drift > 1.3; me.boost = Math.max(me.boost, big ? 0.085 : 0.055); me.v = Math.max(me.v, VMAX + (big ? 0.06 : 0.035)); sfx(big ? 'nitro' : 'boost'); buzz(big ? 30 : 18); if (big) flash('Super derrapada!', 'boost', 0.7); } me.drift = 0; }
     const ahead = (me.i + 4) % N, tan = Math.atan2(TZ[ahead], TX[ahead]), err = wrapA(tan - me.h);
     me.h += me.st * 2.8 * (drifting ? 1.12 : 1) * (1 - 0.25 * Math.min(1, me.v / VMAX)) * Math.min(1, me.v / 0.05) * dt;
     if (Math.abs(steer) < 0.5) me.h += err * Math.min(1, dt * 1.6);                       // solta o volante: alinha com a pista
@@ -476,7 +478,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     let dsI = i - me.i; if (dsI > N / 2) dsI -= N; if (dsI < -N / 2) dsI += N; me.prog += dsI * ds; me.i = i;
     me.y = trackAt(me.prog, 0, ptY).y;                                                      // altura exata da pista (rampa do viaduto)
     const s = ((me.prog % L) + L) % L;
-    for (const p of track.pads) if (s > p.s0 && s < p.s1 && Math.abs(me.lat - p.lat) < 0.014 && me.boost < 0.06) { me.boost = 0.1; me.v = Math.max(me.v, VMAX + 0.08); sfx('boost'); buzz(35); flash('TURBO!', 'boost', 0.7); }
+    for (const p of track.pads) if (s > p.s0 && s < p.s1 && Math.abs(me.lat - p.lat) < 0.014 && me.boost < 0.06) { me.boost = 0.1; me.v = Math.max(me.v, VMAX + 0.08); sfx('pad'); sfx('boost', 0, 0.05); buzz(35); flash('TURBO!', 'boost', 0.7); }
     // Faíscas da derrapagem nas rodas de trás e poeira na zebra.
     const gy = yAt(me.x, me.z, me.y);
     if (drifting && me.drift > 0.25) for (const sd of [-1, 1]) {
@@ -489,8 +491,8 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     // Roleta do item: gira os ícones por 0,8 s e para num item.
     if (me.rollAt) {
       const e = n - me.rollAt, keys = Object.keys(ITEMS);
-      if (e < 0.8) rhItem.textContent = ITEMS[keys[Math.floor(e * 14) % 3]];
-      else { const pos = standings().indexOf(me); const pick = pos >= 2 && R() < 0.55 ? 'turbo' : keys[Math.floor(R() * 3)]; me.item = pick; me.rollAt = 0; rhItem.textContent = ITEMS[pick]; rhItem.classList.add('has'); sfx('good'); buzz(15); }
+      if (e < 0.8) { const k = Math.floor(e * 14); rhItem.textContent = ITEMS[keys[k % 3]]; if (k !== me.rollTick) { me.rollTick = k; sfx('roll', k); } }   // tic a cada ícone
+      else { const pos = standings().indexOf(me); const pick = pos >= 2 && R() < 0.55 ? 'turbo' : keys[Math.floor(R() * 3)]; me.item = pick; me.rollAt = 0; rhItem.textContent = ITEMS[pick]; rhItem.classList.add('has'); sfx('ready'); buzz(15); }
     }
   }
   function drive(dt, n) {
@@ -508,13 +510,17 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       // Equilibrados: nas retas chegam quase à sua velocidade máxima; se você abre vantagem, apertam (até ~20% mais
       // rápidos) e, se eles abrem, aliviam um pouco. Primeiro eram fortes demais (passavam da sua velocidade e apertavam
       // até ~27%); depois ficaram fáceis; este é o meio-termo.
-      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.4 : a.mood === 'agressiva' ? 0.68 : 0.58);
+      const gap = Math.max(-0.3, Math.min(0.3, (me.prog - a.prog) / L)), rubber = 1 + gap * (gap < 0 ? 0.2 : a.mood === 'agressiva' ? 0.68 : 0.58);   // na frente, aliviam pouco
       let target = Math.min(0.266, lim * 1.22) * a.skill * (a.fin ? 0.6 : rubber);
       if (a.mood === 'final' && a.prog > (LAPS - 1) * L && !a.fin) target *= 1.06;
       if (a.mood === 'erra' && race.state === 'run') { a.nextSlip -= dt; if (a.nextSlip < 0 && lim < 0.8) { a.slowUntil = n + 0.7; a.nextSlip = 6 + R() * 8; } if (n < a.slowUntil) target *= 0.72; }
       { const as = ((a.prog % L) + L) % L; for (const p of track.pads) if (as > p.s0 && as < p.s1 && !(a.boostT > 0)) a.boostT = 0.8; }  // também pegam as faixas de turbo
       if (a.boostT > 0) { a.boostT -= dt; target += 0.07; }
       if (a.spin > 0) { a.spin = Math.max(0, a.spin - dt * 1.1); target *= 0.4; }
+      // Defendem a posição: com você colado atrás, o rival vai devagar para a sua faixa e fecha a passagem (as
+      // agressivas fecham mais). Dá para passar enganando pelo outro lado, mas exige jeito.
+      { const behind = a.prog - me.prog;
+        if (race.state === 'run' && !a.fin && a.spin <= 0 && behind > 0.004 && behind < 0.05) a.laneT = Math.max(-0.013, Math.min(0.013, me.lat)) * (a.mood === 'agressiva' ? 1 : 0.75); }
       for (const o of [me, ...ais]) {
         if (o === a) continue;
         const ahead = o.prog - a.prog;
@@ -582,7 +588,7 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
       if (n - race.greenAt > 1.2) { setLights(0, false); race.greenAt = Infinity; }
       drive(dt, n);
       const pos = standings().indexOf(me) + 1;
-      if (pos !== race.lastPos) { race.lastPos = pos; rhPos.innerHTML = `${pos}º<small>/${ais.length + 1}</small>`; rhPos.classList.remove('pop'); void rhPos.offsetWidth; rhPos.classList.add('pop'); }
+      if (pos !== race.lastPos) { if (race.lastPos) sfx(pos < race.lastPos ? 'up' : 'down'); race.lastPos = pos; rhPos.innerHTML = `${pos}º<small>/${ais.length + 1}</small>`; rhPos.classList.remove('pop'); void rhPos.offsetWidth; rhPos.classList.add('pop'); }
       rhLap.textContent = `Volta ${Math.min(LAPS, me.lap + 1)}/${LAPS}`;
       board(`VOLTA ${Math.min(LAPS, me.lap + 1)}/${LAPS}`);
       if (me.prog >= LAPS * track.L) {
