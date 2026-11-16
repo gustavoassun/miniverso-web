@@ -26,9 +26,16 @@ export default defineConfig({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,webp,woff,woff2,glb}'],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api(?:\/|$)/],
+        // A página (index.html) NÃO fica guardada no precache: ao abrir o site com internet ela vem sempre da rede, já na
+        // versão mais nova (ninguém precisa limpar o cache). Sem internet, ou se a rede demorar mais de 3 s, usa a cópia
+        // guardada da última visita. Os outros arquivos têm nome com versão, então podem ficar guardados à vontade.
+        globPatterns: ['**/*.{js,css,svg,png,webp,woff,woff2,glb}'],
+        navigateFallback: null,
+        runtimeCaching: [{
+          urlPattern: ({ request, url }) => request.mode === 'navigate' && !url.pathname.startsWith('/api'),
+          handler: 'NetworkFirst',
+          options: { cacheName: 'miniverso-paginas', networkTimeoutSeconds: 3, expiration: { maxEntries: 20 } }
+        }],
         cleanupOutdatedCaches: true,
         clientsClaim: true                                    // a versão nova assume as abas assim que é aplicada
       }

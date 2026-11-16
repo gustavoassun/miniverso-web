@@ -3,8 +3,10 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useRegisterSW } from 'virtual:pwa-register/vue';
 
-// Atualização automática: quando sai uma versão nova do site, ela é baixada em segundo plano e aplicada num momento
-// que não atrapalha (logo ao abrir, com a aba escondida ou ao trocar de página), sem precisar clicar em nada.
+// Atualização automática, sem limpar cache: ao abrir, a página já vem da rede na versão mais nova (ver vite.config).
+// Quando o service worker novo termina de baixar por trás, ele assume em silêncio, sem recarregar (a página aberta já é
+// a nova). Só uma aba aberta há muito tempo (mais de 30 min) recarrega, e num momento que não atrapalha (aba escondida
+// ou troca de página).
 // O site procura versões novas ao voltar para a aba, ao reconectar e a cada 20 minutos. Offline continua funcionando.
 const UPDATED_FLAG = 'miniverso:atualizado';
 const router = useRouter();
@@ -46,15 +48,17 @@ async function install() {
   try { await prompt.prompt(); await prompt.userChoice; }
   finally { installPrompt.value = null; installing.value = false; }
 }
-async function apply() {
+async function apply(reload = true) {
   if (applying) return; applying = true;
-  try { sessionStorage.setItem(UPDATED_FLAG, '1'); } catch { /* sem armazenamento */ }
-  try { await updateServiceWorker(true); } catch { applying = false; }
+  if (reload) try { sessionStorage.setItem(UPDATED_FLAG, '1'); } catch { /* sem armazenamento */ }
+  try { await updateServiceWorker(reload); } catch { /* tenta de novo na próxima */ }
+  if (!reload) { applying = false; needRefresh.value = false; }
 }
 // Momento seguro: nos primeiros segundos da visita ou com a aba escondida aplica já; senão, espera a próxima troca
 // de página ou a aba sair de foco (ninguém perde o que estava vendo no meio de um jogo ou de uma leitura).
 function applyWhenSafe() {
-  if (document.visibilityState === 'hidden' || performance.now() < 8000) apply(); else pendingApply = true;
+  if (performance.now() < 30 * 60 * 1000) apply(false);                          // página recém-aberta já é a nova: troca em silêncio
+  else if (document.visibilityState === 'hidden') apply(); else pendingApply = true;
 }
 watch(needRefresh, v => { if (v) applyWhenSafe(); });
 router.afterEach(() => { if (pendingApply) apply(); });
