@@ -16,11 +16,24 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
   // Efeitos da tela: rastro da bola, pontos subindo, combo (blocos seguidos sem tocar na raquete), tremida, clarão.
   let trail = [], pops = [], combo = 0, shake = 0, flash = 0, padFlash = 0;
   const stars = Array.from({ length: 46 }, () => ({ x: Math.random() * W, y: Math.random() * H, z: 0.3 + Math.random() * 0.7 }));
-  // Fundo pintado uma vez: degradê roxo, sol neon e chão de grade (estilo fliperama), mais a vinheta da tela.
+  // Fundo do Miniverso (pintado uma vez): o céu da capa do site (azul-noite e roxo), uma nebulosa suave e um planetinha
+  // com anel no canto. Por cima, a cada quadro, uma galáxia espiral em pixels girando devagar com a logo no centro.
   const bg = document.createElement('canvas'); bg.width = W; bg.height = H;
-  { const b = bg.getContext('2d'), gr = b.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#07041a'); gr.addColorStop(0.62, '#1c0a3a'); gr.addColorStop(1, '#2a0b3f'); b.fillStyle = gr; b.fillRect(0, 0, W, H);
-    const sun = b.createLinearGradient(0, 150, 0, 200); sun.addColorStop(0, 'rgba(255,197,107,.32)'); sun.addColorStop(1, 'rgba(255,79,216,.18)'); b.fillStyle = sun; b.beginPath(); b.arc(W / 2, 196, 46, Math.PI, 0); b.fill();
-    b.fillStyle = '#1c0a3a'; for (let k = 0; k < 5; k++) b.fillRect(W / 2 - 48, 160 + k * 8, 96, 2 + k * 0.6); }
+  { const b = bg.getContext('2d'), gr = b.createLinearGradient(0, 0, 0, H); gr.addColorStop(0, '#060612'); gr.addColorStop(0.55, '#0d1430'); gr.addColorStop(1, '#170f33'); b.fillStyle = gr; b.fillRect(0, 0, W, H);
+    for (const [cx, cy, r, c] of [[70, 70, 90, 'rgba(15,33,69,.55)'], [260, 190, 110, 'rgba(25,18,56,.7)'], [250, 40, 70, 'rgba(0,51,64,.35)']]) { const n = b.createRadialGradient(cx, cy, 0, cx, cy, r); n.addColorStop(0, c); n.addColorStop(1, 'rgba(0,0,0,0)'); b.fillStyle = n; b.fillRect(0, 0, W, H); }
+    // Planetinha do Miniverso no canto (pixel): bola ciano com sombra e um anel inclinado.
+    const PX = 34, PY = 196, PR = 11;
+    for (let yy = -PR; yy <= PR; yy++) for (let xx = -PR; xx <= PR; xx++) { const d = Math.hypot(xx, yy); if (d > PR) continue; const lit = (xx + yy) / PR < -0.25; b.fillStyle = lit ? '#2fd0f0' : d > PR - 2 ? '#0a4f7a' : '#0e78a8'; b.fillRect(PX + xx, PY + yy, 1, 1); }
+    b.fillStyle = 'rgba(127,233,255,.7)'; for (let k = 0; k < 64; k++) { const a = k / 64 * Math.PI * 2, rx = Math.cos(a) * 19, ry = Math.sin(a) * 5; if (ry < 0 && Math.hypot(rx * 0.95, ry * 2.2) < PR + 2 && Math.abs(rx) < PR) continue; b.fillRect(Math.round(PX + rx - ry * 0.5), Math.round(PY + ry + rx * 0.22), 1, 1); } }
+  // Galáxia espiral (pixels em duas cores, mais densa no centro), pintada uma vez e girada a cada quadro.
+  const GR = 92, gal = document.createElement('canvas'); gal.width = gal.height = GR * 2;
+  { const g = gal.getContext('2d'), cols = ['#7fe9ff', '#b07cff', '#ff4fd8', '#ffffff'];
+    const core = g.createRadialGradient(GR, GR, 0, GR, GR, 34); core.addColorStop(0, 'rgba(127,233,255,.42)'); core.addColorStop(1, 'rgba(127,233,255,0)'); g.fillStyle = core; g.fillRect(0, 0, GR * 2, GR * 2);
+    for (let i = 0; i < 900; i++) { const arm = i % 2, t = Math.random() ** 0.7, a = t * 7.2 + arm * Math.PI + (Math.random() - 0.5) * 0.7 * (1 - t * 0.5), r = 4 + t * (GR - 8);
+      g.globalAlpha = 0.4 + (1 - t) * 0.6; g.fillStyle = cols[t < 0.18 ? 0 : Math.random() < 0.08 ? 3 : (arm + (Math.random() < 0.3 ? 1 : 0)) % 2 + 1]; const sz = Math.random() < 0.12 ? 2 : 1; g.fillRect(Math.round(GR + Math.cos(a) * r), Math.round(GR + Math.sin(a) * r * 0.62), sz, sz); }
+    g.globalAlpha = 1; }
+  // A logo da Miniverso, bem clarinha, no meio da galáxia.
+  const logo = new Image(); logo.src = '/images/miniverso-logo.png';
   const vig = document.createElement('canvas'); vig.width = W; vig.height = H;
   { const v = vig.getContext('2d'), gr = v.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.55)'); v.fillStyle = gr; v.fillRect(0, 0, W, H); }
   let best = 0; try { best = Number(localStorage.getItem(BEST_KEY)) || 0; } catch { /* sem armazenamento */ }
@@ -90,12 +103,11 @@ export function createArcade({ el, on, onClose, sfx = () => {}, buzz = () => {} 
     x.save();
     if (shake > 0.1) { x.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake); shake *= 0.86; }
     x.drawImage(bg, 0, 0);
-    // Estrelas descendo devagar (mais perto, mais rápidas) e o chão de grade correndo na direção da tela.
-    for (const st of stars) { st.y += st.z * 14 * dt; if (st.y > 150) { st.y = 0; st.x = Math.random() * W; } x.fillStyle = `rgba(255,255,255,${0.25 + st.z * 0.55 * (0.7 + 0.3 * Math.sin(now * 3 + st.x))})`; x.fillRect(st.x, st.y, st.z > 0.8 ? 2 : 1, st.z > 0.8 ? 2 : 1); }
-    x.strokeStyle = 'rgba(255,79,216,.28)'; x.lineWidth = 1; x.beginPath();
-    for (let k = -8; k <= 8; k++) { x.moveTo(W / 2 + k * 8, 196); x.lineTo(W / 2 + k * 48, H); }
-    for (let k = 0; k < 6; k++) { const u = ((k + (now * 0.8) % 1) / 6), yy = 196 + u * u * 44; x.moveTo(0, yy); x.lineTo(W, yy); }
-    x.stroke();
+    // A galáxia girando devagar atrás do jogo, com a logo da Miniverso no centro (bem suave, para não atrapalhar a bola).
+    x.save(); x.translate(W / 2, 136); x.rotate(now * 0.05); x.globalAlpha = 0.95; x.imageSmoothingEnabled = false; x.drawImage(gal, -GR, -GR); x.restore();
+    if (logo.complete && logo.naturalWidth) { const lw = 92, lh = lw * logo.naturalHeight / logo.naturalWidth; x.globalAlpha = 0.26 + 0.05 * Math.sin(now * 1.4); x.drawImage(logo, W / 2 - lw / 2, 136 - lh / 2, lw, lh); x.globalAlpha = 1; }
+    // Estrelas passando devagar pelo céu inteiro (as mais perto, mais rápidas e maiores).
+    for (const st of stars) { st.y += st.z * 10 * dt; if (st.y > H) { st.y = 0; st.x = Math.random() * W; } x.fillStyle = `rgba(255,255,255,${0.25 + st.z * 0.55 * (0.7 + 0.3 * Math.sin(now * 3 + st.x))})`; x.fillRect(st.x, st.y, st.z > 0.8 ? 2 : 1, st.z > 0.8 ? 2 : 1); }
     // Placar dentro da tela.
     x.fillStyle = 'rgba(7,4,26,.75)'; x.fillRect(0, 0, W, 20); x.fillStyle = '#ff4fd8'; x.fillRect(0, 20, W, 1);
     x.font = '700 9px monospace'; x.textAlign = 'left'; x.fillStyle = '#7fe9ff'; x.fillText('PONTOS', 6, 9); x.fillStyle = '#ffffff'; x.font = '700 10px monospace'; x.fillText(String(score).padStart(5, '0'), 6, 18);

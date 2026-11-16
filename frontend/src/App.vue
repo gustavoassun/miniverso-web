@@ -72,7 +72,7 @@ html:not(.miniverso-glow-cursor) :is(a[href], button:not(:disabled), [role='butt
 /* Na Home, o cabeçalho entra com suavidade junto com a capa. */
 /* Na capa, o cabeçalho entra junto com o resto, depois do nome e do óculos (espera a tela de carregamento sair). */
 .immersive-shell .app-header { animation: header-in .9s ease .25s both; }
-.immersive-shell:has(.miniverso-intro) .app-header { animation-delay: 1.9s; }
+.immersive-shell:has(.miniverso-intro) .app-header { animation-delay: 2.4s; }
 html.intro-hold .immersive-shell .app-header { animation-play-state: paused; }
 .immersive-shell:has(.miniverso-intro[data-reduced]) .app-header { animation-delay: 0s; }
 @keyframes header-in { from { opacity: 0; transform: translateY(-8px); } }

@@ -203,9 +203,12 @@ function finishBoot() {
   if (booted.value || unmounted) return;
   // Pronto antes do ritmo normal: espera até 1 s depois de abrir e começa como sempre. Atrasado: começa já, com as
   // metades se afastando logo (o motor conta a entrada a partir do início dele).
-  const wait = reducedBoot ? 0 : openedAt + 1000 - performance.now();
-  const go = d => { if (unmounted) return; booted.value = true; document.documentElement.classList.remove('intro-hold'); engine?.start(d); };
-  if (wait > 0) startTimer = setTimeout(() => go(0), wait); else go(reducedBoot ? 0 : -800);
+  // A animação só começa com o nome já aberto por inteiro (+0,3 s de respiro); dali ela corre completa, sem pular etapas.
+  const anim = root.value?.querySelector('.mini .wipe')?.getAnimations?.()[0];
+  const namesEnd = anim && anim.startTime != null ? anim.startTime + 1800 : performance.now() + 1800;
+  const wait = reducedBoot ? 0 : Math.max(openedAt + 1000, namesEnd + 300) - performance.now();
+  const go = () => { if (unmounted) return; booted.value = true; document.documentElement.classList.remove('intro-hold'); engine?.start(0); };
+  if (wait > 0) startTimer = setTimeout(go, wait); else go();
 }
 const sceneLabel = `Óculos de realidade virtual em 3D. Arraste ou use as setas para girar; toque no visor ou pressione Enter para acendê-lo. Ao final da abertura, um pequeno planeta com as áreas da Miniverso (${ZONE_NAMES.join(', ')}) pode ser girado em qualquer direção; cada área abre de perto com uma pequena interação.`;
 let engine = null, unmounted = false;
@@ -220,6 +223,10 @@ onMounted(async () => {
     // A capa começa assim que o óculos foi desenhado (o planeta é preparado depois, por trás). Em aparelho muito lento,
     // no máximo 6 s de espera.
     await Promise.race([engine.coverReady, new Promise(r => setTimeout(r, 6000))]);
+    if (unmounted) return;
+    // O nome "miniverso" fica inteiro no centro (com a linha de luz passando embaixo) enquanto o planeta é preparado
+    // por trás; só então ele se separa e o óculos entra, com nada mais carregando junto. No máximo 5 s depois de abrir.
+    await Promise.race([engine.ready, new Promise(r => setTimeout(r, Math.max(0, openedAt + 5000 - performance.now())))]);
     if (unmounted) return;
     finishBoot();
     await Promise.race([engine.ready, new Promise(r => setTimeout(r, Math.max(0, openedAt + 6000 - performance.now())))]);
@@ -317,6 +324,13 @@ onUnmounted(() => {
 @keyframes wipe-hold-l { from { transform: translateX(-100%); } to { transform: none; } }
 @keyframes wipe-in-r { from { transform: translateX(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes wipe-hold-r { from { transform: translateX(100%); } to { transform: none; } }
+/* Enquanto o planeta é preparado por trás, o nome fica inteiro e uma linha de luz fina vai e volta embaixo dele (sem
+   porcentagem). Ela aparece quando o nome termina de abrir e some quando a animação começa. Só movimento e opacidade. */
+.names::after { content: ''; position: absolute; left: 50%; top: calc(50% + .66em); width: 2.2em; height: 1px; margin-left: -1.1em; opacity: 0; transition: opacity .5s ease;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent); animation: name-scan 1.6s cubic-bezier(.45, 0, .55, 1) infinite alternate; will-change: transform; }
+.miniverso-intro:not(.booted):not(.no-webgl) .names::after { opacity: .85; transition-delay: 1.6s; }
+@keyframes name-scan { from { transform: translateX(-1.6em); } to { transform: translateX(1.6em); } }
+[data-reduced] .names::after { animation: none; }
 .spark { position: absolute; left: 50%; top: 50%; width: min(56vw, 760px); height: 1px; transform: translate(-50%, -50%) scaleX(var(--spark, 0)); opacity: var(--spark, 0);
   background: linear-gradient(90deg, transparent, var(--cyan) 30%, #fff 50%, var(--cyan) 70%, transparent); box-shadow: 0 0 18px var(--cyan); }
 .hint { position: absolute; left: 50%; top: calc(50% + var(--hint-y, 150px)); transform: translateX(-50%); margin: 0; text-align: center; opacity: calc(var(--hint, 1) * var(--capa, 1));
@@ -477,14 +491,14 @@ onUnmounted(() => {
    entram o cabeçalho, as frases, os botões e a barra de baixo (esses contam a partir do início do motor).
    Com "Menos movimento", tudo aparece de uma vez. */
 .scene-canvas { animation: intro-fade 1.6s ease .1s both; }
-.capa-top span { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2s both; }
-.capa-top span + span { animation-delay: 2.15s; }
-.capa-bottom h1 { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.3s both; }
-.capa-bottom p { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.4s both; }
-.capa-cta { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.5s both; }
-.capa-bar { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.65s both; }
+.capa-top span { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.5s both; }
+.capa-top span + span { animation-delay: 2.65s; }
+.capa-bottom h1 { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.8s both; }
+.capa-bottom p { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 2.9s both; }
+.capa-cta { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 3s both; }
+.capa-bar { animation: intro-rise 1s cubic-bezier(.2, .7, .2, 1) 3.15s both; }
 /* A dica de arrastar entra junto (por filtro, porque a opacidade dela é controlada pelo motor). */
-.hint { animation: hint-in 1s ease 2.5s both; }
+.hint { animation: hint-in 1s ease 3s both; }
 @keyframes hint-in { from { filter: opacity(0); } }
 [data-reduced] :is(.capa-top span, .capa-bottom h1, .capa-bottom p, .capa-cta, .capa-bar, .hint) { animation-delay: 0s; }
 @keyframes intro-fade { from { opacity: 0; } }

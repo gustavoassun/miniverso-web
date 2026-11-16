@@ -681,8 +681,10 @@ export function createMiniverso(rootEl, opts = {}) {
     // Entrada da capa, em ordem: primeiro o nome "miniverso" inteiro no centro; depois as metades se afastam e o óculos
     // surge no espaço entre elas (crescendo e girando); só então o resto da capa entra (CSS). O relógio daqui começa
     // 1 s depois do CSS (espera a tela de carregamento sumir).
-    const split = reduced ? 1 : smoother(0, 1, (now - t0 - 1100) / 1000);
-    const enter = reduced ? 1 : easeOut(clamp((now - t0 - 1500) / 1500));
+    // O nome já esperou inteiro enquanto o planeta era preparado: ao começar, ele se separa logo (0,6 s) e o óculos
+    // entra 0,3 s depois de o nome terminar de se afastar.
+    const split = reduced ? 1 : smoother(0, 1, (now - t0 - 600) / 1000);
+    const enter = reduced ? 1 : easeOut(clamp((now - t0 - 1900) / 1700));   // o óculos surge com calma (1,7 s)
     const appear = enter >= 1 ? 1 : Math.max(0.0001, 1 - (1 - enter) ** 3 + Math.sin(enter * Math.PI) * 0.06);
     const capa = reduced ? 1 - smooth(0.02, 0.08, p) : 1 - smoother(0.02, 0.1, p);  // textos da capa saem
     const grow = reduced ? 0 : smoother(0.2, 0.34, p);             // óculos cresce do tamanho da capa ao normal
