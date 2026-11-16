@@ -93,7 +93,7 @@ function buildDunes(g, zi) {
   for (const [x, z, a, cc] of [[0.4, 0.42, 0.2, '#e8452f'], [0.47, 0.37, 1.1, '#00b7e3']]) { const cy = sandY(x, z); const can = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.03, 8, 1, false, 0, Math.PI), mat(cc, { side: THREE.DoubleSide })); can.rotation.set(Math.PI, a, Math.PI / 2); can.position.set(x, cy + 0.004, z); g.add(can); }
   crowd(g, [[0.38, 0.28], [0.35, 0.33], [0.43, 0.3]].map(([x, z]) => [x, z, sandY(x, z)]), zi, ['#ffd23f', '#ffffff', '#00b7e3']);
   // Caminhantes nas cristas e o grupo de turistas seguindo o guia com a bandeirinha.
-  walkers(g, [[[-0.2, -0.2], [-0.05, -0.12], [0.08, -0.2], [0.2, -0.08], [0.18, 0.03], [0.0, 0.04], [-0.15, 0.0]], [[-0.22, 0.14], [-0.1, 0.26], [0.12, 0.27], [0.24, 0.1], [0.12, 0.07]], [[-0.4, -0.1], [-0.3, -0.3], [-0.05, -0.38], [0.2, -0.36], [0.38, -0.12], [0.3, 0.05]]], 4, [C.white, C.coral, C.amber, C.teal], sandY);
+  walkers(g, [[[-0.2, -0.2], [-0.05, -0.12], [0.08, -0.2], [0.2, -0.08], [0.18, 0.03], [0.0, 0.04], [-0.15, 0.0]], [[-0.22, 0.14], [-0.1, 0.26], [0.12, 0.27], [0.24, 0.1], [0.12, 0.07]], [[-0.4, -0.1], [-0.3, -0.3], [-0.05, -0.38], [0.2, -0.36], [0.38, -0.12], [0.3, 0.05]]], 4, [C.white, C.coral, C.amber, C.teal], sandY, 'palha');
   const TOUR = 7, tourG = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.0032, 0.0042, 0.013, 6).translate(0, 0.0065, 0), new THREE.MeshStandardMaterial({ roughness: 0.7, flatShading: true }), TOUR);
   const tourH = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0033, 8, 6).translate(0, 0.016, 0), new THREE.MeshStandardMaterial({ roughness: 0.7 }), TOUR);
   tourG.frustumCulled = tourH.frustumCulled = false; tourG.userData.detail = tourH.userData.detail = true; g.add(tourG, tourH);

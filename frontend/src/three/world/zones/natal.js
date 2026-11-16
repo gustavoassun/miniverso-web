@@ -132,7 +132,7 @@ function buildNatal(g, zi) {
   const rimPts = []; for (let k = 0; k <= 64; k++) { const a = k / 64 * TAU, x = Math.cos(a) * rr, z = Math.sin(a) * rr; rimPts.push(new THREE.Vector3(x, sag(x + RX, z + RZ) + FLOOR + 0.0022, z)); }
   const rim = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(rimPts, true), 96, 0.0035, 6, true), mat('#ffffff')); rim.position.set(RX, 0, RZ); g.add(rim);
   for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; const x = RX + Math.cos(a) * (rr + 0.006), z = RZ + Math.sin(a) * (rr + 0.006); cyl(0.0008, 0.008, '#d9414a', x, Y(x, z) + 0.001, z, g, 5); }
-  const SK = 7, skaters = figures(g, SK, ['#d9414a', '#3f7fe8', '#ffd23f', '#ffffff', '#3ee07a', '#ff7bb0', '#b07cff']);
+  const SK = 7, skaters = figures(g, SK, ['#d9414a', '#3f7fe8', '#ffd23f', '#ffffff', '#3ee07a', '#ff7bb0', '#b07cff'], 1, { hat: 'gorro', hatColors: ['#d6202b', '#ffffff', '#1f6b46', '#3f7fe8', '#ffd23f'] });
   const skInfo = Array.from({ length: SK }, (_, k) => ({ r: 0.022 + (k % 3) * 0.013, w: 0.5 + (k % 2) * 0.15, a0: k * TAU / SK, ph: R() * TAU }));
   skaters.host.userData.anim = t => {
     skInfo.forEach((s, k) => {
@@ -154,7 +154,7 @@ function buildNatal(g, zi) {
     for (let i = 0; i < 3; i++) { const bt = new THREE.Mesh(new THREE.SphereGeometry(0.0009 * s0, 5, 4), mat('#1a1d24')); bt.position.set(x, y + (0.02 + i * 0.004) * s0, z + 0.0078 * s0 - i * 0.0002); g.add(bt); }
   };
   snowman(-0.15, 0.17, 1.15, '#d9414a'); snowman(-0.05, 0.22, 0.9, '#3f7fe8'); snowman(0.27, -0.09, 1, '#3ee07a');
-  crowd(g, [[-0.165, 0.19], [-0.135, 0.19], [-0.06, 0.24]].map(([x, z]) => [x, z, Y(x, z) + 0.0016]), zi, ['#ffd23f', '#ff7bb0', '#7fe9ff'], { fx: fxT2 });
+  crowd(g, [[-0.165, 0.19], [-0.135, 0.19], [-0.06, 0.24]].map(([x, z]) => [x, z, Y(x, z) + 0.0016]), zi, ['#ffd23f', '#ff7bb0', '#7fe9ff'], { fx: fxT2, hat: 'gorro', hatColors: ['#d6202b', '#ffffff', '#1f6b46'] });
 
   // ── Postes com guirlanda e varais de luzinhas ligando os postes em volta da praça.
   const posts = Array.from({ length: 8 }, (_, k) => { const a = k / 8 * TAU + 0.2; return [TREE_X + Math.cos(a) * 0.125, TREE_Z + Math.sin(a) * 0.125]; });

@@ -424,7 +424,7 @@ function buildCentro(g, zi) {
     plateia.push([x, z]);
   }
   const showFx = i => { const f = fxT(i); return f < 0 ? -1 : f < DUR - 1 ? Math.min(f, 4) : 8 + f - (DUR - 1); };
-  crowd(g, plateia, zi, ppl, { yAt: py, fx: showFx });
+  crowd(g, plateia, zi, ppl, { yAt: py, fx: showFx, hat: 'fitas' });
   // Ao chamar o boi, a câmera fica logo atrás do chafariz, reta no eixo do palco e um pouco acima das cabeças:
   // a frente do palco, o boi e a plateia pulando no mesmo quadro.
   ZONES[zi].show = { cam: [PX, py(PX, FZ) + 0.085, FZ + 0.03], look: [PX, stTop + 0.025, SZ + 0.01], dur: DUR };
@@ -483,7 +483,7 @@ function buildCentro(g, zi) {
   walkers(g, [[[-0.004, -0.395], [0.174, -0.395], [0.174, 0.355], [-0.004, 0.355]]], 8, ppl, low);                      // calçadas da cidade baixa
   walkers(g, [[[0.08, -0.38], [0.08, -0.04], [0.09, -0.04], [0.09, -0.38]]], 4, ppl, low);                                // beco da Praia Grande
   walkers(g, [[[-0.004, -0.452], [0.18, -0.452], [0.18, -0.446], [-0.004, -0.446]]], 3, ppl, low);                       // largo da igreja
-  walkers(g, [[[0.0, 0.474], [0.18, 0.474], [0.18, 0.482], [0.0, 0.482]], [[-0.004, 0.528], [0.185, 0.528], [0.185, 0.552], [-0.004, 0.552]]], 4, ppl, low); // feira
+  walkers(g, [[[0.0, 0.474], [0.18, 0.474], [0.18, 0.482], [0.0, 0.482]], [[-0.004, 0.528], [0.185, 0.528], [0.185, 0.552], [-0.004, 0.552]]], 4, ppl, low, 'palha'); // feira
 
   // ── Ponte ferroviária onde a linha principal cruza o Rio Anil: viga sob os trilhos e pilares até a água.
   const ponte = new THREE.Group(); planet.add(ponte);

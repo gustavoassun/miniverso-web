@@ -482,7 +482,7 @@ function buildEducation(g, zi) {
   const busSign = new THREE.Mesh(new THREE.PlaneGeometry(0.03, 0.005), label('ESCOLAR', '#1a1d24', '#ffd23f', 120, 20, 'bold 14px sans-serif')); busSign.position.set(busX, Y(busX, ROAD_Z) + 0.016, ROAD_Z - 0.026 - 0.0124); busSign.rotation.y = Math.PI; g.add(busSign);
   box(0.03, 0.002, 0.012, '#9fe0ff', busX + 0.005, Y(busX, 0.343) + 0.022, 0.343, g, { transparent: true, opacity: 0.6 });
   for (const s of [-1, 1]) box(0.0012, 0.022, 0.0012, '#2a3446', busX + 0.005 + s * 0.013, Y(busX, 0.343), 0.343, g);
-  crowd(g, [[busX - 0.004, 0.348], [busX + 0.008, 0.35], [busX + 0.016, 0.347]].map(([x, z]) => [x, z, Y(x, z) + 0.0016]), zi, ['#ffffff', '#1e4488', '#ff7bb0']);
+  crowd(g, [[busX - 0.004, 0.348], [busX + 0.008, 0.35], [busX + 0.016, 0.347]].map(([x, z]) => [x, z, Y(x, z) + 0.0016]), zi, ['#ffffff', '#1e4488', '#ff7bb0'], { pack: ['#e8452f', '#ffd23f', '#00b7e3'] });
   // Bicicletário e bicicletas andando na ciclovia (instâncias).
   const bikeG = paintGeo([
     [new THREE.TorusGeometry(0.0028, 0.0005, 4, 12).translate(-0.0042, 0.0028, 0), '#1a1d24'], [new THREE.TorusGeometry(0.0028, 0.0005, 4, 12).translate(0.0042, 0.0028, 0), '#1a1d24'],
@@ -527,7 +527,7 @@ function buildEducation(g, zi) {
     [[-0.32, -0.16], [-0.12, -0.075], [0.12, -0.075], [0.31, -0.11], [0.12, -0.085], [-0.12, -0.085]],
     [[-0.4, 0.2], [-0.12, 0.255], [0.12, 0.255], [0.4, 0.235], [0.12, 0.265], [-0.12, 0.265]],
     [[-0.4, 0.33], [0.4, 0.33], [0.4, 0.34], [-0.4, 0.34]]
-  ], 4, ['#ffffff', '#1e4488', '#00b7e3', '#2a3446', '#ffc56b', '#ff7bb0'], (x, z) => Y(x, z) + 0.0016);
+  ], 4, ['#ffffff', '#1e4488', '#00b7e3', '#2a3446', '#ffc56b', '#ff7bb0'], (x, z) => Y(x, z) + 0.0016, undefined, { pack: ['#e8452f', '#ffd23f', '#00b7e3', '#3ee07a', '#b07cff'] });
   // ── Animações (uma função só para a área inteira).
   const host = new THREE.Object3D(); host.userData.keep = true; host.userData.detail = true; g.add(host);              // só anima com a área aberta
   host.userData.anim = t => { for (const a of anims) a(t); };

@@ -650,7 +650,7 @@ function buildEcology(g, zi) {
     const cols = ['#ff8a6b', '#3ee0b5', '#ffc56b', '#00b7e3', '#b07cff', '#f6f6f6', '#ff7bb0', '#3aa56d'];
     const hk = figures(g, walkers0.length, walkers0.map((w, k) => (w.guide ? '#2f8f5e' : cols[k % cols.length])));
     const bagG = new THREE.InstancedMesh(new THREE.BoxGeometry(0.0042, 0.0055, 0.0024).translate(0, 0.0102, -0.0042), new THREE.MeshStandardMaterial({ roughness: 0.7 }), walkers0.length);
-    const capG = new THREE.InstancedMesh(mergeGeometries([new THREE.SphereGeometry(0.0034, 10, 5, 0, TAU, 0, Math.PI / 2).translate(0, 0.0176, 0), new THREE.BoxGeometry(0.0042, 0.0005, 0.0034).translate(0, 0.0178, 0.0033)]), new THREE.MeshStandardMaterial({ roughness: 0.6 }), walkers0.length);
+    const capG = new THREE.InstancedMesh(mergeGeometries([new THREE.SphereGeometry(0.0039, 10, 5, 0, TAU, 0, Math.PI / 2).translate(0, 0.0175, 0), new THREE.BoxGeometry(0.0046, 0.0005, 0.0036).translate(0, 0.0177, 0.0038)]), new THREE.MeshStandardMaterial({ roughness: 0.6 }), walkers0.length);
     const flagG = new THREE.InstancedMesh(mergeGeometries([new THREE.CylinderGeometry(0.0003, 0.0003, 0.016, 4).translate(0, 0.022, 0), new THREE.BoxGeometry(0.0004, 0.004, 0.006).translate(0, 0.028, 0.003)]), new THREE.MeshStandardMaterial({ color: '#3ee07a', roughness: 0.5 }), 1);
     const bagC = ['#e8452f', '#1e4488', '#ffd23f', '#3a3f4a'].map(c => new THREE.Color(c)), ZM = new THREE.Matrix4().makeScale(0, 0, 0);
     walkers0.forEach((w, k) => { bagG.setColorAt(k, bagC[k % 4]); capG.setColorAt(k, bagC[(k + 2) % 4]); });
@@ -679,7 +679,7 @@ function buildEcology(g, zi) {
       const dx = st.look.x - P.x, dz = st.look.z - P.z, rot = Math.atan2(dx, dz);
       for (const o of [-0.005, 0.005]) watch.push([P.x + Math.cos(rot) * o, P.z - Math.sin(rot) * o, P.y, rot]);
     }
-    crowd(g, watch, zi, ['#ffc56b', '#ff7bb0', '#00b7e3', '#f6f6f6', '#3ee0b5'], { fx: fxT });
+    crowd(g, watch, zi, ['#ffc56b', '#ff7bb0', '#00b7e3', '#f6f6f6', '#3ee0b5'], { fx: fxT, hat: 'bone', hatColors: ['#2f8f5e', '#ffffff', '#e8452f', '#1e4488'] });
   }
 }
 
