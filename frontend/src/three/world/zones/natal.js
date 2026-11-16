@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { R, TAU, smooth } from '../../core/math.js';
 import { box, cyl, mat, sag } from '../build.js';
 import { crowd, figures, walkers } from '../people.js';
@@ -46,6 +47,111 @@ function starGeo(r) {
   const s = new THREE.Shape();
   for (let i = 0; i < 10; i++) { const a = Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; i ? s.lineTo(Math.cos(a) * rr, Math.sin(a) * rr) : s.moveTo(Math.cos(a) * rr, Math.sin(a) * rr); }
   const geo = new THREE.ExtrudeGeometry(s, { depth: r * 0.3, bevelEnabled: false }); geo.translate(0, 0, -r * 0.15); return geo;
+}
+
+// Trenó do Papai Noel (uma malha só, cores pintadas nos vértices, no estilo facetado do planeta; a frente é +x):
+// trenó vermelho de perfil curvo com friso dourado, esquis dourados enrolados na ponta e o saco de presentes atrás.
+// O Papai Noel: casaco vermelho com barriga, cinto preto com fivela dourada, gola de pelúcia,
+// luvas escuras segurando as rédeas, rosto com olhos, sobrancelhas brancas, óculos redondos dourados, nariz e
+// bochechas rosados, bigode, barba volumosa e o gorro caído para trás com aba e pompom. Quatro renas galopando no ar:
+// corpo com barriga clara, pescoço, focinho, orelhas, chifres galhados, rabinho branco, peitoral vermelho com sino
+// dourado e as rédeas até o trenó. O nariz vermelho da rena da frente fica numa malha acesa à parte.
+const sleighMat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.62, flatShading: true });
+const sleighGlowMat = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+function sleighGeo() {
+  const L = [], G = [], _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler(), _v = new THREE.Vector3(), _s = new THREE.Vector3(), _c = new THREE.Color(), UP = new THREE.Vector3(0, 1, 0);
+  const paint = (geo, color) => {
+    geo = geo.index ? geo.toNonIndexed() : geo; geo.deleteAttribute('uv'); _c.set(color);
+    const n = geo.attributes.position.count, a = new Float32Array(n * 3); for (let i = 0; i < n; i++) { a[i * 3] = _c.r; a[i * 3 + 1] = _c.g; a[i * 3 + 2] = _c.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo;
+  };
+  const add = (geo, color, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1, list = L) => { geo = paint(geo, color); geo.applyMatrix4(_m.compose(_v.set(x, y, z), _q.setFromEuler(_e.set(rx, ry, rz)), _s.set(sx, sy, sz))); list.push(geo); };
+  const limb = (a, b, r, color, seg = 6) => { const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b), d = B.clone().sub(A), len = d.length(); const geo = paint(new THREE.CylinderGeometry(r, r, len, seg), color); geo.applyMatrix4(_m.compose(A.add(B).multiplyScalar(0.5), _q.setFromUnitVectors(UP, d.normalize()), _s.set(1, 1, 1))); L.push(geo); };
+  const tube = (pts, r, color, z) => L.push(paint(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(([x, y]) => new THREE.Vector3(x, y, z))), 28, r, 5), color));
+  const RED = '#c4202b', GOLD = '#f2c24a', WHITE = '#f7f7f7', SKIN = '#f1c9a5', DARK = '#1b1410', FUR = '#8a5a3c', BELLY = '#d8b48a', ANTLER = '#e6d3a8';
+  // Trenó.
+  const side = new THREE.Shape([[-0.0125, 0.0035], [0.008, 0.0035], [0.011, 0.005], [0.0128, 0.0085], [0.013, 0.0115], [0.012, 0.0135], [0.0102, 0.0132], [0.0095, 0.0112], [0.006, 0.0095], [-0.004, 0.0095], [-0.008, 0.011], [-0.011, 0.016], [-0.0128, 0.0172], [-0.014, 0.0165], [-0.0135, 0.012]].map(([x, y]) => new THREE.Vector2(x, y)));
+  add(new THREE.ExtrudeGeometry(side, { depth: 0.0112, bevelEnabled: true, bevelThickness: 0.0005, bevelSize: 0.0005, bevelSegments: 1 }).translate(0, 0, -0.0056), RED);
+  for (const z of [-0.0062, 0.0062]) {
+    tube([[-0.0128, 0.0173], [-0.011, 0.0161], [-0.008, 0.0111], [-0.004, 0.0098], [0.006, 0.0098], [0.0095, 0.0114], [0.0102, 0.0134], [0.012, 0.0137], [0.0131, 0.0115]], 0.00035, GOLD, z);   // friso
+    tube([[-0.0135, 0.0012], [0.006, 0.001], [0.012, 0.0016], [0.0155, 0.004], [0.016, 0.0068], [0.0148, 0.008], [0.0138, 0.0068]], 0.00045, GOLD, z * 0.85);   // esqui
+    for (const x of [-0.009, -0.002, 0.005]) limb([x, 0.0012, z * 0.85], [x, 0.0037, z * 0.85], 0.0003, GOLD, 5);
+    add(new THREE.CylinderGeometry(0.0016, 0.0016, 0.0003, 12), GOLD, 0.008, 0.0072, z * 1.01, Math.PI / 2);   // medalhão dourado
+  }
+  add(new THREE.BoxGeometry(0.0062, 0.0014, 0.0104), '#1f6b46', -0.0045, 0.0101, 0);                       // assento
+  // Saco de presentes.
+  add(new THREE.IcosahedronGeometry(0.0042, 1), '#8a6a44', -0.0098, 0.0148, 0.0008, 0, 0, 0, 0.9, 1.1, 1);
+  add(new THREE.TorusGeometry(0.0013, 0.00035, 4, 10), '#5a3a28', -0.0101, 0.0192, 0.0008, Math.PI / 2);
+  add(new THREE.BoxGeometry(0.0026, 0.0026, 0.0026), '#3f7fe8', -0.0092, 0.0201, -0.0016, 0.3, 0.5, 0.2);
+  add(new THREE.BoxGeometry(0.0027, 0.0004, 0.0004), '#ffd23f', -0.0092, 0.0201, -0.0016, 0.3, 0.5, 0.2);
+  add(new THREE.BoxGeometry(0.0021, 0.0021, 0.0021), '#ffd23f', -0.0108, 0.0199, 0.0019, -0.2, 0.3, -0.3);
+  add(new THREE.BoxGeometry(0.0004, 0.0022, 0.0004), '#d6202b', -0.0108, 0.0199, 0.0019, -0.2, 0.3, -0.3);
+  // Papai Noel: casaco, cinto e fivela, gola de pelúcia.
+  const X = -0.0035;
+  add(new THREE.IcosahedronGeometry(0.005, 2), RED, X, 0.0124, 0, 0, 0, 0, 1, 1.05, 1.05);
+  add(new THREE.CylinderGeometry(0.00505, 0.00505, 0.001, 18), DARK, X, 0.0114, 0, 0, 0, 0, 1, 1, 1.05);
+  add(new THREE.BoxGeometry(0.0005, 0.0014, 0.0017), GOLD, X + 0.0051, 0.0114, 0);
+  add(new THREE.TorusGeometry(0.0026, 0.0009, 6, 14), WHITE, X + 0.0004, 0.0168, 0, Math.PI / 2);
+  // Braços segurando as rédeas, punhos de pelúcia e luvas.
+  for (const s of [-1, 1]) {
+    const sh = [X, 0.0152, s * 0.0042], el = [X + 0.003, 0.0128, s * 0.005], wr = [X + 0.0062, 0.0134, s * 0.0033], hd = [X + 0.0072, 0.0135, s * 0.003];
+    add(new THREE.IcosahedronGeometry(0.0015, 1), RED, ...sh);
+    limb(sh, el, 0.0012, RED); limb(el, wr, 0.0011, RED);
+    add(new THREE.IcosahedronGeometry(0.0013, 1), WHITE, ...wr);
+    add(new THREE.IcosahedronGeometry(0.0011, 1), DARK, ...hd);
+  }
+  // Rosto.
+  const HX = X + 0.0005, HY = 0.0198;
+  add(new THREE.IcosahedronGeometry(0.0027, 2), SKIN, HX, HY, 0);
+  for (const s of [-1, 1]) {
+    add(new THREE.SphereGeometry(0.0004, 6, 4), DARK, HX + 0.0024, HY + 0.0009, s * 0.0009);               // olhos
+    add(new THREE.BoxGeometry(0.0003, 0.00045, 0.0012), WHITE, HX + 0.0025, HY + 0.0015, s * 0.001, 0, 0, s * 0.15);   // sobrancelhas
+    add(new THREE.TorusGeometry(0.00062, 0.00012, 4, 10), GOLD, HX + 0.0028, HY + 0.0009, s * 0.0009, 0, Math.PI / 2);   // óculos
+    add(new THREE.SphereGeometry(0.00065, 6, 4), '#f29a9a', HX + 0.0021, HY - 0.0001, s * 0.0017);         // bochechas
+    add(new THREE.SphereGeometry(0.0011, 8, 6), WHITE, HX + 0.0026, HY - 0.0006, s * 0.001, s * 0.45, 0, 0, 0.8, 0.6, 1.4);   // bigode
+    add(new THREE.IcosahedronGeometry(0.0014, 1), WHITE, HX + 0.0006, HY - 0.0013, s * 0.0019);            // barba nas laterais
+  }
+  add(new THREE.BoxGeometry(0.0003, 0.00012, 0.0006), GOLD, HX + 0.0028, HY + 0.0009, 0);                  // ponte dos óculos
+  add(new THREE.SphereGeometry(0.0007, 8, 6), '#e88a7a', HX + 0.0028, HY + 0.0001, 0);                     // nariz
+  add(new THREE.IcosahedronGeometry(0.0024, 1), WHITE, HX + 0.0016, HY - 0.0018, 0, 0, 0, 0, 0.9, 1.15, 1.25);   // barba
+  add(new THREE.IcosahedronGeometry(0.0017, 1), WHITE, HX + 0.002, HY - 0.0034, 0);
+  // Gorro caído para trás: aba de pelúcia, cone em dois gomos e pompom.
+  const B = new THREE.Vector2(HX, HY + 0.0021), d1 = new THREE.Vector2(-Math.sin(0.5), Math.cos(0.5)), d2 = new THREE.Vector2(-Math.sin(1.6), Math.cos(1.6));
+  add(new THREE.TorusGeometry(0.0026, 0.0008, 6, 16), WHITE, B.x, B.y, 0, Math.PI / 2);
+  add(new THREE.ConeGeometry(0.0026, 0.0045, 12), RED, B.x + d1.x * 0.00225, B.y + d1.y * 0.00225, 0, 0, 0, 0.5);
+  const P2 = B.clone().addScaledVector(d1, 0.003);
+  add(new THREE.ConeGeometry(0.0009, 0.003, 10), RED, P2.x + d2.x * 0.0015, P2.y + d2.y * 0.0015, 0, 0, 0, 1.6);
+  add(new THREE.IcosahedronGeometry(0.001, 1), WHITE, P2.x + d2.x * 0.003, P2.y + d2.y * 0.003, 0);
+  // Renas.
+  const deer = (x, z, lead) => {
+    add(new THREE.CapsuleGeometry(0.0021, 0.0058, 3, 10), FUR, x, 0.009, z, 0, 0, Math.PI / 2);
+    add(new THREE.CapsuleGeometry(0.0015, 0.0046, 3, 8), BELLY, x, 0.0081, z, 0, 0, Math.PI / 2);
+    limb([x + 0.004, 0.0098, z], [x + 0.0062, 0.0134, z], 0.0012, FUR);
+    add(new THREE.IcosahedronGeometry(0.0018, 1), FUR, x + 0.007, 0.0142, z, 0, 0, -0.2, 1.4, 1, 1);
+    add(new THREE.IcosahedronGeometry(0.0011, 1), BELLY, x + 0.0091, 0.0137, z);
+    if (lead) add(new THREE.IcosahedronGeometry(0.0007, 1), '#ff3b3b', x + 0.0101, 0.0138, z, 0, 0, 0, 1, 1, 1, G); else add(new THREE.SphereGeometry(0.0006, 6, 4), DARK, x + 0.0101, 0.0138, z);
+    for (const s of [-1, 1]) {
+      add(new THREE.SphereGeometry(0.0003, 5, 4), DARK, x + 0.0079, 0.0148, z + s * 0.0011);                 // olhos
+      add(new THREE.ConeGeometry(0.0005, 0.0016, 5), FUR, x + 0.0062, 0.0156, z + s * 0.0014, s * 0.6, 0, 0.3);   // orelhas
+      const base = [x + 0.0066, 0.0158, z + s * 0.0008], top = [x + 0.0056, 0.0196, z + s * 0.0032], mid = [x + 0.0062, 0.0176, z + s * 0.0019];
+      limb(base, top, 0.00026, ANTLER, 5); limb(mid, [x + 0.0076, 0.0188, z + s * 0.0024], 0.0002, ANTLER, 4); limb([x + 0.0059, 0.0187, z + s * 0.0026], [x + 0.0068, 0.0201, z + s * 0.004], 0.0002, ANTLER, 4);
+      // Pernas galopando no ar: as da frente esticadas para a frente, as de trás para trás, com cascos escuros.
+      limb([x + 0.0032, 0.008, z + s * 0.0012], [x + 0.0058, 0.0038, z + s * 0.0012], 0.0006, FUR, 5); add(new THREE.SphereGeometry(0.0006, 5, 4), DARK, x + 0.006, 0.0035, z + s * 0.0012);
+      limb([x - 0.0032, 0.008, z + s * 0.0012], [x - 0.006, 0.0042, z + s * 0.0012], 0.0006, FUR, 5); add(new THREE.SphereGeometry(0.0006, 5, 4), DARK, x - 0.0062, 0.0039, z + s * 0.0012);
+    }
+    add(new THREE.IcosahedronGeometry(0.0008, 0), WHITE, x - 0.0051, 0.0102, z);                             // rabinho
+    add(new THREE.TorusGeometry(0.0022, 0.00045, 4, 14), '#b8322a', x + 0.0018, 0.009, z, 0, Math.PI / 2);    // peitoral
+    add(new THREE.IcosahedronGeometry(0.0006, 1), GOLD, x + 0.0018, 0.0066, z);                              // sino
+  };
+  const DEER = [[0.021, -0.004, false], [0.021, 0.004, false], [0.037, -0.004, false], [0.037, 0.004, true]];
+  for (const [x, z, lead] of DEER) deer(x, z, lead);
+  // Rédeas: das luvas do Papai Noel às renas de trás e destas às da frente.
+  for (const s of [-1, 1]) {
+    limb([X + 0.0072, 0.0135, s * 0.003], [0.021 + 0.0018, 0.0095, s * 0.004], 0.00018, '#5a2a1a', 4);
+    limb([0.021 + 0.0045, 0.0098, s * 0.004], [0.037 + 0.0018, 0.0095, s * 0.004], 0.00018, '#5a2a1a', 4);
+    limb([0.0128, 0.0085, s * 0.003], [0.021 - 0.0045, 0.009, s * 0.004], 0.00022, GOLD, 4);
+  }
+  return { body: mergeGeometries(L), glow: mergeGeometries(G) };
 }
 
 function buildNatal(g, zi) {
@@ -208,18 +314,7 @@ function buildNatal(g, zi) {
 
   // ── Trenó do Papai Noel com as renas (voa em volta da vila; no botão, passa baixinho).
   const sleigh = new THREE.Group(); sleigh.userData.keep = true; g.add(sleigh);
-  const sp = (geo, c, x, y, z) => { const m = new THREE.Mesh(geo, mat(c)); m.position.set(x, y, z); sleigh.add(m); return m; };
-  sp(new THREE.BoxGeometry(0.022, 0.008, 0.012), '#c4202b', 0, 0.006, 0); sp(new THREE.BoxGeometry(0.006, 0.012, 0.012), '#c4202b', -0.009, 0.01, 0);
-  for (const s0 of [-1, 1]) sp(new THREE.BoxGeometry(0.028, 0.0012, 0.0012), '#ffd23f', 0.002, 0.0015, s0 * 0.005);
-  sp(new THREE.SphereGeometry(0.0045, 8, 6), '#c4202b', -0.002, 0.0145, 0); sp(new THREE.SphereGeometry(0.0028, 8, 6), '#f1c9a5', -0.002, 0.021, 0);
-  sp(new THREE.ConeGeometry(0.0028, 0.006, 8), '#c4202b', -0.002, 0.0255, 0); sp(new THREE.SphereGeometry(0.002, 6, 4), '#ffffff', 0.0005, 0.0195, 0);
-  sp(new THREE.SphereGeometry(0.0045, 8, 6), '#7a5a3a', -0.008, 0.0145, 0);
-  for (let k = 0; k < 4; k++) {
-    const rx = 0.02 + Math.floor(k / 2) * 0.016, rz = (k % 2 ? 1 : -1) * 0.004;
-    sp(new THREE.BoxGeometry(0.01, 0.005, 0.0045), '#8a5a3c', rx, 0.008, rz); sp(new THREE.BoxGeometry(0.004, 0.006, 0.003), '#8a5a3c', rx + 0.006, 0.012, rz);
-    for (const s0 of [-1, 1]) sp(new THREE.BoxGeometry(0.0012, 0.006, 0.0012), '#5a3a28', rx + s0 * 0.003, 0.003, rz);
-    if (k === 3) sp(new THREE.SphereGeometry(0.0011, 6, 4), '#ff3b3b', rx + 0.0085, 0.0125, rz);
-  }
+  { const sg = sleighGeo(); sleigh.add(new THREE.Mesh(sg.body, sleighMat), new THREE.Mesh(sg.glow, sleighGlowMat)); }
   (rt.track ||= {}).sleigh = sleigh;
   const trail = confetti(g, 0, 0, 0, { up: 0.004, spread: 0.02, grav: 0.01, size: 0.003, n: 30 });
   const night = nightSky(g, TREE_X, ty, TREE_Z, 0.5, [0.2, 0.33, -0.25]);
