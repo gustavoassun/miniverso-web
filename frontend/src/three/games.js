@@ -294,8 +294,9 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
 
   // 3) Corrida de kart: você pilota o kart amarelo contra três rivais, 3 voltas por um circuito com viaduto. O kart
   // acelera sozinho; ← → (ou A/D, ou os botões na tela) viram, ↓ freia e Espaço (ou o botão Item) usa o item.
-  // Sem tocar em nada, ele se alinha sozinho com a pista; as zebras e a mureta seguram o kart dentro da pista sem
-  // tirar velocidade (encostar nos cantos não freia mais: antes ficava quase impossível ganhar); as setas azuis dão turbo. Segurar a curva em velocidade solta faíscas
+  // Sem tocar em nada, ele se alinha sozinho com a pista; as zebras e a mureta seguram o kart dentro da pista, e só
+  // raspar na mureta tira um pouco de velocidade (antes a zebra inteira freava e ficava quase impossível ganhar);
+  // as setas azuis dão turbo. Segurar a curva em velocidade solta faíscas
   // (azuis, depois laranja) e, ao soltar, vira um turbo curto. Nas caixas "?" você ganha um item: turbo, casca de
   // banana (larga atrás de você e faz quem passar rodar) ou escudo (6 s protegido).
   // PACE: a corrida anda num ritmo 18% mais calmo que o relógio (com os karts menores, a pista parece maior).
@@ -442,9 +443,13 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     const spinning = me.spin > 0;
     const steer = spinning ? 0 : (input.r ? 1 : 0) - (input.l ? 1 : 0);
     me.st += (steer - me.st) * Math.min(1, dt * 12);
-    const kerb = Math.abs(me.lat) > ON_KERB, top = VMAX + me.boost;                          // na zebra só levanta poeira
+    // Na zebra só levanta poeira. Só raspando na mureta (a faixinha bem rente a ela) o kart perde um pouco de
+    // velocidade: cai para ~82% da máxima enquanto estiver encostado e volta assim que sai dela. Antes a zebra inteira
+    // derrubava para ~55% e ficava difícil demais; depois não perdia nada e ficou fácil.
+    const kerb = Math.abs(me.lat) > ON_KERB, scrape = Math.abs(me.lat) > edgeAt(me.i) - 0.0008;
+    const top = (scrape ? VMAX * 0.82 : VMAX) + me.boost;
     if (input.b) me.v = Math.max(0, me.v - BRAKE * dt);
-    else if (me.v < top) me.v = Math.min(top, me.v + ACC * dt); else me.v = Math.max(top, me.v - 0.25 * dt);
+    else if (me.v < top) me.v = Math.min(top, me.v + ACC * dt); else me.v = Math.max(top, me.v - (scrape ? 0.4 : 0.25) * dt);
     me.boost = Math.max(0, me.boost - dt * 0.12);
     // Derrapagem: virando forte em velocidade, a carga sobe (faíscas azuis, depois laranja); ao soltar, turbo curto.
     const drifting = Math.abs(steer) > 0.5 && me.v > 0.17;
@@ -458,13 +463,13 @@ export function createGames({ $, on, ray, pointer, zoneStatus, st, compact, view
     me.lat = (me.x - X[i]) * nx + (me.z - Z[i]) * nz;
     const EDGE = edgeAt(i);
     if (Math.abs(me.lat) > EDGE) {
-      // Encostou na mureta: o kart fica rente a ela e desliza junto, virando para dentro da pista, sem perder
-      // velocidade (só faísca e um toque de som quando bate de frente).
+      // Encostou na mureta: o kart fica rente a ela e desliza junto, virando para dentro da pista; raspando, anda um
+      // pouco mais devagar (veja acima) e, batendo de frente, perde um tantinho (8%) com faísca e som.
       const push = me.lat - Math.sign(me.lat) * EDGE; me.x -= nx * push; me.z -= nz * push; me.lat -= push;
       const into = Math.abs(wrapA(Math.atan2(TZ[i], TX[i]) - me.h));
       me.h += wrapA(Math.atan2(TZ[i], TX[i]) - me.h) * 0.35;
       if (n - me.hitAt > 0.35 && into > 0.12) {
-        me.hitAt = n; sfx('bump'); buzz(25);
+        me.hitAt = n; me.v *= 0.92; sfx('bump'); buzz(25);
         for (let k = 0; k < 6; k++) race.fx(me.x + nx * Math.sign(me.lat) * 0.01, yAt(me.x, me.z, me.y) + 0.006, me.z + nz * Math.sign(me.lat) * 0.01, (R() - 0.5) * 0.1, 0.05 + R() * 0.05, (R() - 0.5) * 0.1, 0.35, '#fff6d8', 0.9);
       }
     }
