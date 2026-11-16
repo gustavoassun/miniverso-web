@@ -112,6 +112,7 @@
           </div>
         </div>
         <div class="zone-tour" hidden>
+          <div class="poi-stamp" aria-hidden="true"><b class="poi-num"></b><span class="poi-of"></span></div>
           <button type="button" class="poi-nav poi-prev" aria-label="Ponto anterior">‹</button>
           <div class="poi-now" aria-live="polite">
             <div class="poi-top"><b class="poi-name"></b><span class="poi-count"></span></div>
@@ -530,7 +531,8 @@ onUnmounted(() => {
 .zone-card .zone-index { font: 600 11px var(--font-display); letter-spacing: .08em; color: var(--c); white-space: nowrap; }
 .zone-card .zone-close { display: grid; place-items: center; flex: none; width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1; }
 .zone-card h3 { flex: 1; min-width: 0; margin: 0; font: 700 28px/1 var(--font-title); letter-spacing: .01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 0 30px color-mix(in srgb, var(--c) 35%, transparent); }
-.zone-card p { margin: 0; color: #c4c4dc; font-size: 14px; line-height: 1.55; }
+/* Texto do cartão mais legível: maior, no peso Medium da fonte da marca e mais claro (antes era fino e pequeno). */
+.zone-card p { margin: 0; color: #dcdeee; font: 500 15px/1.55 var(--font-display); }
 .zone-card .zone-info { flex: none; padding: 7px 13px; font-size: 12px; }
 .zone-card .zone-info::after { content: ""; display: inline-block; width: 5px; height: 5px; margin-left: 8px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: translateY(-2px) rotate(-135deg); transition: transform .3s; }
 .zone-card.open .zone-info { border-color: var(--c); }
@@ -540,11 +542,11 @@ onUnmounted(() => {
 .zone-card.open .zone-more { grid-template-rows: 1fr; }
 .zone-more[hidden], .zone-tour[hidden], .zone-card .zone-info[hidden], .zone-card .zone-close[hidden] { display: none; }
 .zone-tour { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 12px; padding: 10px 0; border-block: 1px solid rgba(255, 255, 255, .08); }
-.poi-now { display: grid; gap: 3px; min-width: 0; }
+.poi-now { display: grid; gap: 6px; min-width: 0; }
 .poi-top { display: flex; align-items: baseline; gap: 10px; }
-.poi-name { font: 600 14px var(--font-display); color: #fff; }
-.poi-count { font: 600 12px var(--font-display); letter-spacing: .02em; color: var(--c); white-space: nowrap; }
-.zone-card .poi-text { font-size: 13px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.poi-name { font: 700 18px/1.2 var(--font-display); letter-spacing: .005em; color: #fff; }
+.poi-count { font: 700 13px var(--font-display); letter-spacing: .04em; color: var(--c); white-space: nowrap; }
+.zone-card .poi-text { font: 500 15.5px/1.5 var(--font-display); color: #e4e6f4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .zone-card .poi-nav { display: grid; place-items: center; width: 36px; height: 36px; padding: 0 0 2px; font-size: 22px; line-height: 1; }
 .zone-card .poi-play { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .poi-play i { width: 0; height: 0; border-block: 5px solid transparent; border-left: 8px solid var(--c); }
@@ -589,12 +591,67 @@ onUnmounted(() => {
 .zone-card button[hidden] { display: none; }
 .zone-card .zone-act { font-weight: 600; color: #fff; border-color: var(--c); background: color-mix(in srgb, var(--c) 22%, transparent); }
 .zone-card .zone-act:hover { background: color-mix(in srgb, var(--c) 36%, transparent); }
-.zone-card .zone-status { min-height: 1.4em; font: 500 13px/1.4 var(--font-display); color: var(--c); }
+.zone-card .zone-status { min-height: 1.4em; font: 500 14.5px/1.4 var(--font-display); color: var(--c); }
 .zone-card .zone-hint { font: 13px/1.45 var(--font-display); color: rgba(255, 255, 255, .7); }
 @keyframes card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } }
 @media (prefers-reduced-motion: reduce) { .zone-label .dot, .zone-card { animation: none; } }
 .zone-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .zone-actions .zone-status { flex: 1 1 180px; min-height: 0; }
+/* Cartão da área repaginado: letra Manrope (mais aberta e legível que a fina de antes), o ponto atual num bloco
+   próprio na cor da área, com o nome grande e o contador como etiqueta, setas redondas maiores e botões mais fortes. */
+.zone-card, .zone-card p, .zone-card button, .zone-card .poi-name, .zone-card .poi-count, .zone-card .zone-status, .zone-card .zone-hint, .zone-card .zone-index { font-family: var(--font-body); }
+.zone-card h3 { font-size: 34px; }
+.zone-card .zone-index { font-weight: 700; font-size: 12px; letter-spacing: .1em; }
+.zone-card .zone-tour { padding: 14px 14px 14px 12px; border-radius: 18px; background: linear-gradient(135deg, color-mix(in srgb, var(--c) 16%, rgba(255, 255, 255, .03)), rgba(255, 255, 255, .02)); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
+.zone-card .poi-now { gap: 8px; }
+.zone-card .poi-top { align-items: center; gap: 10px; }
+.zone-card .poi-name { font-weight: 800; font-size: 22px; line-height: 1.15; letter-spacing: -.005em;
+  /* Nome do ponto em destaque: um degradê sutil do branco para a cor da área e um sublinhado suave da mesma cor. */
+  color: #fff; background: linear-gradient(100deg, #fff 35%, color-mix(in srgb, var(--c) 70%, #fff)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  padding-bottom: 3px; box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--c) 45%, transparent); }
+.zone-card .poi-count { padding: 3px 9px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: .04em; color: #0b0718; background: var(--c); }
+.zone-card .poi-text { font-family: var(--font-body); font-weight: 500; font-size: 16.5px; line-height: 1.55; color: #f1f2fa; }
+.zone-card .poi-nav { width: 44px; height: 44px; font-size: 24px; border-color: color-mix(in srgb, var(--c) 45%, transparent); background: rgba(10, 8, 24, .55); }
+.zone-card .poi-nav:hover { background: color-mix(in srgb, var(--c) 30%, rgba(10, 8, 24, .55)); }
+.zone-card button { font-size: 14px; font-weight: 600; padding: 10px 18px; }
+.zone-card .zone-act { font-weight: 700; }
+.zone-card .zone-status { font-weight: 600; font-size: 15px; }
+/* Painel do universo: vidro escuro com estrelinhas ao fundo, um brilho suave da cor da área num canto e um planetinha
+   ao lado do nome. O título não tem mais o brilho colorido: como o
+   título corta o que passa da caixa dele, o brilho virava um retângulo amarelado atrás do nome. */
+.zone-card { border-radius: 22px; border-color: color-mix(in srgb, var(--c) 28%, rgba(255, 255, 255, .1));
+  background:
+    radial-gradient(1px 1px at 12% 30%, rgba(255, 255, 255, .55), transparent), radial-gradient(1px 1px at 34% 78%, rgba(255, 255, 255, .4), transparent),
+    radial-gradient(1.4px 1.4px at 58% 18%, rgba(255, 255, 255, .5), transparent), radial-gradient(1px 1px at 81% 64%, rgba(255, 255, 255, .45), transparent),
+    radial-gradient(1px 1px at 93% 22%, rgba(255, 255, 255, .35), transparent), radial-gradient(1.2px 1.2px at 46% 52%, rgba(255, 255, 255, .25), transparent),
+    radial-gradient(90% 120% at 100% 0%, color-mix(in srgb, var(--c) 14%, transparent), transparent 55%),
+    radial-gradient(70% 90% at 0% 100%, rgba(30, 68, 136, .28), transparent 60%),
+    linear-gradient(160deg, rgba(20, 16, 48, .94), rgba(8, 6, 20, .92)); }
+.zone-card::before { display: none; }
+.zone-card h3 { text-shadow: none; display: flex; align-items: center; gap: 12px; overflow: visible; }
+.zone-card h3::before { content: ""; flex: none; width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--c) 80%, white) 30%, color-mix(in srgb, var(--c) 70%, #1e1645) 75%);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent), 0 0 14px color-mix(in srgb, var(--c) 55%, transparent); }
+.zone-card .zone-head { padding: 2px 4px 0; }
+/* Cartão-postal: o ponto atual vira um cartão com uma faixa colorida à esquerda (o número grande do ponto e "de 05"),
+   o nome e o texto ao lado e as setas à direita. */
+.zone-card .zone-tour { display: grid; grid-template-columns: 96px auto minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 0 14px 0 0;
+  border-radius: 16px; overflow: hidden; background: rgba(10, 8, 26, .6); border: 1px solid color-mix(in srgb, var(--c) 30%, rgba(255, 255, 255, .08)); }
+.zone-card .zone-tour[hidden] { display: none; }
+.poi-stamp { align-self: stretch; display: grid; place-content: center; justify-items: center; gap: 4px; min-height: 104px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--c) 60%, #1e4488), color-mix(in srgb, var(--c) 35%, #1e1645)); }
+.poi-num { font: 700 42px/0.9 var(--font-title); color: #fff; letter-spacing: .02em; text-shadow: 0 2px 10px rgba(0, 0, 0, .25); }
+.poi-of { font: 700 11px var(--font-body); letter-spacing: .14em; color: rgba(255, 255, 255, .8); text-transform: uppercase; }
+.zone-card .poi-count { display: none; }
+.zone-card .poi-now { padding: 14px 0; }
+@media (max-width: 760px) {
+  .zone-card h3 { font-size: 28px; }
+  .zone-card .zone-tour { grid-template-columns: 70px minmax(0, 1fr) auto; gap: 10px; padding: 0 10px 0 0; border-radius: 14px; }
+  .zone-card .poi-prev, .zone-card .poi-play { display: none; } .poi-num { font-size: 32px; } .poi-stamp { min-height: 92px; }
+  .zone-card .poi-name { font-size: 18px; } .zone-card .poi-text { font-size: 15px; }
+  .zone-card .poi-nav { width: 38px; height: 38px; font-size: 21px; }
+  .zone-card button { font-size: 13px; padding: 9px 14px; }
+}
 .game-hud { position: absolute; left: 50%; top: calc(72px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); display: grid; justify-items: center; gap: 4px; min-width: min(300px, calc(100% - 32px)); padding: 9px 16px; border-radius: 14px;
   background: rgba(20, 12, 42, .82); border: 1px solid #ff4fd8; box-shadow: 0 0 24px rgba(255, 79, 216, .35); text-align: center; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
 .game-hud[hidden] { display: none; }
@@ -760,7 +817,7 @@ onUnmounted(() => {
 }
 @media (max-width: 700px) { .meter { display: none; } .zone-label .tag { padding: 5px 10px 5px 8px; } .zone-label .name { font-size: 10px; letter-spacing: .1em; }
   .zone-card { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: calc(100% - 20px); padding: 12px 12px 10px; gap: 8px; }
-  .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .zone-card .zone-info { padding: 6px 10px; }
+  .zone-card .zone-index { display: none; } .zone-card h3 { font-size: 24px; } .poi-name { font-size: 16px; } .zone-card .poi-text { font-size: 14.5px; } .zone-card .zone-info { padding: 6px 10px; }
   .zone-tour { grid-template-columns: auto 1fr auto; gap: 8px; } .zone-card .poi-play { grid-column: 1 / -1; justify-self: center; padding: 7px 14px; }
   .zone-card .poi-nav { width: 32px; height: 32px; } .zone-card .zone-act { padding: 8px 12px; font-size: 12px; } }
 [data-reduced] .wipe, [data-reduced] .wipe > span, [data-reduced] .zone-label .dot, [data-reduced] .zone-card, [data-reduced] .planet-exit i::before, [data-reduced] .planet-exit::after, [data-reduced] .back-planet .moon, [data-reduced] .pois :deep(.poi b)::after, [data-reduced] .sound-toggle b { animation: none; }

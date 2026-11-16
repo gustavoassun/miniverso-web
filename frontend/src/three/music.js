@@ -502,6 +502,19 @@ export function createMusic() {
     setBoost(v) { if (v !== boost) { boost = v; mix(); } },
     setZone(k) { k = k || null; if (k !== zone) { zone = k; mix(); } },
     // Corrida de kart: null (fora), 'run' (valendo) ou 'final' (última volta: sobe o tom e acelera).
+    // Jingle Bells (domínio público) em sinos e celesta, com guizos e baixo, para o Acender a árvore do Natal. A faixa
+    // da área abaixa enquanto a canção toca e volta depois.
+    jingle() {
+      if (!master || ctx.state !== 'running' || !isOn()) return;
+      const B = 0.4, t0 = ctx.currentTime + 0.1;
+      const M = [[76,1],[76,1],[76,2],[76,1],[76,1],[76,2],[76,1],[79,1],[72,1.5],[74,.5],[76,4],[77,1],[77,1],[77,1.5],[77,.5],[77,1],[76,1],[76,1],[76,.5],[76,.5],[76,1],[74,1],[74,1],[76,1],[74,2],[79,2],
+        [76,1],[76,1],[76,2],[76,1],[76,1],[76,2],[76,1],[79,1],[72,1.5],[74,.5],[76,4],[77,1],[77,1],[77,1.5],[77,.5],[77,1],[76,1],[76,1],[76,.5],[76,.5],[79,1],[79,1],[77,1],[74,1],[72,4]];
+      let at = t0;
+      for (const [m, d] of M) { bell(at, m, buses.sfxRev, 0.05, Math.max(0.5, d * B * 1.6)); tone(at, 'triangle', mtof(m - 12), d * B * 0.9, 0.025, buses.sfx, { attack: 0.01 }); at += d * B; }
+      const beats = Math.round((at - t0) / B);
+      for (let k = 0; k < beats; k++) { const bt = t0 + k * B; jingle(bt, buses.sfx, k % 2 ? 0.035 : 0.06); if (k % 2 === 0) tone(bt, 'sine', mtof((k % 8 < 4 ? 48 : 43)), B * 1.6, 0.09, buses.sfx, { attack: 0.01 }); }
+      const tr = live.natal; if (tr) { fade(tr, tr.d.level * 0.12, 0.3); clearTimeout(tr.x.jt); tr.x.jt = setTimeout(() => mix(), (at - ctx.currentTime + 0.6) * 1000); }
+    },
     setRace(v) { v = v || null; if (v !== race) { race = v; mix(); if (master && isOn()) ramp(master.gain, level(), 0.3); } },
     // Toca um efeito dos jogos (só com o som ligado e o áudio já liberado pelo navegador).
     sfx(kind, arg, at = 0) { if (!master || ctx.state !== 'running' || !isOn() || !SFX[kind]) return; SFX[kind](ctx.currentTime + at, arg); },

@@ -218,15 +218,43 @@ await breathe();
     }
     villages++;
   }
-  const sails = [C.coral, C.amber, C.teal, '#ffffff'];
+  // Barcos navegando de verdade pelos mares (antes ficavam parados balançando): cada um segue em frente pela água e,
+  // quando a costa se aproxima, faz a volta devagar e segue por outro rumo. Velas coloridas como as canoas do Maranhão.
+  const sails = [C.coral, C.amber, C.teal, '#ffffff', '#e8452f', '#ffd23f'];
+  const sea = d => terrain(d) < -0.035 && !ZONES.some(z => d.angleTo(z.dir) < (z.clear ?? (z.flat ? z.flat[1] : 0.4)));
   let boats = 0;
-  for (let tries = 0; boats < (small ? 4 : 8) && tries < 4000; tries++) {
+  for (let tries = 0; boats < (small ? 6 : 12) && tries < 4000; tries++) {
     const d = new THREE.Vector3(R() * 2 - 1, R() * 2 - 1, R() * 2 - 1).normalize();
-    if (terrain(d) > -0.05 || ZONES.some(z => d.angleTo(z.dir) < (z.clear ?? (z.flat ? z.flat[1] : 0.4)))) continue;
-    const b = new THREE.Group(); b.position.copy(d).multiplyScalar(PR + 0.004); b.quaternion.setFromUnitVectors(up, d); planet.add(b);
-    const inner = new THREE.Group(); inner.rotation.y = R() * TAU; b.add(inner);
-    inner.add(sailboat(sails[boats % 4]));
-    const ph = R() * TAU; b.userData.anim = t => { inner.position.y = Math.sin(t * 1.6 + ph) * 0.002; inner.rotation.z = Math.sin(t * 1.2 + ph) * 0.08; };
+    if (!sea(d)) continue;
+    const b = new THREE.Group(); planet.add(b);
+    const inner = new THREE.Group(); b.add(inner);
+    inner.add(sailboat(sails[boats % sails.length]));
+    // Rumo: uma direção na superfície; o barco anda girando em volta de um eixo (grande círculo).
+    const pos = d.clone(), head = new THREE.Vector3(R() - 0.5, R() - 0.5, R() - 0.5).cross(d).normalize();
+    const sp = 0.012 + R() * 0.01, ph = R() * TAU, q = new THREE.Quaternion(), ax = new THREE.Vector3(), nx = new THREE.Vector3(), m = new THREE.Matrix4(), side = new THREE.Vector3();
+    let last = -1, turn = 0;
+    const place = () => {
+      b.position.copy(pos).multiplyScalar(PR + 0.004);
+      side.crossVectors(pos, head).normalize();
+      m.makeBasis(head, pos, side.negate()); b.quaternion.setFromRotationMatrix(m);
+    };
+    place();
+    b.userData.anim = t => {
+      const dt = last < 0 ? 0 : Math.min(0.1, t - last); last = t;
+      if (dt > 0) {
+        // Olha um pouco à frente: se tem terra, vai virando até achar água.
+        ax.crossVectors(pos, head).normalize();
+        nx.copy(pos).applyQuaternion(q.setFromAxisAngle(ax, 0.06));
+        if (!sea(nx)) turn = Math.min(1, turn + dt * 1.5); else turn = Math.max(0, turn - dt * 0.8);
+        if (turn > 0) head.applyQuaternion(q.setFromAxisAngle(pos, turn * dt * 1.4)).normalize();
+        ax.crossVectors(pos, head).normalize();
+        const step = sp * dt * (1 - turn * 0.6);
+        pos.applyQuaternion(q.setFromAxisAngle(ax, step)).normalize();
+        head.applyQuaternion(q).normalize();
+        place();
+      }
+      inner.position.y = Math.sin(t * 1.6 + ph) * 0.002; inner.rotation.x = Math.sin(t * 1.2 + ph) * 0.07;
+    };
     animated.push(b); boats++;
   }
 }
@@ -234,15 +262,23 @@ await breathe();
 // Nuvens e um satélite em órbita.
 const clouds = new THREE.Group(); tilt.add(clouds);
 const cloudM = mat('#ffffff', { roughness: 1, transparent: true, opacity: 0.92 });
+// Nuvens fofas: cada uma é um cacho de tufos arredondados (maior no meio, menores nas pontas) com a base achatada,
+// em alturas e tamanhos diferentes; elas giram devagar em volta do planeta e cada uma balança de leve.
 {
   const cm = cloudM;
-  for (let i = 0; i < (small ? 6 : 10); i++) {
-    const parts = [];
-    for (let k = 0; k < 3 + Math.floor(R() * 2); k++) { const s = 0.05 + R() * 0.04; const g = new THREE.IcosahedronGeometry(s, 0); g.translate(k * 0.05 - 0.05, R() * 0.02, (R() - 0.5) * 0.04); parts.push(g); }
+  for (let i = 0; i < (small ? 8 : 14); i++) {
+    const parts = [], n = 4 + Math.floor(R() * 4), len = 0.1 + R() * 0.08;
+    for (let k = 0; k < n; k++) {
+      const u = n === 1 ? 0 : k / (n - 1) - 0.5, mid = 1 - Math.abs(u) * 1.2, s = (0.035 + R() * 0.02) * (0.7 + mid * 0.6);
+      const g = new THREE.IcosahedronGeometry(s, 1); g.scale(1, 0.72, 1);
+      g.translate(u * len * 2, mid * 0.018 + R() * 0.008, (R() - 0.5) * 0.05); parts.push(g);
+    }
     const cloud = new THREE.Mesh(mergeGeometries(parts), cm);
-    const d = new THREE.Vector3(R() * 2 - 1, (R() * 2 - 1) * 0.7, R() * 2 - 1).normalize();
-    cloud.position.copy(d).multiplyScalar(PR + 0.32 + R() * 0.1); cloud.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
-    clouds.add(cloud);
+    const d = new THREE.Vector3(R() * 2 - 1, (R() * 2 - 1) * 0.75, R() * 2 - 1).normalize(), alt = PR + 0.3 + R() * 0.14, ph = R() * TAU;
+    cloud.position.copy(d).multiplyScalar(alt); cloud.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d); cloud.rotateY(R() * TAU);
+    cloud.scale.setScalar(0.8 + R() * 0.5);
+    cloud.userData.anim = t => { cloud.position.copy(d).multiplyScalar(alt + Math.sin(t * 0.4 + ph) * 0.008); };
+    clouds.add(cloud); animated.push(cloud);
   }
 }
 const orbit = new THREE.Group(); orbit.rotation.set(0.9, 0, 0.4); tilt.add(orbit);

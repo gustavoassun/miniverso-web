@@ -17,6 +17,7 @@ import { canvasTex } from '../textures.js';
 const FLOOR = 0.0058;
 const Y = (x, z) => sag(x, z) + 0.0042;
 const TREE_X = 0, TREE_Z = -0.02;
+const HOUSES = [[-0.22, -0.18, 0.75], [0.0, -0.27, 0], [0.22, -0.18, -0.75], [-0.28, 0.04, 1.45], [0.28, 0.0, -1.5]];   // casinhas: x, z, giro
 
 function snowFloor(g, r) {
   const S = 1024, k = S / (2 * r), px = u => (u + r) * k;
@@ -178,6 +179,11 @@ function buildNatal(g, zi) {
   const ballC = ['#d9414a', '#ffd23f', '#3f7fe8', '#e9eef5', '#ff7bb0'].map(c => new THREE.Color(c));
   for (let i = 0; i < BALLS; i++) { const k = i % 5, u = 0.15 + ((i * 7) % 10) / 10 * 0.6, a = i * 2.4; o.position.set(...onCone(k, u, a, 1.04)); o.scale.setScalar(k > 2 ? 0.8 : 1); o.updateMatrix(); balls.setMatrixAt(i, o.matrix); balls.setColorAt(i, ballC[i % ballC.length]); }
   g.add(balls);
+  // Brilho das bolas (aceso por cima de cada uma, somando luz): apagado no dia a dia; em Acender a árvore, cada bola
+  // pisca no seu ritmo.
+  const glow = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0046, 8, 6), new THREE.MeshBasicMaterial({ toneMapped: false, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }), BALLS);
+  for (let i = 0; i < BALLS; i++) { balls.getMatrixAt(i, o.matrix); glow.setMatrixAt(i, o.matrix); glow.setColorAt(i, new THREE.Color(0, 0, 0)); }
+  glow.userData.keep = true; g.add(glow);
   // Luzinhas em espiral (piscam; na Acender a árvore, as cores correm de baixo para cima).
   const LIGHTS = 110, lights = new THREE.InstancedMesh(new THREE.SphereGeometry(0.0018, 6, 4), new THREE.MeshBasicMaterial({ toneMapped: false }), LIGHTS);
   const lightC = ['#ffe9a8', '#ff5a5a', '#7fe9ff', '#9dffb0', '#ffb3f0'].map(c => new THREE.Color(c)), lightY = [];
@@ -201,9 +207,21 @@ function buildNatal(g, zi) {
     const bow = new THREE.Mesh(new THREE.TorusGeometry(0.0022, 0.0008, 4, 10), mat(c2)); bow.position.set(x, y + s0 * 0.8 + 0.001, z); g.add(bow);
   });
   const sparkle = confetti(g, TREE_X, treeTop, TREE_Z, { up: 0.05, spread: 0.12, grav: 0.03, floor: -(treeTop - ty) + 0.004, size: 0.004, n: 50 });
+  // Enfeites saindo da árvore na festa (confete maior, do meio da árvore para os lados).
+  const gifts = confetti(g, TREE_X, ty + 0.07, TREE_Z, { up: 0.06, spread: 0.2, grav: 0.05, floor: -0.068, size: 0.006, n: 44 });
+  // A roda da festa: 14 pessoas de gorro (escondidas fora da festa).
+  const RING = 14, ringG = new THREE.Group(); ringG.visible = false; ringG.userData.keep = true; g.add(ringG);
+  // Cada pessoa da roda mora numa das casinhas: sai pela porta dela e tem o seu lugar marcado em volta da árvore.
+  const WALK = 0.065;
+  const party = Array.from({ length: RING }, (_, i) => {
+    const [hx, hz, hr] = HOUSES[i % HOUSES.length], dx = hx + Math.sin(hr) * 0.03, dz = hz + Math.cos(hr) * 0.03;
+    const a = Math.atan2(dz - TREE_Z, dx - TREE_X) + (Math.floor(i / HOUSES.length) - 1) * 0.22, rx = TREE_X + Math.cos(a) * 0.12, rz = TREE_Z + Math.sin(a) * 0.12;
+    const out = 0.3 + (i % HOUSES.length) * 0.35 + Math.floor(i / HOUSES.length) * 0.7;
+    return { dx, dz, rx, rz, len: Math.hypot(rx - dx, rz - dz), face: Math.atan2(TREE_X - rx, TREE_Z - rz), out, home: 11.6 + (i % 4) * 0.25 };
+  });
+  const ring = figures(ringG, RING, ['#d9414a', '#3f7fe8', '#ffd23f', '#ffffff', '#3ee07a', '#ff7bb0', '#b07cff'], 1, { hat: 'gorro', hatColors: ['#d6202b', '#ffffff', '#1f6b46', '#3f7fe8', '#ffd23f'] });
 
   // ── Casinhas da vila (madeira, telhado nevado, janelas acesas, porta com guirlanda e fumaça na chaminé).
-  const HOUSES = [[-0.22, -0.18, 0.75], [0.0, -0.27, 0], [0.22, -0.18, -0.75], [-0.28, 0.04, 1.45], [0.28, 0.0, -1.5]];
   const woods = ['#8a5a3c', '#a0643f', '#6f4a35', '#9b6b4a', '#7d4f36'], smokeFrom = [];
   HOUSES.forEach(([x, z, ry], k) => {
     const hs = new THREE.Group(); hs.position.set(x, Y(x, z) - 0.002, z); hs.rotation.y = ry; g.add(hs);
@@ -321,8 +339,34 @@ function buildNatal(g, zi) {
 
   const lightsBase = lightC; let chase = 0;
   anims.push(t => {
-    const f = fxT(zi), on = f < 0 ? 0 : smooth(0, 1.2, f) * (1 - smooth(9.5, 10.5, f)), nk = f < 0 ? 0 : smooth(1.2, 2.6, f) * (1 - smooth(8.3, 9.3, f));
+    // Acender a árvore (~14 s, enquanto toca Jingle Bells): a noite cai, as luzes correm até a estrela, as bolas brilham e
+    // piscam, enfeites e confete saem da árvore, a vila faz uma roda em volta dela e o Papai Noel passa baixinho; depois
+    // tudo volta ao normal.
+    const f = fxT(zi), lit = f < 0 ? 0 : smooth(0, 0.8, f) * (1 - smooth(14, 15.5, f)), on = lit, nk = f < 0 ? 0 : smooth(0.3, 1.8, f) * (1 - smooth(14, 16, f));
     night.set(nk, t);
+    if (f > 0 && sparkle.userData.at < t - 2.4 && ((f > 1.4 && f < 1.7) || (f > 5 && f < 5.3) || (f > 9 && f < 9.3))) sparkle.userData.at = t;
+    if (f > 0 && gifts.userData.at < t - 2.4 && ((f > 2.6 && f < 2.9) || (f > 7 && f < 7.3) || (f > 11 && f < 11.3))) gifts.userData.at = t;
+    // Roda em volta da árvore: cada pessoa sai pela porta da sua casinha (umas antes, outras depois), caminha até o seu
+    // lugar na roda, dá as mãos, balança e pula com a música; no fim, volta caminhando e entra de novo em casa.
+    ringG.visible = f > 0 && f < 17;
+    if (ringG.visible) {
+      for (let i = 0; i < RING; i++) {
+        const P = party[i], go = f - P.out, back = f - P.home;
+        let x, z, h, swing = 0, arms = 0, hop = 0, sway = 0, y0 = 0;
+        if (go < 0 || back > P.len / WALK) { x = P.dx; z = P.dz; h = 0; y0 = -0.06; }                // ainda (ou de novo) dentro de casa
+        else if (back > 0) { const u = Math.min(1, back * WALK / P.len); x = P.rx + (P.dx - P.rx) * u; z = P.rz + (P.dz - P.rz) * u; h = Math.atan2(P.dx - P.rx, P.dz - P.rz); swing = Math.sin(t * 9 + i); }
+        else if (go * WALK < P.len) { const u = go * WALK / P.len; x = P.dx + (P.rx - P.dx) * u; z = P.dz + (P.rz - P.dz) * u; h = Math.atan2(P.rx - P.dx, P.rz - P.dz); swing = Math.sin(t * 9 + i); }
+        else {
+          const join = smooth(0, 1.2, go - P.len / WALK) * (1 - smooth(-1, 0, back));
+          x = P.rx; z = P.rz; h = P.face; arms = 0.42 * join; sway = Math.sin(t * 2.6) * 0.14 * join;
+          hop = Math.max(0, Math.sin(t * 5.2 + i * (TAU / RING) * 2)) * 0.0045 * join;
+        }
+        ring.place(i, x, Y(x, z) + 0.0016 + hop + y0, z, h, swing, arms, sway);
+      }
+      ring.done();
+    }
+    for (let i = 0; i < BALLS; i++) { const b = lit * (0.25 + 0.75 * Math.max(0, Math.sin(t * (4 + (i % 4)) + i * 2.1))); col.copy(ballC[i % 5]).multiplyScalar(b * 1.6); glow.setColorAt(i, col); }
+    glow.instanceColor.needsUpdate = true;
     // Luzes: piscam devagar; acesas, uma onda de brilho sobe pela árvore.
     for (let i = 0; i < LIGHTS; i++) {
       const tw = 0.55 + 0.45 * Math.sin(t * 3 + i * 1.7), wave = on * Math.max(0, Math.sin((lightY[i] * 6 - t * 3) * Math.PI)) ;
@@ -353,7 +397,8 @@ function buildNatal(g, zi) {
     // A volta é somada quadro a quadro (antes a velocidade multiplicava o relógio inteiro e o trenó disparava ao mudar
     // de ritmo); no botão ele só acelera um pouco, desce e chega mais perto, tudo suave.
     const dtS = Math.min(0.05, Math.max(0, t - (sleigh.userData.t ?? t))); sleigh.userData.t = t;
-    const s3 = fxT3(zi), lowT = s3 < 0 ? 0 : smooth(0, 2, s3) * (1 - smooth(9.5, 11.5, s3));
+    // O trenó desce e passa baixinho no Trenó do Papai Noel e também na festa de Acender a árvore.
+    const s3 = fxT3(zi), s1 = fxT(zi), lowT = Math.max(s3 < 0 ? 0 : smooth(0, 2, s3) * (1 - smooth(9.5, 11.5, s3)), s1 < 0 ? 0 : smooth(1, 3, s1) * (1 - smooth(11, 13.5, s1)));
     sleigh.userData.low = (sleigh.userData.low ?? 0) + (lowT - (sleigh.userData.low ?? 0)) * Math.min(1, dtS * 2); const low = sleigh.userData.low;
     sleigh.userData.a = (sleigh.userData.a ?? 0) + dtS * (0.2 + low * 0.12);
     const a = sleigh.userData.a, rad = 0.36 - low * 0.12, hgt = 0.26 - low * 0.14 + Math.sin(t * 1.1) * 0.006;

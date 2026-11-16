@@ -86,19 +86,21 @@ const ZONES = [
       { name: 'Contêineres', text: 'O pátio de contêineres coloridos com o pórtico sobre pneus e os caminhões.', at: [0.24, 0.02, 0.04], yaw: 0.4, pitch: 0.66, d: 0.6 },
       { name: 'Administração e torre', text: 'O prédio de vidro da administração e a torre de controle do tráfego de navios com o radar girando.', at: [0.02, 0.04, -0.085], yaw: 0.1, pitch: 0.52, d: 0.52 }
     ] },
-  { name: 'Lençóis', text: 'Dunas brancas com lagoas de água azul e verde, como nos Lençóis Maranhenses. Passeios virtuais por paisagens do Maranhão.', act: 'Passeio de 4x4', done: 'O 4x4 saiu pelas dunas, contornando as lagoas.',
+  { name: 'Lençóis', text: 'Dunas brancas com lagoas de água azul e verde, como nos Lençóis Maranhenses, contornadas pelo Rio Preguiças com buritis, a balsa e as lanchas, restinga nas bordas e o farol perto do mar. Passeios virtuais por paisagens do Maranhão.', act: 'Passeio de 4x4', done: 'O 4x4 saiu pelas dunas, contornando as lagoas.',
     go: { track: 'jeep', offset: [0.1, 0.045, 0.06], dur: 13.5 }, dir: nearRail(5.5, 0.62), music: 'dunas',
     R: 0.5, flat: [0.34, 0.44], view: 1.6, pitch: 0.55,
     pois: [
       { name: 'Lagoa Azul', text: 'Lagoas de chuva entre as dunas, azuis no fundo e verde-água na beira, com gente se banhando e guarda-sóis na areia.', at: [0.1, 0.02, 0.0], yaw: 0.3, pitch: 0.55, d: 0.42 },
       { name: 'Campo de dunas', text: 'Dunas em meia-lua, com o lado do vento suave e o lado de trás íngreme; caminhantes nas cristas e o grupo de turistas seguindo o guia.', at: [0.0, 0.03, -0.22], yaw: 0, pitch: 0.62, d: 0.7 },
       { name: 'Mirante', text: 'Mirante de madeira numa crista, com vista para as lagoas e as dunas até o horizonte.', at: [-0.32, 0.05, 0.3], yaw: -0.6, pitch: 0.4, d: 0.34 },
-      { name: 'Vila de pescadores', text: 'Casas de palha, coqueiros, redes e canoas na areia, como nas vilas da beira dos Lençóis.', at: [0.37, 0.02, 0.3], yaw: 0.6, pitch: 0.78, d: 0.46 }
+      { name: 'Vila de pescadores', text: 'Casas de palha, coqueiros, redes e canoas na areia, como nas vilas da beira dos Lençóis.', at: [0.37, 0.02, 0.3], yaw: 0.6, pitch: 0.78, d: 0.46 },
+      { name: 'Rio Preguiças', text: 'O rio que separa Barreirinhas do parque, com buritis e açaizeiros nas margens: a balsa atravessa levando os 4x4, as lanchas sobem e descem, e perto da saída para o mar fica o farol listrado.', at: [-0.01, 0.01, -0.42], yaw: 0, pitch: 0.95, d: 0.5 }
     ] },
   { name: 'Natal', text: 'Vila de Natal na neve, logo abaixo da Ferrovia: a árvore de Natal grande com luzinhas, bolas, festão dourado e a estrela no topo, presentes embaixo, casinhas de madeira com telhado nevado e fumaça na chaminé, pista de patinação, bonecos de neve, varais de luzes entre os postes, pinheiros nevados e o trenó do Papai Noel voando em volta.',
-    act: 'Acender a árvore', done: 'A noite caiu e a árvore acendeu: as luzes correm até a estrela!', act2: 'Nevasca', kind2: 'fx', done2: 'Nevasca! A neve engrossou e o vento sopra pela vila.',
+    act: 'Acender a árvore', done: 'A noite caiu e a árvore acendeu: a vila fez a roda ao som de Jingle Bells e o Papai Noel passou!', act2: 'Nevasca', kind2: 'fx', done2: 'Nevasca! A neve engrossou e o vento sopra pela vila.',
     act3: 'Trenó do Papai Noel', done3: 'O Papai Noel desceu com as renas e passou rasante pela vila!', snow: true, music: 'natal',
-    go: { cam: [0.1, 0.07, 0.43], look: [0.0, 0.13, -0.02], dur: 9.6, after: { at: [0, 0.08, -0.02], yaw: 0, pitch: 0.35, d: 0.5 } },
+    // Acender a árvore: vista aberta e parada, com a árvore inteira, a praça e as casinhas de onde a vila sai para a roda.
+    go: { cam: [0.24, 0.2, 0.84], look: [0.0, 0.135, -0.04], dur: 16, after: { at: [0, 0.08, -0.02], yaw: 0, pitch: 0.32, d: 0.8 } },
     go2: { cam: [0.2, 0.05, 0.24], look: [-0.02, 0.04, -0.02], dur: 10 },
     go3: { track: 'sleigh', cam: [0.02, 0.15, 0.43], dur: 11 },
     dir: nearRail(0.95, -0.9), R: 0.44, flat: [0.27, 0.36], clear: 0.56, view: 1.5, pitch: 0.5,

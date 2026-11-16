@@ -120,7 +120,7 @@ export function createMiniverso(rootEl, opts = {}) {
   const zoneMore = zoneCard.querySelector('.zone-more'), zoneInfo = zoneCard.querySelector('.zone-info'), zoneClose = zoneCard.querySelector('.zone-close');
   // Pontos de interesse: marcadores numerados na cena; a câmera voa até cada detalhe e a barra mostra uma legenda
   // curta. O tour passa por todos sozinho; arrastar, rolar ou as setas do teclado devolvem o controle.
-  const zoneTour = zoneCard.querySelector('.zone-tour'), poiName = zoneCard.querySelector('.poi-name'), poiCount = zoneCard.querySelector('.poi-count'), poiText = zoneCard.querySelector('.poi-text'), poiPlay = zoneCard.querySelector('.poi-play'), poiLayer = $('.pois');
+  const zoneTour = zoneCard.querySelector('.zone-tour'), poiName = zoneCard.querySelector('.poi-name'), poiCount = zoneCard.querySelector('.poi-count'), poiNum = zoneCard.querySelector('.poi-num'), poiOf = zoneCard.querySelector('.poi-of'), poiText = zoneCard.querySelector('.poi-text'), poiPlay = zoneCard.querySelector('.poi-play'), poiLayer = $('.pois');
   const TOUR_STEP = 7;
   // Música do planeta (music.js): começa baixinho na formação do planeta; botão no canto para desligar.
   const music = createMusic(), soundBtn = $('.sound-toggle');
@@ -153,6 +153,8 @@ export function createMiniverso(rootEl, opts = {}) {
     if (move) aim(p);
     poiName.textContent = p ? p.name : 'Visão geral';
     poiCount.textContent = p ? `${n + 1} / ${ps.length}` : `${ps.length} pontos`;
+    // Selo do cartão-postal: o número grande do ponto e "de 05" (na visão geral, o total de pontos).
+    if (poiNum) { poiNum.textContent = p ? String(n + 1).padStart(2, '0') : String(ps.length).padStart(2, '0'); poiOf.textContent = p ? `de ${String(ps.length).padStart(2, '0')}` : 'pontos'; }
     poiText.textContent = p ? p.text : 'Toque num número na cena para ver de perto, ou siga o tour pela área.';
     markers.forEach((m, k) => m.classList.toggle('on', k === n));
   }
@@ -214,7 +216,7 @@ export function createMiniverso(rootEl, opts = {}) {
   function focusOn(i, key) {
     const f = ZONES[i][key]; if (!f) return;
     tourStop(); poi = -1; markers.forEach(m => m.classList.remove('on'));
-    if (f.cam || f.track) { aim(f.after || null); shot = { ...f }; shotAt = clock; show = true; } else aim(f);
+    if (f.cam || f.track || f.keys) { aim(f.after || null); shot = { ...f }; shotAt = clock; show = true; } else aim(f);
   }
   if (import.meta.env.DEV) window.__miniShot = f => { if (focusZone >= 0) { aim(f.after || null); shot = { dur: 30, ...f }; shotAt = clock; show = true; } };
   // Só em desenvolvimento: abre uma área pelo nome, para testar telas e jogos sem caçar o rótulo no planeta.
@@ -228,6 +230,7 @@ export function createMiniverso(rootEl, opts = {}) {
     const i = focusZone; if (i < 0) return;
     zoneFx[i] = clock; show = !!ZONES[i].show; if (show) shot = null; else focusOn(i, 'go');
     if (i === game.zi) startRecycle(); else if (ZONES[i].kind === 'ecotour') startEcoTour(); else zoneStatus.textContent = ZONES[i].done;
+    if (ZONES[i].music === 'natal') music.jingle();                                         // Acender a árvore: Jingle Bells
   });
   // Cabine de qualquer um dos trens (pelo botão da Ferrovia ou clicando no trem).
   function enterCab(k) {
@@ -477,6 +480,10 @@ export function createMiniverso(rootEl, opts = {}) {
     collapsed = on; rootEl.toggleAttribute('data-collapsed', on);
     scrollTo({ top: Math.max(0, scrollY + (on ? -h : intro.offsetHeight)), behavior: 'instant' });
   }
+  // A abertura acompanha a altura da tela: se ela muda com o planeta aberto (girar o celular, redimensionar a janela),
+  // a página volta para o ponto exato do planeta. Antes ficava parada na posição antiga, no meio da formação, com o
+  // contador "Formando o Miniverso" travado na tela.
+  on(window, 'resize', () => { if (place === 'planet' && !auto && !travelling) requestAnimationFrame(() => { if (place === 'planet') scrollTo({ top: introEnd(), behavior: 'instant' }); }); });
   function setPlace(p) {
     if (p !== 'capa') markVisited();
     // Ao chegar no site, o botão do planeta mostra o nome por alguns segundos e depois vira só o planetinha.
@@ -853,12 +860,17 @@ export function createMiniverso(rootEl, opts = {}) {
           } else { tgL.copy(tob.position).addScaledVector(tf, ah).setY(tob.position.y + ly); tgC.copy(tob.position).addScaledVector(tf, -bk).setY(tob.position.y + up); }
           if (!sh.seen) { trL.copy(tgL); trC.copy(tgC); tp.copy(tob.position); sh.seen = true; }
           const ez2 = 1 - Math.exp(-dt * 3); trL.lerp(tgL, ez2); trC.lerp(tgC, ez2); showLook.copy(trL); showCam.copy(trC);
+        } else if (sh.keys) {
+          // Caminho de câmera em etapas: [segundos, câmera, alvo], com passagem suave entre uma etapa e a próxima.
+          const K = sh.keys, e = clock - sh0; let j = 0; while (j < K.length - 2 && e > K[j + 1][0]) j++;
+          const [ta, ca, la] = K[j], [tb, cb, lb] = K[j + 1], u = smoother(0, 1, (e - ta) / (tb - ta));
+          showCam.set(...ca).lerp(tv.set(...cb), u); showLook.set(...la).lerp(tf.set(...lb), u);
         } else { showLook.set(...sh.look); showCam.set(...sh.cam); }
         const camLocal = vb.copy(showCam).lerp(showLook, 0.5);                                 // chão entre a câmera e o alvo
         showCam.sub(showLook).multiplyScalar(portrait ? sh.pk ?? 1.6 : 1).add(showLook);
         zg.localToWorld(showCam); zg.localToWorld(showLook);
         // Na cena de cinema o "para cima" é o do chão onde a câmera está (longe do centro da área o planeta inclina).
-        if (sh.cam || sh.track) vc.set(camLocal.x, Math.sqrt(Math.max(0, PR * PR - camLocal.x * camLocal.x - camLocal.z * camLocal.z)), camLocal.z).normalize().transformDirection(zg.matrixWorld); else vc.copy(fdir);
+        if (sh.cam || sh.track || sh.keys) vc.set(camLocal.x, Math.sqrt(Math.max(0, PR * PR - camLocal.x * camLocal.x - camLocal.z * camLocal.z)), camLocal.z).normalize().transformDirection(zg.matrixWorld); else vc.copy(fdir);
         camPos.lerp(showCam, s); camLook.lerp(showLook, s); fup.lerp(vc, s).normalize();
       }
       raceW = raceCam(raceCamP, raceLook, raceUp, dt);
